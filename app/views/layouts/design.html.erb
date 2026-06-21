@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="<%= I18n.locale %>">
+  <head>
+    <title><%= content_for(:title) || "Design Studio" %></title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= yield :head %>
+    <%= stylesheet_link_tag "design", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+    <%= javascript_import_module_tag "design" %>
+  </head>
+  <body class="design-studio">
+    <main>
+      <% if notice.present? %><div data-flash="notice"><%= notice %></div><% end %>
+      <% if alert.present? %><div data-flash="alert"><%= alert %></div><% end %>
+      <%= yield %>
+    </main>
+  </body>
+</html>

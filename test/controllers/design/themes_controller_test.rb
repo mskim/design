@@ -1,0 +1,152 @@
+require "test_helper"
+
+class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    sign_in :david # admin (can_design?)
+    @system_theme = Design::Theme.system_themes.first ||
+      Design::Theme.create!(name: "Seoul", locale: "ko")
+  end
+
+  test "clone uses the submitted name for the new theme" do
+    assert_difference -> { Design::Theme.where(user: users(:david)).count }, +1 do
+      post "/design/themes/#{@system_theme.id}/clone", params: { name: "My Brochure Theme" }
+    end
+
+    assert_equal "My Brochure Theme", Design::Theme.where(user: users(:david)).order(:created_at).last.name
+  end
+
+  test "clone falls back to the auto name when none is submitted" do
+    post "/design/themes/#{@system_theme.id}/clone"
+
+    cloned = Design::Theme.where(user: users(:david)).order(:created_at).last
+    assert_equal "#{@system_theme.name} (Custom)", cloned.name
+  end
+
+  test "update renames a theme owned by the current user" do
+    theme = Design::Theme.create!(name: "Old Name", locale: "ko", user: users(:david))
+
+    patch "/design/themes/#{theme.id}", params: { theme: { name: "New Name" } }
+
+    assert_redirected_to "/design/themes"
+    assert_equal "New Name", theme.reload.name
+  end
+
+  test "update is forbidden for a system theme (not owned by the user)" do
+    patch "/design/themes/#{@system_theme.id}", params: { theme: { name: "Hijacked" } }
+
+    assert_response :forbidden
+    assert_not_equal "Hijacked", @system_theme.reload.name
+  end
+
+  test "update renames a custom theme created by another designer (shared house)" do
+    other = User.create!(email_address: "other-#{SecureRandom.hex(3)}@example.com",
+                         password: "password123", name: "Other")
+    theme = Design::Theme.create!(name: "Theirs", locale: "ko", user: other)
+
+    patch "/design/themes/#{theme.id}", params: { theme: { name: "House Rename" } }
+
+    assert_redirected_to "/design/themes"
+    assert_equal "House Rename", theme.reload.name
+  end
+
+  test "update with a blank name does not rename and reports an error" do
+    theme = Design::Theme.create!(name: "Keep Me", locale: "ko", user: users(:david))
+
+    patch "/design/themes/#{theme.id}", params: { theme: { name: "  " } }
+
+    assert_equal "Keep Me", theme.reload.name
+  end
+
+  test "index renders a chapter preview image for a theme that has one" do
+    theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.create!(doc_type: "chapter")
+
+    get design.themes_path
+
+    assert_response :success
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, dd)
+  end
+
+  test "index shows a no-preview placeholder for a theme without a chapter doc" do
+    theme = Design::Theme.create!(name: "Empty #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+
+    get design.themes_path
+
+    assert_response :success
+    assert_select "[data-theme-card='#{theme.id}'] img", count: 0
+    assert_select "[data-theme-card='#{theme.id}'] .preview-empty"
+  end
+
+  test "show renders a preview image per doc-type of the selected size and no style list" do
+    theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    chapter = ps.document_designs.create!(doc_type: "chapter")
+    toc = ps.document_designs.create!(doc_type: "toc")
+
+    get design.theme_path(theme)
+
+    assert_response :success
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, chapter)
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, toc)
+    assert_select "[data-doc-grid] img", count: 2
+    assert_select "h2", text: I18n.t("design.themes.base_text_styles"), count: 0
+  end
+
+  test "show grid excludes cover-panel doc types (they belong to the cover editor)" do
+    theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    chapter = ps.document_designs.create!(doc_type: "chapter")
+    seneca = ps.document_designs.create!(doc_type: "seneca")
+
+    get design.theme_path(theme)
+
+    assert_response :success
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, chapter)
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, seneca), count: 0
+    assert_select "[data-doc-grid] img", count: 1
+  end
+
+  test "show size selector switches which size's docs render" do
+    theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    a4 = theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    sk = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    a4_dd = a4.document_designs.create!(doc_type: "chapter")
+    sk_dd = sk.document_designs.create!(doc_type: "chapter")
+
+    get design.theme_path(theme)
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, a4, a4_dd)
+
+    get design.theme_path(theme, paper_size_id: sk.id)
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, sk, sk_dd)
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, a4, a4_dd), count: 0
+  end
+
+  test "generate_sizes is forbidden on a read-only system theme" do
+    system_theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko")
+    post "/design/themes/#{system_theme.id}/generate_sizes"
+    assert_response :forbidden
+  end
+
+  test "generate_sizes is allowed on an editable custom theme" do
+    custom = Design::Theme.create!(name: "Cust #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
+    post "/design/themes/#{custom.id}/generate_sizes"
+    assert_response :redirect
+  end
+
+  test "show offers per-document edit links for an editable (custom) theme only" do
+    custom = Design::Theme.create!(name: "Mine #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
+    ps = custom.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.create!(doc_type: "chapter")
+
+    get design.theme_path(custom)
+    assert_select "a[href=?]", design.edit_theme_paper_size_document_design_path(custom, ps, dd)
+
+    system_theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    sps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    sdd = sps.document_designs.create!(doc_type: "chapter")
+    get design.theme_path(system_theme)
+    assert_select "a[href=?]", design.edit_theme_paper_size_document_design_path(system_theme, sps, sdd), count: 0
+  end
+end
