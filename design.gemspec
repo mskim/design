@@ -22,6 +22,7 @@ Gem::Specification.new do |spec|
   # RubyUI is vendored as Phlex components under app/components/ruby_ui (not a gem).
   spec.add_dependency "rails", ">= 8.1.2"
   spec.add_dependency "phlex-rails"
+  spec.add_dependency "tailwind_merge" # used by app/components/ruby_ui/base.rb
   spec.add_dependency "doc_processor_rb"
   spec.add_dependency "sqlite3"
 end

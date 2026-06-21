@@ -1,0 +1,18 @@
+# Mirrors the host fixtures the ported engine tests reference:
+#   david  — administrator → can_design? == true
+#   jz     — writer (member) → can_design? == false
+#   kevin  — writer (member) → can_design? == false (some tests promote to :designer)
+david:
+  email_address: david@example.com
+  name: David
+  role: administrator
+
+jz:
+  email_address: jz@example.com
+  name: JZ
+  role: member
+
+kevin:
+  email_address: kevin@example.com
+  name: Kevin
+  role: member
