@@ -86,6 +86,7 @@ ActiveRecord::Schema[8.1].define(version: 1) do
     t.string "heading_bg_type", default: "color"
     t.integer "heading_height_in_lines", default: 6
     t.string "heading_v_align", default: "center"
+    t.string "toc_v_align"
     t.string "layout_class", default: "RLayout::RDocument"
     t.string "page_bg_color"
     t.integer "page_count"

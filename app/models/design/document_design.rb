@@ -109,6 +109,10 @@ module Design
       text_box_grid_height || (doc_type == "copyright" ? COPYRIGHT_DEFAULTS[:text_box_grid_height] : nil)
     end
 
+    def effective_toc_v_align
+      toc_v_align || "bottom"
+    end
+
     def body_line_count
       self[:body_line_count] || paper_size.body_line_count
     end
