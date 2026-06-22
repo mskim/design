@@ -105,6 +105,13 @@ module Design
 
           def render_overlay(overlay)
             type = overlay[:type]
+            # Coordinates can arrive as strings (doc_processor_rb's block_overlays
+            # columns, or a JSON-reloaded cache stamp); coerce so the SVG math
+            # (e.g. width / 2.0) doesn't blow up on a String.
+            overlay = overlay.merge(
+              x: overlay[:x].to_f, y: overlay[:y].to_f,
+              width: overlay[:width].to_f, height: overlay[:height].to_f
+            )
 
             if type == "heading_area" || type&.start_with?("heading_")
               render_heading_overlay(overlay)

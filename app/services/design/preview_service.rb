@@ -744,10 +744,10 @@ module Design
       overlays.map do |o|
         {
           type: o.overlay_type,
-          x: o.rendered_x,
-          y: o.rendered_y,
-          width: o.rendered_width,
-          height: o.rendered_height,
+          x: o.rendered_x.to_f,
+          y: o.rendered_y.to_f,
+          width: o.rendered_width.to_f,
+          height: o.rendered_height.to_f,
           markup: o.markup,
           content_preview: o.content_preview,
           is_continuation: o.is_continuation == 1
