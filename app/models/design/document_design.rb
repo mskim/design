@@ -36,6 +36,47 @@ module Design
       "back_wing" => []
     }.freeze
 
+    # Groups the theme's base styles into families, then maps each doc_type to the
+    # families it actually uses, so the editor only lists relevant styles (a TOC
+    # shouldn't show wing_*/cover_*/seneca_*). Theme-agnostic by naming convention;
+    # review/adjust freely. Unmapped doc_types fall back to DEFAULT_STYLE_FAMILIES.
+    STYLE_FAMILIES = {
+      cover:   %w[cover_title cover_subtitle cover_author cover_publisher cover_body],
+      seneca:  %w[seneca_title seneca_author seneca_publisher],
+      wing:    %w[wing_title wing_body],
+      heading: %w[title subtitle author h2 h3 h4 h5 h6],
+      body:    %w[body blockquote quote footnote caption caption_title image_caption ol ul source],
+      running: %w[header_left header_right footer_left footer_right],
+      table:   %w[table_heading_cell table_body_cell]
+    }.freeze
+
+    DOC_TYPE_STYLE_FAMILIES = {
+      "inside_cover"   => %i[cover],
+      "part_cover"     => %i[cover],
+      "document_cover" => %i[cover],
+      "front_page"     => %i[cover],
+      "back_page"      => %i[cover],
+      "seneca"         => %i[seneca],
+      "front_wing"     => %i[wing],
+      "back_wing"      => %i[wing],
+      "toc"            => %i[heading body running],
+      "title_page"     => %i[heading body],
+      "dedication"     => %i[heading body],
+      "thanks"         => %i[heading body],
+      "copyright"      => %i[body running],
+      "blank_page"     => %i[body],
+      "poem"           => %i[heading body running]
+    }.freeze
+
+    # Content types (chapter, foreword, prologue, epilogue, appendix, help, information).
+    DEFAULT_STYLE_FAMILIES = %i[heading body running table].freeze
+
+    # Names of the styles relevant to this doc_type (used to scope the editor list).
+    def relevant_style_names
+      families = DOC_TYPE_STYLE_FAMILIES.fetch(doc_type, DEFAULT_STYLE_FAMILIES)
+      families.flat_map { |f| STYLE_FAMILIES.fetch(f, []) }.uniq
+    end
+
     # All other doc_types default to ["title"]
     def self.default_elements_for(doc_type)
       DEFAULT_HEADING_ELEMENTS.fetch(doc_type, %w[title])

@@ -212,11 +212,17 @@ module Design
 
         def render_typography_tab
           style_order = %w[title subtitle author publisher h2 h3 h4 h5 h6 body]
-          merged = @document_design.merged_paragraph_styles.sort_by { |s|
+          override_by_name = @document_design.paragraph_styles.index_by(&:name)
+          # Scope the list to the styles this doc_type actually uses (e.g. a TOC
+          # doesn't show wing_*/cover_*/seneca_*). Always keep styles that already
+          # have a per-size override so existing edits stay visible.
+          relevant = @document_design.relevant_style_names
+          merged = @document_design.merged_paragraph_styles.select { |s|
+            relevant.include?(s.name) || override_by_name.key?(s.name)
+          }.sort_by { |s|
             idx = style_order.index(s.name)
             idx ? [ 0, idx ] : [ 1, s.name ]
           }
-          override_by_name = @document_design.paragraph_styles.index_by(&:name)
 
           div(class: "space-y-3 pt-4") do
             merged.each do |style|
