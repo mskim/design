@@ -113,8 +113,9 @@ module Design
         # ── Field helpers ──
 
         def field_row(label_text, &block)
-          div(class: "flex items-center gap-3") do
-            label(class: "text-sm text-slate-600 w-36 shrink-0") { label_text }
+          # Stack label above input so values fit when rendered in the narrow panel.
+          div(class: "flex flex-col gap-1") do
+            label(class: "text-sm text-slate-600") { label_text }
             yield
           end
         end
@@ -133,13 +134,14 @@ module Design
 
         def number_field(label_text, attr, step: nil)
           field_row(label_text) do
+            # type=text (not number): native spinners hid the value in the narrow panel.
             attrs = {
-              type: "number",
+              type: "text",
+              inputmode: "decimal",
               name: "paragraph_style[#{attr}]",
               value: field_value(@paragraph_style.public_send(attr)),
               class: "border border-slate-300 rounded px-2 py-1 text-sm w-full"
             }
-            attrs[:step] = step if step
             attrs.merge!(disabled_attr)
             input(**attrs)
           end

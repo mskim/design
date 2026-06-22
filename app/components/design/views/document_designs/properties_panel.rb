@@ -467,13 +467,16 @@ module Design
 
         def number_field(label_text, attr, step: nil, placeholder: nil)
           field_row(label_text) do
+            # type=text (not number): the native spinner arrows ate the whole field
+            # in the narrow panel and hid the value. inputmode=decimal still gives a
+            # numeric keyboard on touch devices; Rails coerces the string on save.
             attrs = {
-              type: "number",
+              type: "text",
+              inputmode: "decimal",
               name: "document_design[#{attr}]",
               value: field_value(@document_design.public_send(attr)),
               class: "border border-slate-300 rounded px-2 py-1 text-sm w-full"
             }
-            attrs[:step] = step if step
             attrs[:placeholder] = field_value(placeholder) if placeholder
             attrs.merge!(disabled_attr)
             input(**attrs)
@@ -522,8 +525,10 @@ module Design
         end
 
         def field_row(label_text, &block)
-          div(class: "flex items-center gap-3") do
-            label(class: "text-sm text-slate-600 w-32 shrink-0") { label_text }
+          # Stack the label above the input: the properties panel is narrow (~28rem),
+          # so a side-by-side label left no room for the value (only the spinner showed).
+          div(class: "flex flex-col gap-1") do
+            label(class: "text-sm text-slate-600") { label_text }
             yield
           end
         end
