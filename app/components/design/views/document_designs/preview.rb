@@ -168,8 +168,9 @@ module Design
           end
 
           def render_toc_overlay(overlay)
-            # TOC entries use "toc" as markup; link to the "body" style (which TOC renderer uses)
-            url = @style_urls["toc"] || @style_urls["body"]
+            # Each TOC entry's markup is its per-level style (h2/h3/h4); link there
+            # so clicking a chapter/section entry edits the right style.
+            url = @style_urls[overlay[:markup]] || @style_urls["body"]
             label = overlay[:content_preview] || "TOC Entry"
 
             wrapper(url, css_class: "para-zone") do
