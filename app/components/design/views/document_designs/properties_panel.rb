@@ -84,6 +84,9 @@ module Design
             div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
               number_field("Heading Lines", :heading_height_in_lines)
               select_field("Heading V-Align", :heading_v_align, %w[center top bottom])
+              if @document_design.doc_type == "toc"
+                select_field("TOC Text V-Align", :toc_v_align, %w[bottom center top])
+              end
               number_field("Body Line Count", :body_line_count, placeholder: @paper_size.body_line_count)
               number_field("Columns", :column_count)
               number_field("Gutter (pt)", :gutter, step: "0.1")
