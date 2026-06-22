@@ -28,11 +28,15 @@ module Design
             div(class: "flex items-center gap-3") do
               h1(class: "text-2xl font-semibold text-slate-900") { @theme.name }
               RubyUI::Badge(variant: :slate) do
-                @theme.system? ? I18n.t("design.themes.read_only") : I18n.t("design.themes.my_theme")
+                # Key off editability, not system?: an authoring host (authoring=true)
+                # can edit system themes, so "Read-only" only applies when truly locked.
+                @theme.editable_by?(Design.current_user) ? I18n.t("design.themes.my_theme") : I18n.t("design.themes.read_only")
               end
             end
             div(class: "flex items-center gap-3") do
-              clone_button if @theme.system?
+              # Cloning is the read-only consumer's path to editing; an authoring host
+              # edits system themes in place, so no clone button when already editable.
+              clone_button if @theme.system? && !@theme.editable_by?(Design.current_user)
               a(href: helpers.themes_path, class: "text-sm font-medium text-blue-600 hover:underline") do
                 I18n.t("design.themes.back_to_themes")
               end
@@ -106,7 +110,11 @@ module Design
             div(class: "flex items-center justify-between gap-1") do
               span(class: "text-xs text-slate-600") { label }
               if @theme.editable_by?(Design.current_user)
+                # Break out of the doc_grid turbo-frame — the edit page is a full-page
+                # editor with no doc_grid frame, so a frame-scoped click would render
+                # "Content missing" instead of navigating to the editor.
                 a(href: helpers.edit_theme_paper_size_document_design_path(@theme, @selected_paper_size, dd),
+                  data: { turbo_frame: "_top" },
                   class: "text-xs text-blue-600 hover:underline") { I18n.t("design.themes.edit") }
               end
             end
