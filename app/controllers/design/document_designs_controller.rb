@@ -215,6 +215,7 @@ module Design
     def document_design_params
       params.require(:document_design).permit(
         :heading_height_in_lines, :heading_v_align, :body_line_count,
+        :toc_v_align,
         :column_count, :gutter,
         :has_header, :has_footer,
         :header_left_content_string, :header_right_content_string,
