@@ -219,12 +219,13 @@ module Design
         right_margin: ps.right_margin_pt,
         bottom_margin: ps.bottom_margin_pt,
         binding_margin: ps.binding_margin_pt,
-        body_line_count: ps.body_line_count,
-        body_line_height: ps.body_line_height,
+        body_line_count: dd.body_line_count,
+        body_line_height: dd.body_line_height,
         column_count: dd.column_count,
         gutter: dd.gutter,
         heading_height_in_lines: dd.heading_height_in_lines.to_i > 0 ? dd.heading_height_in_lines : 0,
-        heading_v_align: dd.heading_v_align || (resolved_doc_type.uses_page_heading? ? "top" : "center")
+        heading_v_align: dd.heading_v_align || (resolved_doc_type.uses_page_heading? ? "top" : "center"),
+        toc_v_align: dd.effective_toc_v_align
       )
     end
 
