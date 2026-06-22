@@ -62,7 +62,8 @@ module Design
         CREATE TABLE document_designs (
           id INTEGER PRIMARY KEY, paper_size_id INTEGER NOT NULL REFERENCES paper_sizes(id),
           doc_type TEXT NOT NULL, heading_height_in_lines INTEGER DEFAULT 6,
-          heading_v_align TEXT DEFAULT 'center', column_count INTEGER DEFAULT 1,
+          heading_v_align TEXT DEFAULT 'center', toc_v_align TEXT DEFAULT 'bottom',
+          column_count INTEGER DEFAULT 1,
           gutter REAL DEFAULT 10.0, has_header BOOLEAN DEFAULT 0, has_footer BOOLEAN DEFAULT 0,
           header_left_content_string TEXT, header_right_content_string TEXT,
           footer_left_content_string TEXT, footer_right_content_string TEXT,
@@ -141,7 +142,7 @@ module Design
           db.execute(<<~SQL, document_design_values(dd))
             INSERT INTO document_designs (
               id, paper_size_id, doc_type,
-              heading_height_in_lines, heading_v_align,
+              heading_height_in_lines, heading_v_align, toc_v_align,
               column_count, gutter,
               has_header, has_footer,
               header_left_content_string, header_right_content_string,
@@ -157,7 +158,7 @@ module Design
               heading_bg_gradient_angle, heading_bg_gradient_start, heading_bg_gradient_end,
               page_type,
               created_at, updated_at
-            ) VALUES (#{Array.new(37, "?").join(", ")})
+            ) VALUES (#{Array.new(38, "?").join(", ")})
           SQL
 
           dd.paragraph_styles.each { |style| insert_style(db, style) }
@@ -175,7 +176,7 @@ module Design
 
     def document_design_values(dd)
       [ dd.id, dd.paper_size_id, dd.doc_type,
-        dd.heading_height_in_lines, dd.heading_v_align,
+        dd.heading_height_in_lines, dd.heading_v_align, dd.toc_v_align,
         dd.column_count, f(dd.gutter),
         dd.has_header ? 1 : 0, dd.has_footer ? 1 : 0,
         dd.header_left_content_string, dd.header_right_content_string,
