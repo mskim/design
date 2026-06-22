@@ -145,12 +145,13 @@ class Design::DocumentDesignsOverrideTest < ActionDispatch::IntegrationTest
     refute_includes response.body, "Revert"
   end
 
-  test "panel for a document override shows Back link targeting properties_panel" do
+  test "panel Back link returns to the full edit page (tabs + preview) via _top" do
     override = @dd.paragraph_styles.create!(name: "body", font_size: 10)
     get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: override.id)
     assert_response :success
-    assert_includes response.body, "data-turbo-frame=\"properties_panel\""
     assert_includes response.body, "Back"
+    assert_includes response.body, "document_designs/#{@dd.id}/edit"
+    assert_includes response.body, "data-turbo-frame=\"_top\""
   end
 
   test "override re-exports the render .db so the new override renders" do

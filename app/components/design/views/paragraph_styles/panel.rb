@@ -29,7 +29,7 @@ module Design
             h2(class: "text-base font-semibold text-slate-900") { @paragraph_style.name.presence || "New Style" }
             a(
               href: @back_url,
-              data: { turbo_frame: "properties_panel" },
+              data: { turbo_frame: "_top" },
               class: "text-sm text-blue-600 hover:underline"
             ) { "← Back" }
           end

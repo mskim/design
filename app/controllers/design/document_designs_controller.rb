@@ -131,7 +131,10 @@ module Design
     end
 
     def render_paragraph_style_panel(style, panel_update_url:, revert_url:, status: :ok)
-      back_url = design.properties_panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design)
+      # Back returns to the FULL edit page (tabs + preview), not the bare
+      # properties_panel — and the link navigates _top, so reaching the panel via
+      # a full-page preview-overlay click still lands back on the complete view.
+      back_url = design.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design)
       render Design::Views::ParagraphStyles::Panel.new(
         paragraph_style: style,
         panel_update_url: panel_update_url,

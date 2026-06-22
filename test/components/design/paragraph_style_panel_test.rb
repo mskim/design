@@ -10,10 +10,10 @@ class Design::ParagraphStylePanelTest < ActiveSupport::TestCase
 
   # ── Back link ──
 
-  test "renders a back link targeting properties_panel frame" do
+  test "renders a back link to the full edit page, breaking out of the frame (_top)" do
     html = render_panel(@style)
     assert_includes html, "Back"
-    assert_includes html, %(data-turbo-frame="properties_panel")
+    assert_includes html, %(data-turbo-frame="_top")
     assert_includes html, "/test/back"
   end
 
