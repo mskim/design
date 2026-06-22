@@ -59,7 +59,7 @@ module Design
       "seneca"         => %i[seneca],
       "front_wing"     => %i[wing],
       "back_wing"      => %i[wing],
-      "toc"            => %i[heading body running],
+      "toc"            => %w[title h2 h3 h4],  # heading (title) + per-level entry styles
       "title_page"     => %i[heading body],
       "dedication"     => %i[heading body],
       "thanks"         => %i[heading body],
@@ -72,9 +72,11 @@ module Design
     DEFAULT_STYLE_FAMILIES = %i[heading body running table].freeze
 
     # Names of the styles relevant to this doc_type (used to scope the editor list).
+    # Map entries may be family symbols (expanded via STYLE_FAMILIES) or explicit
+    # style-name strings, so a doc_type can pin an exact list (e.g. toc).
     def relevant_style_names
-      families = DOC_TYPE_STYLE_FAMILIES.fetch(doc_type, DEFAULT_STYLE_FAMILIES)
-      families.flat_map { |f| STYLE_FAMILIES.fetch(f, []) }.uniq
+      entries = DOC_TYPE_STYLE_FAMILIES.fetch(doc_type, DEFAULT_STYLE_FAMILIES)
+      entries.flat_map { |e| e.is_a?(Symbol) ? STYLE_FAMILIES.fetch(e, []) : e }.uniq
     end
 
     # All other doc_types default to ["title"]
