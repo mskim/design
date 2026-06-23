@@ -173,16 +173,25 @@ ko:
       help: "도움말"
       information: "안내"
 
+    panel:
+      back: "← 뒤로"
+      new_style: "새 스타일"
+      errors_heading: "다음 오류를 수정해 주세요:"
+      save: "저장"
+      cancel: "취소"
+      revert: "기본값으로 되돌리기"
+
     paper_sizes:
       edit_title: "판형 편집"
-      margins: "여백"
+      margins: "여백 (mm)"
       left_margin: "왼쪽 여백 (mm)"
       top_margin: "위쪽 여백 (mm)"
       right_margin: "오른쪽 여백 (mm)"
       bottom_margin: "아래쪽 여백 (mm)"
       binding_margin: "제본 여백 (mm)"
       body_line_count: "본문 줄 수"
-      toc_page_count: "목차 페이지 수"
+      toc_page_count: "차례 페이지 수"
+      base_text_styles: "기본 텍스트 스타일"
       paper_size_styles: "판형 스타일"
 
     document_designs:

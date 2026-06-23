@@ -70,4 +70,22 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     assert_includes html, "미리보기 생성 실패"
     refute_includes html, "Preview generation failed"
   end
+
+  test "paragraph panel renders Korean chrome" do
+    theme = Design::Theme.create!(name: "PN #{SecureRandom.hex(3)}", locale: "ko")
+    style = theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    c = Design::Views::ParagraphStyles::Panel.new(paragraph_style: style, panel_update_url: "/x", back_url: "/x", revert_url: "/x", editable: true)
+    c.define_singleton_method(:helpers) do
+      o = Object.new
+      def o.form_authenticity_token = "t"
+      o
+    end
+    html = I18n.with_locale(:ko) { c.call }
+    assert_includes html, "저장"
+    assert_includes html, "← 뒤로"
+    assert_includes html, "기본값으로 되돌리기"
+    refute_includes html, ">Save<"
+    refute_includes html, "Revert to base"
+    assert_not_includes html, "translation missing"
+  end
 end

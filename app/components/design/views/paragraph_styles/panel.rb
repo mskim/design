@@ -26,18 +26,18 @@ module Design
 
         def render_header
           div(class: "flex items-center justify-between") do
-            h2(class: "text-base font-semibold text-slate-900") { @paragraph_style.name.presence || "New Style" }
+            h2(class: "text-base font-semibold text-slate-900") { @paragraph_style.name.presence || I18n.t("design.panel.new_style") }
             a(
               href: @back_url,
               data: { turbo_frame: "_top" },
               class: "text-sm text-blue-600 hover:underline"
-            ) { "← Back" }
+            ) { I18n.t("design.panel.back") }
           end
         end
 
         def render_errors
           div(class: "rounded border border-red-300 bg-red-50 p-3") do
-            p(class: "text-sm font-medium text-red-800 mb-1") { "Please fix the following errors:" }
+            p(class: "text-sm font-medium text-red-800 mb-1") { I18n.t("design.panel.errors_heading") }
             ul(class: "list-disc list-inside space-y-0.5") do
               @paragraph_style.errors.full_messages.each do |msg|
                 li(class: "text-sm text-red-700") { msg }
@@ -62,7 +62,7 @@ module Design
         def render_actions
           div(class: "flex items-center gap-3") do
             if @editable
-              button(type: "submit", class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700") { "Save" }
+              button(type: "submit", class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700") { I18n.t("design.panel.save") }
               span(class: "text-xs text-slate-500 hidden", data: { "design--panel-autosave-target": "status" })
             end
             if @revert_url && @editable
@@ -70,7 +70,7 @@ module Design
                 href: @revert_url,
                 data: { turbo_method: :delete, turbo_frame: "properties_panel" },
                 class: "text-sm text-red-600 hover:underline ml-auto"
-              ) { "Revert to base" }
+              ) { I18n.t("design.panel.revert") }
             end
           end
         end

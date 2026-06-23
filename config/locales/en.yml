@@ -173,16 +173,25 @@ en:
       help: "Help"
       information: "Information"
 
+    panel:
+      back: "← Back"
+      new_style: "New Style"
+      errors_heading: "Please fix the following errors:"
+      save: "Save"
+      cancel: "Cancel"
+      revert: "Revert to base"
+
     paper_sizes:
       edit_title: "Edit Paper Size"
-      margins: "Margins"
+      margins: "Margins (mm)"
       left_margin: "Left margin (mm)"
       top_margin: "Top margin (mm)"
       right_margin: "Right margin (mm)"
       bottom_margin: "Bottom margin (mm)"
-      binding_margin: "Binding margin (mm)"
-      body_line_count: "Body line count"
-      toc_page_count: "TOC page count"
+      binding_margin: "Binding Margin (mm)"
+      body_line_count: "Body Line Count"
+      toc_page_count: "TOC Page Count"
+      base_text_styles: "Base Text Styles"
       paper_size_styles: "Paper Size Styles"
 
     document_designs:

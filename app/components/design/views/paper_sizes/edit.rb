@@ -33,27 +33,27 @@ module Design
             input(type: "hidden", name: "_method", value: "patch")
             input(type: "hidden", name: "authenticity_token", value: helpers.form_authenticity_token)
 
-            h2(class: "text-lg font-medium text-slate-900") { "Margins (mm)" }
+            h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.paper_sizes.margins") }
             div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-              margin_field("Left", :left_margin_mm)
-              margin_field("Top", :top_margin_mm)
-              margin_field("Right", :right_margin_mm)
-              margin_field("Bottom", :bottom_margin_mm)
+              margin_field(I18n.t("design.fields.left"), :left_margin_mm)
+              margin_field(I18n.t("design.fields.top"), :top_margin_mm)
+              margin_field(I18n.t("design.fields.right"), :right_margin_mm)
+              margin_field(I18n.t("design.fields.bottom"), :bottom_margin_mm)
             end
 
-            margin_field("Binding Margin (mm)", :binding_margin_mm)
-            integer_field("Body Line Count", :body_line_count)
-            integer_field("TOC Page Count", :toc_page_count)
+            margin_field(I18n.t("design.paper_sizes.binding_margin"), :binding_margin_mm)
+            integer_field(I18n.t("design.paper_sizes.body_line_count"), :body_line_count)
+            integer_field(I18n.t("design.paper_sizes.toc_page_count"), :toc_page_count)
 
             div(class: "flex items-center gap-3") do
               button(
                 type: "submit",
                 class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-              ) { "Save" }
+              ) { I18n.t("design.panel.save") }
               a(
                 href: helpers.theme_path(@theme),
                 class: "text-sm font-medium text-blue-600 hover:underline"
-              ) { "Cancel" }
+              ) { I18n.t("design.panel.cancel") }
             end
           end
         end
@@ -90,7 +90,7 @@ module Design
 
         def base_styles_section
           section(class: "flex flex-col gap-3") do
-            h2(class: "text-lg font-medium text-slate-900") { "Base Text Styles" }
+            h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.paper_sizes.base_text_styles") }
             div(class: "flex flex-col gap-2") do
               @base_styles.each { |style| base_style_row(style) }
             end
@@ -111,7 +111,7 @@ module Design
             a(
               href: helpers.edit_theme_paper_size_base_paragraph_style_path(@theme, @paper_size, style),
               class: "text-sm font-medium text-blue-600 hover:underline"
-            ) { "Edit →" }
+            ) { I18n.t("design.editor.edit_link") }
           end
         end
       end
