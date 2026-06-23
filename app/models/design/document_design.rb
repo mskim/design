@@ -12,6 +12,8 @@ module Design
 
     validates :doc_type, presence: true, uniqueness: { scope: :paper_size_id }
 
+    after_create { Design::DefaultGenerator.call_for(self) }
+
     COVER_TYPES = %w[single_any_side single_left single_right spread back_to_back].freeze
     validates :cover_type, inclusion: { in: COVER_TYPES }, if: :has_document_cover?
 

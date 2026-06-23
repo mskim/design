@@ -126,7 +126,13 @@ module Design
           Rails.logger.warn "[ThemeImportService] paragraph_style '#{row['name']}' references unknown document_design styleable_id=#{row['styleable_id']} — skipped"
           next
         end
-        dd.paragraph_styles.create!(paragraph_style_attrs(row))
+        # Creating the document_design fired DefaultGenerator, which may have
+        # produced generator-default overrides (e.g. scaled heading sizes) under
+        # the same name. The imported .book_design is authoritative, so upsert by
+        # name rather than blindly create! (which would collide on uniqueness).
+        attrs = paragraph_style_attrs(row)
+        existing = dd.paragraph_styles.find_by(name: attrs[:name])
+        existing ? existing.update!(attrs) : dd.paragraph_styles.create!(attrs)
       end
     end
 

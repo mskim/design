@@ -2,6 +2,10 @@ module Design
   class DefaultGenerator
     def self.call(paper_size) = new(paper_size).call
 
+    def self.call_for(document_design)
+      new(document_design.paper_size).generate_headings_for(document_design)
+    end
+
     def initialize(paper_size) = @paper_size = paper_size
 
     def call
@@ -22,7 +26,17 @@ module Design
       @paper_size.update_columns(assigns) if assigns.any?
     end
 
-    # Implemented in Task 4.
-    def generate_headings_for(document_design) = nil
+    def generate_headings_for(document_design)
+      theme  = @paper_size.theme
+      height = @paper_size.height_mm
+      scaled = GenerationRules.styles_for(document_design.doc_type) & GenerationRules::HEADING_SCALED_STYLES
+      scaled.each do |name|
+        base = theme.base_paragraph_styles.find_by(name: name)
+        next unless base&.font_size
+        override = document_design.override_for(name)
+        next if override.overridden?(:font_size)
+        override.update_columns(font_size: GenerationRules.scaled_size(base.font_size, height))
+      end
+    end
   end
 end
