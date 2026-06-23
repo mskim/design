@@ -147,7 +147,7 @@ module Design
           end
         end
 
-        def select_field(label_text, attr, options, include_blank: nil)
+        def select_field(label_text, attr, options, include_blank: nil, i18n_scope: nil)
           field_row(label_text) do
             select(
               name: "paragraph_style[#{attr}]",
@@ -157,7 +157,8 @@ module Design
               current = @paragraph_style.public_send(attr)
               option(value: "") { include_blank } if include_blank
               options.each do |opt|
-                option(value: opt, selected: opt == current) { opt }
+                label = i18n_scope ? I18n.t("design.options.#{i18n_scope}.#{opt}") : opt
+                option(value: opt, selected: opt == current) { label }
               end
             end
           end

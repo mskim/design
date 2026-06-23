@@ -83,9 +83,9 @@ module Design
           div(class: "space-y-3 pt-2") do
             div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
               number_field("Heading Lines", :heading_height_in_lines)
-              select_field("Heading V-Align", :heading_v_align, %w[center top bottom])
+              select_field("Heading V-Align", :heading_v_align, %w[center top bottom], i18n_scope: "v_align")
               if @document_design.doc_type == "toc"
-                select_field("TOC Text V-Align", :toc_v_align, %w[bottom center top])
+                select_field("TOC Text V-Align", :toc_v_align, %w[bottom center top], i18n_scope: "v_align")
               end
               number_field("Body Line Count", :body_line_count, placeholder: @paper_size.body_line_count)
               number_field("Columns", :column_count)
@@ -506,7 +506,7 @@ module Design
           end
         end
 
-        def select_field(label_text, attr, options)
+        def select_field(label_text, attr, options, i18n_scope: nil)
           field_row(label_text) do
             select(
               name: "document_design[#{attr}]",
@@ -515,7 +515,8 @@ module Design
             ) do
               current = @document_design.public_send(attr)
               options.each do |opt|
-                option(value: opt, selected: opt == current) { opt }
+                label = i18n_scope ? I18n.t("design.options.#{i18n_scope}.#{opt}") : opt
+                option(value: opt, selected: opt == current) { label }
               end
             end
           end

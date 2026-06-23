@@ -36,6 +36,12 @@ en:
       gallery_prev: "Previous"
       gallery_next: "Next"
 
+    options:
+      v_align:
+        center: "Center"
+        top: "Top"
+        bottom: "Bottom"
+
     doc_types:
       title_page: "Title page"
       blank_page: "Blank page"

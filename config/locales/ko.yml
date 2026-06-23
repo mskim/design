@@ -36,6 +36,12 @@ ko:
       gallery_prev: "이전"
       gallery_next: "다음"
 
+    options:
+      v_align:
+        center: "가운데"
+        top: "위"
+        bottom: "아래"
+
     doc_types:
       title_page: "표제지"
       blank_page: "빈 페이지"
