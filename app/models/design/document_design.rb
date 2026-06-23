@@ -192,6 +192,15 @@ module Design
       paragraph_styles.create!(name: base_name, **attrs)
     end
 
+    # Create or update a document-level paragraph style by name. Used by importers
+    # and generators so authoritative values win over any already-present override
+    # (e.g. a generator default) without tripping the (styleable, name) uniqueness.
+    def upsert_paragraph_style!(name, attrs = {})
+      ps = paragraph_styles.find_by(name: name) || paragraph_styles.build(name: name)
+      ps.update!(attrs.except(:name))
+      ps
+    end
+
     private
 
     def ensure_heading_style_exists(style_name)

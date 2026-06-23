@@ -131,8 +131,7 @@ module Design
         # the same name. The imported .book_design is authoritative, so upsert by
         # name rather than blindly create! (which would collide on uniqueness).
         attrs = paragraph_style_attrs(row)
-        existing = dd.paragraph_styles.find_by(name: attrs[:name])
-        existing ? existing.update!(attrs) : dd.paragraph_styles.create!(attrs)
+        dd.upsert_paragraph_style!(attrs[:name], attrs)
       end
     end
 
