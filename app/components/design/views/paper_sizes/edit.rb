@@ -35,10 +35,10 @@ module Design
 
             h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.paper_sizes.margins") }
             div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-              margin_field(I18n.t("design.fields.left"), :left_margin_mm)
-              margin_field(I18n.t("design.fields.top"), :top_margin_mm)
-              margin_field(I18n.t("design.fields.right"), :right_margin_mm)
-              margin_field(I18n.t("design.fields.bottom"), :bottom_margin_mm)
+              margin_field(I18n.t("design.shared.left"), :left_margin_mm)
+              margin_field(I18n.t("design.shared.top"), :top_margin_mm)
+              margin_field(I18n.t("design.shared.right"), :right_margin_mm)
+              margin_field(I18n.t("design.shared.bottom"), :bottom_margin_mm)
             end
 
             margin_field(I18n.t("design.paper_sizes.binding_margin"), :binding_margin_mm)
@@ -49,11 +49,11 @@ module Design
               button(
                 type: "submit",
                 class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-              ) { I18n.t("design.panel.save") }
+              ) { I18n.t("design.shared.save") }
               a(
                 href: helpers.theme_path(@theme),
                 class: "text-sm font-medium text-blue-600 hover:underline"
-              ) { I18n.t("design.panel.cancel") }
+              ) { I18n.t("design.shared.cancel") }
             end
           end
         end
@@ -111,7 +111,7 @@ module Design
             a(
               href: helpers.edit_theme_paper_size_base_paragraph_style_path(@theme, @paper_size, style),
               class: "text-sm font-medium text-blue-600 hover:underline"
-            ) { I18n.t("design.editor.edit_link") }
+            ) { I18n.t("design.shared.edit") }
           end
         end
       end

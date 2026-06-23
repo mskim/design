@@ -197,16 +197,16 @@ module Design
               input(type: "hidden", name: "paragraph_style[border_side]", value: field_value(@paragraph_style.border_side), data: { "design--border-side-editor-target": "input" }, **disabled_attr)
               div(class: "flex flex-col items-center gap-0.5") do
                 button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "top" },
-                  class: "px-4 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.fields.top") }
+                  class: "px-4 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.shared.top") }
                 div(class: "flex items-center gap-0.5") do
                   button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "left" },
-                    class: "px-0.5 py-2 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.fields.left") }
+                    class: "px-0.5 py-2 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.shared.left") }
                   div(class: "w-20 h-14 bg-slate-50 border border-dashed border-slate-300", data: { "design--border-side-editor-target": "box" })
                   button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "right" },
-                    class: "px-0.5 py-2 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.fields.right") }
+                    class: "px-0.5 py-2 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.shared.right") }
                 end
                 button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "bottom" },
-                  class: "px-3 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.fields.bottom") }
+                  class: "px-3 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.shared.bottom") }
               end
             end
           end

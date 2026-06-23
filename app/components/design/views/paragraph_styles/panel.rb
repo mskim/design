@@ -62,7 +62,7 @@ module Design
         def render_actions
           div(class: "flex items-center gap-3") do
             if @editable
-              button(type: "submit", class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700") { I18n.t("design.panel.save") }
+              button(type: "submit", class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700") { I18n.t("design.shared.save") }
               span(class: "text-xs text-slate-500 hidden", data: { "design--panel-autosave-target": "status" })
             end
             if @revert_url && @editable

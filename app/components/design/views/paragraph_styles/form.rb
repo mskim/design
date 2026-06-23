@@ -25,11 +25,11 @@ module Design
                 button(
                   type: "submit",
                   class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-                ) { I18n.t("design.panel.save") }
+                ) { I18n.t("design.shared.save") }
                 a(
                   href: @cancel_url,
                   class: "text-sm font-medium text-blue-600 hover:underline"
-                ) { I18n.t("design.panel.cancel") }
+                ) { I18n.t("design.shared.cancel") }
               end
             end
           end

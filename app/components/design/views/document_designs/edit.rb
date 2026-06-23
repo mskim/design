@@ -64,7 +64,7 @@ module Design
             a(
               href: helpers.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @paper_size, @document_design, style),
               class: "text-sm font-medium text-blue-600 hover:underline"
-            ) { I18n.t("design.editor.edit_link") }
+            ) { I18n.t("design.shared.edit") }
           end
         end
 
@@ -99,7 +99,7 @@ module Design
               a(
                 href: helpers.edit_theme_theme_paragraph_style_path(@theme, style),
                 class: "text-sm font-medium text-blue-600 hover:underline"
-              ) { I18n.t("design.editor.edit_link") }
+              ) { I18n.t("design.shared.edit") }
             end
           end
         end
