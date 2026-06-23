@@ -116,6 +116,8 @@ The author's two requested additions (poem→h2, chapter→footnote) are already
 - **Paper-size layout** (4 margins, binding, `body_line_count`) → `paper_size` columns, each only if not in `overridden_fields`.
 - **Heading sizes** → for each `document_design`, for each style in `DOC_TYPE_STYLES[doc_type]` that is in `HEADING_SCALED_STYLES`, create a **document-level override** (`DocumentDesign#override_for(name)` — verified: copies the theme base style incl. `font_size`) and set `font_size = scaled_size(base.font_size, height)`, unless that override's `font_size` is in its `overridden_fields`. Non-scaled relevant styles get **no** generated value (they inherit the fixed theme base).
 
+> The base size scaled is the **theme's seeded base style `font_size`** (e.g. live Seoul `title` = 24), *not* the gem's `DEFAULT_HEADING_STYLES` constant (which is only the create-on-demand fallback for styles that don't yet exist). Note `quote` is in `HEADING_SCALED_STYLES` but belongs to the `body` family — so it receives a scaled override for body-bearing doc_types (chapter, title_page, …), which is intended.
+
 ### Override tracking
 
 Add `overridden_fields` to `design_paper_sizes` and `design_paragraph_styles`: `t.json "overridden_fields", null: false, default: []`, plus model `attribute :overridden_fields, default: []` (belt-and-suspenders for SQLite, where the JSON column stores text). A `Design::Overridable` concern provides `mark_overridden(*attrs)`, `overridden?(attr)`, and `mark_overridden_from_changes` (marks generatable attrs present in `saved_changes`).
