@@ -27,4 +27,12 @@ class Design::OverridableTest < ActiveSupport::TestCase
     assert ps.reload.overridden?(:left_margin_mm)
     refute ps.overridden?(:top_margin_mm)
   end
+
+  test "explicit assignment equal to the column default is still captured" do
+    # left_margin_mm DB default is 20.0; assign it explicitly -> must be protected.
+    ps = @theme.paper_sizes.create!(size_name: "D", width_mm: 152, height_mm: 225, left_margin_mm: 20.0)
+    assert ps.overridden?(:left_margin_mm), "explicit default-valued assignment should be captured"
+    # and the generator must NOT overwrite it with the computed 22.0:
+    assert_equal 20.0, ps.reload.left_margin_mm.to_f
+  end
 end

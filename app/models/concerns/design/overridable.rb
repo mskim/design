@@ -23,8 +23,20 @@ module Design
     private
 
     # Call in before_create: protect generatable attrs the creator set explicitly.
+    # Filters by whether each attr came from the user (assignment) rather than by
+    # dirtiness, so an explicit value equal to the column default is still captured.
     def capture_explicit_overrides(generatable)
-      self.overridden_fields = overridden_fields | (generatable.map(&:to_s) & changed)
+      assigned = generatable.map(&:to_s).select { |f| attribute_came_from_user?(f) }
+      self.overridden_fields = overridden_fields | assigned
+    end
+
+    # Reads the ActiveModel attribute object directly: no public predicate
+    # distinguishes "explicitly assigned a value equal to the column default"
+    # from "untouched default" — `changed?` can't see the former, but
+    # `came_from_user?` (set on assignment) can. That distinction is the whole
+    # point of capture (protect authored values even when they equal the default).
+    def attribute_came_from_user?(name)
+      @attributes[name.to_s].came_from_user?
     end
   end
 end
