@@ -6,6 +6,10 @@ module Design
     has_many :document_designs, class_name: "Design::DocumentDesign", dependent: :destroy
     has_many :paragraph_styles, as: :styleable, class_name: "Design::ParagraphStyle", dependent: :destroy
 
+    include Design::Overridable
+    GENERATABLE_FIELDS = %w[left_margin_mm top_margin_mm right_margin_mm bottom_margin_mm binding_margin_mm body_line_count].freeze
+    before_create { capture_explicit_overrides(GENERATABLE_FIELDS) }
+
     validates :size_name, presence: true, uniqueness: { scope: :theme_id }
     validates :width_mm, :height_mm, numericality: { greater_than: 0 }
     validates :body_line_count, numericality: { greater_than: 0, only_integer: true }

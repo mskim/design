@@ -7,7 +7,7 @@
 #   * action_text_rich_texts + active_storage_* — Design::DocumentDesign
 #     has_one_attached :heading_bg_image, and rails/all loads Action Text.
 
-ActiveRecord::Schema[8.1].define(version: 1) do
+ActiveRecord::Schema[8.1].define(version: 2) do
   create_table "users", force: :cascade do |t|
     t.string "email_address", null: false
     t.string "name"
@@ -121,6 +121,7 @@ ActiveRecord::Schema[8.1].define(version: 1) do
     t.decimal "height_mm", null: false
     t.decimal "left_margin_mm", default: "20.0", null: false
     t.string "local_name"
+    t.json "overridden_fields", default: [], null: false
     t.decimal "right_margin_mm", default: "20.0", null: false
     t.string "size_name", null: false
     t.integer "theme_id", null: false
@@ -152,6 +153,7 @@ ActiveRecord::Schema[8.1].define(version: 1) do
     t.string "korean_name"
     t.decimal "left_indent"
     t.string "name", null: false
+    t.json "overridden_fields", default: [], null: false
     t.decimal "padding_bottom"
     t.decimal "padding_top"
     t.decimal "right_indent"
