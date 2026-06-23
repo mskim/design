@@ -24,4 +24,11 @@ class Design::PropertiesPanelYOffsetTest < ActiveSupport::TestCase
       assert_includes html, %(name="document_design[#{attr}]"), "missing #{attr} input"
     end
   end
+
+  test "header/footer tab still renders the 4 content_string inputs" do
+    html = render_panel
+    %w[header_left_content_string header_right_content_string footer_left_content_string footer_right_content_string].each do |attr|
+      assert_includes html, %(name="document_design[#{attr}]"), "missing #{attr} input"
+    end
+  end
 end

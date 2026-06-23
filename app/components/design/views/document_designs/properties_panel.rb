@@ -467,7 +467,7 @@ module Design
         end
 
         def header_footer_slot(label_text, slot_prefix)
-          div(class: "rounded border border-slate-200 p-2 space-y-1.5") do
+          div(class: "rounded border border-slate-200 p-3 space-y-1") do
             h4(class: "text-xs font-semibold text-slate-600") { label_text }
             number_field("Y-offset (mm)", :"#{slot_prefix}_y_offset", step: "0.1")
             text_field("Content", :"#{slot_prefix}_content_string")
