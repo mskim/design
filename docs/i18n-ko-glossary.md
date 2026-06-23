@@ -16,7 +16,7 @@ Notes:
 | Typography | 단락정의 |
 | Header/Footer | 머리말·꼬리말 |
 | Design Properties | 디자인 속성 |
-| Heading Lines | 제목 높이 본문 줄 수 |
+| Heading Lines | 제목박스 높이 (본문 줄 수) |
 | Heading V-Align | 제목 세로 정렬 |
 | Body Line Count | 본문 줄 수 |
 | Columns | 단 수 |
