@@ -9,6 +9,7 @@ module Design
     include Design::Overridable
     GENERATABLE_FIELDS = %w[left_margin_mm top_margin_mm right_margin_mm bottom_margin_mm binding_margin_mm body_line_count].freeze
     before_create { capture_explicit_overrides(GENERATABLE_FIELDS) }
+    after_create { Design::DefaultGenerator.call(self) }
 
     validates :size_name, presence: true, uniqueness: { scope: :theme_id }
     validates :width_mm, :height_mm, numericality: { greater_than: 0 }
