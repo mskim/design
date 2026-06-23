@@ -239,6 +239,27 @@ en:
       padding_top: "Padding top"
       padding_bottom: "Padding bottom"
 
+    editor:
+      preview: "Preview"
+      loading_preview: "Loading preview…"
+      base_text_styles: "Base Text Styles (inherited from theme)"
+      document_styles: "Document Styles (overrides)"
+      edit_link: "Edit →"
+      shared_styles_sentence: "These styles are shared across all doc types. Edit them on the"
+      theme_page: "theme page"
+
+    preview:
+      generation_failed: "Preview generation failed"
+      heading_fallback: "Heading"
+      body_fallback: "Body"
+      toc_entry: "TOC Entry"
+      generating: "Generating preview..."
+      overlay:
+        title: "Title"
+        subtitle: "Subtitle"
+        author: "Author"
+        publisher: "Publisher"
+
     shared:
       save: "Save"
       cancel: "Cancel"

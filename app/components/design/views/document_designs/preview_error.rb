@@ -15,7 +15,7 @@ module Design
                 div(class: "flex items-start gap-3") do
                   span(class: "text-red-500 text-lg") { "!" }
                   div do
-                    h3(class: "text-sm font-semibold text-red-800") { "Preview generation failed" }
+                    h3(class: "text-sm font-semibold text-red-800") { I18n.t("design.preview.generation_failed") }
                     p(class: "mt-1 text-xs text-red-600") { @error }
                   end
                 end

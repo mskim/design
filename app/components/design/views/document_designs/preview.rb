@@ -60,12 +60,14 @@ module Design
         end
 
         class OverlaySvg < Phlex::SVG
-          HEADING_LABELS = {
-            "title" => "Title",
-            "subtitle" => "Subtitle",
-            "author" => "Author",
-            "publisher" => "Publisher"
-          }.freeze
+          def heading_labels
+            {
+              "title" => I18n.t("design.preview.overlay.title"),
+              "subtitle" => I18n.t("design.preview.overlay.subtitle"),
+              "author" => I18n.t("design.preview.overlay.author"),
+              "publisher" => I18n.t("design.preview.overlay.publisher")
+            }
+          end
 
           def initialize(overlay_data:, page_width:, page_height:, style_urls: {})
             @overlay_data = overlay_data
@@ -125,7 +127,7 @@ module Design
           def render_heading_overlay(overlay)
             style_name = overlay[:markup]
             url = @style_urls[style_name]
-            label = HEADING_LABELS[style_name] || style_name&.capitalize || "Heading"
+            label = heading_labels[style_name] || style_name&.capitalize || I18n.t("design.preview.heading_fallback")
 
             wrapper(url, css_class: "overlay-zone") do
               rect(
@@ -148,7 +150,7 @@ module Design
           def render_paragraph_overlay(overlay)
             style_name = overlay[:markup]
             url = @style_urls[style_name]
-            label = style_name&.capitalize || "Body"
+            label = style_name&.capitalize || I18n.t("design.preview.body_fallback")
 
             wrapper(url, css_class: "para-zone") do
               rect(
@@ -171,7 +173,7 @@ module Design
             # Each TOC entry's markup is its per-level style (h2/h3/h4); link there
             # so clicking a chapter/section entry edits the right style.
             url = @style_urls[overlay[:markup]] || @style_urls["body"]
-            label = overlay[:content_preview] || "TOC Entry"
+            label = overlay[:content_preview] || I18n.t("design.preview.toc_entry")
 
             wrapper(url, css_class: "para-zone") do
               rect(
@@ -201,7 +203,7 @@ module Design
 
         def render_fallback_message
           div(class: "flex justify-center items-center p-12 text-slate-500") do
-            p { "Generating preview..." }
+            p { I18n.t("design.preview.generating") }
           end
         end
       end

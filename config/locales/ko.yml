@@ -239,6 +239,27 @@ ko:
       padding_top: "위쪽 패딩"
       padding_bottom: "아래쪽 패딩"
 
+    editor:
+      preview: "미리보기"
+      loading_preview: "미리보기 불러오는 중…"
+      base_text_styles: "기본 텍스트 스타일 (테마에서 상속)"
+      document_styles: "문서 스타일 (재정의)"
+      edit_link: "편집 →"
+      shared_styles_sentence: "이 스타일은 모든 문서 유형에서 공유됩니다. 다음에서 편집하세요:"
+      theme_page: "테마 페이지"
+
+    preview:
+      generation_failed: "미리보기 생성 실패"
+      heading_fallback: "제목"
+      body_fallback: "본문"
+      toc_entry: "차례 항목"
+      generating: "미리보기 생성 중…"
+      overlay:
+        title: "제목"
+        subtitle: "부제"
+        author: "지은이"
+        publisher: "펴낸곳"
+
     shared:
       save: "저장"
       cancel: "취소"

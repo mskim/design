@@ -35,18 +35,18 @@ module Design
 
         def preview_section
           div(class: "rounded-lg border border-slate-200 bg-slate-50 p-4") do
-            h2(class: "mb-2 text-sm font-medium text-slate-700") { "Preview" }
+            h2(class: "mb-2 text-sm font-medium text-slate-700") { I18n.t("design.editor.preview") }
             turbo_frame(id: "preview_frame",
                         src: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),
                         loading: "lazy") do
-              div(class: "p-8 text-center text-slate-400") { "Loading preview…" }
+              div(class: "p-8 text-center text-slate-400") { I18n.t("design.editor.loading_preview") }
             end
           end
         end
 
         def document_styles_section
           section(class: "flex flex-col gap-3") do
-            h2(class: "text-lg font-medium text-slate-900") { "Document Styles (overrides)" }
+            h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.editor.document_styles") }
             div(class: "flex flex-col gap-2") do
               @paragraph_styles.each { |style| document_style_row(style) }
             end
@@ -64,17 +64,17 @@ module Design
             a(
               href: helpers.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @paper_size, @document_design, style),
               class: "text-sm font-medium text-blue-600 hover:underline"
-            ) { "Edit →" }
+            ) { I18n.t("design.editor.edit_link") }
           end
         end
 
         def base_styles_section
           section(class: "flex flex-col gap-3") do
-            h2(class: "text-lg font-medium text-slate-900") { "Base Text Styles (inherited from theme)" }
+            h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.editor.base_text_styles") }
             p(class: "text-sm text-slate-500") do
-              plain "These styles are shared across all doc types. Edit them on the "
+              plain "#{I18n.t("design.editor.shared_styles_sentence")} "
               strong do
-                a(href: helpers.theme_path(@theme), class: "text-blue-600 hover:underline") { "theme page" }
+                a(href: helpers.theme_path(@theme), class: "text-blue-600 hover:underline") { I18n.t("design.editor.theme_page") }
               end
               plain "."
             end
@@ -99,7 +99,7 @@ module Design
               a(
                 href: helpers.edit_theme_theme_paragraph_style_path(@theme, style),
                 class: "text-sm font-medium text-blue-600 hover:underline"
-              ) { "Edit →" }
+              ) { I18n.t("design.editor.edit_link") }
             end
           end
         end

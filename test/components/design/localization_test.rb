@@ -50,4 +50,24 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     refute_includes html, "Identity"
     assert_not_includes html, "translation missing"
   end
+
+  test "preview overlay labels are Korean" do
+    theme = Design::Theme.create!(name: "P #{SecureRandom.hex(3)}", locale: "ko")
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.create!(doc_type: "title_page")
+    html = I18n.with_locale(:ko) do
+      Design::Views::DocumentDesigns::Preview.new(
+        document_design: dd, paper_size: ps, jpg_url: "/x.jpg",
+        overlay_data: [{ type: "heading_area", markup: "title", x: 0, y: 0, width: 50, height: 10 }],
+        page_width: 100, page_height: 100, style_urls: {}
+      ).call
+    end
+    assert_includes html, "제목"   # Title overlay label
+  end
+
+  test "preview error is Korean" do
+    html = I18n.with_locale(:ko) { Design::Views::DocumentDesigns::PreviewError.new(error: "boom").call }
+    assert_includes html, "미리보기 생성 실패"
+    refute_includes html, "Preview generation failed"
+  end
 end
