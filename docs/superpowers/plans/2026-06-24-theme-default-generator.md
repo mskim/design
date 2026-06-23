@@ -549,7 +549,11 @@ In `BD/app/controllers/paper_sizes_controller.rb#update`, after a successful `@p
     end
   end
 ```
-Do the equivalent in the paragraph-style update/override action(s) that can change `font_size` (call `mark_overridden_from_changes(Design::ParagraphStyle::GENERATABLE_FIELDS)` after the successful update). Find them in `BD/app/controllers/` (paragraph styles controller).
+Do the equivalent in `BD/app/controllers/paragraph_styles_controller.rb` — its `#update` uses `@style.update(paragraph_style_params)` (variable is **`@style`**, not `@paragraph_style`) and permits `:font_size`. After the successful save add:
+```ruby
+      @style.mark_overridden_from_changes(Design::ParagraphStyle::GENERATABLE_FIELDS)
+```
+Also apply it in the `#override` action (it can set `font_size`). The controller uses `after_action :run_auto_export`, so place the mark call right after the successful `@style.update`/save, before the response.
 
 - [ ] **Step 6: Run the test; verify it PASSES.**
 
