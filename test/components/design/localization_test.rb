@@ -38,4 +38,16 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     refute_includes html, "Body Line Count"
     assert_not_includes html, "translation missing"
   end
+
+  test "fields render Korean, no English leftovers" do
+    theme = Design::Theme.create!(name: "F #{SecureRandom.hex(3)}", locale: "ko")
+    style = theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    html = I18n.with_locale(:ko) { Design::Views::ParagraphStyles::Fields.new(paragraph_style: style, editable: true).call }
+    assert_includes html, "자간"       # Tracking
+    assert_includes html, "어간"       # Space Width (user glossary)
+    assert_includes html, "행간"       # Line Spacing
+    refute_includes html, "Tracking"
+    refute_includes html, "Identity"
+    assert_not_includes html, "translation missing"
+  end
 end

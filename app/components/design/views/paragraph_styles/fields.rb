@@ -22,77 +22,77 @@ module Design
 
         # ── Identity ──
         def identity_section
-          h2(class: "text-lg font-medium text-slate-900") { "Identity" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.identity") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            text_field("Name", :name)
-            text_field("Korean Name", :korean_name)
+            text_field(I18n.t("design.fields.name"), :name)
+            text_field(I18n.t("design.fields.korean_name"), :korean_name)
           end
         end
 
         # ── Font ──
         def font_section
-          h2(class: "text-lg font-medium text-slate-900") { "Font" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.font") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-3") do
-            font_select("Font", :font)
-            number_field("Size (pt)", :font_size, step: "0.1")
-            number_field("Scale", :scale, step: "0.01")
+            font_select(I18n.t("design.fields.font"), :font)
+            number_field(I18n.t("design.fields.size"), :font_size, step: "0.1")
+            number_field(I18n.t("design.fields.scale"), :scale, step: "0.01")
           end
         end
 
         # ── Text ──
         def text_section
-          h2(class: "text-lg font-medium text-slate-900") { "Text" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.text") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            color_row("Color", :text_color)
-            select_field("Align", :text_align, %w[left center right justify], include_blank: "— inherit —")
-            number_field("Tracking", :tracking, step: "0.1")
-            number_field("Space Width", :space_width, step: "0.1")
-            number_field("Line Spacing", :text_line_spacing, step: "0.1")
+            color_row(I18n.t("design.fields.color"), :text_color)
+            select_field(I18n.t("design.fields.align"), :text_align, %w[left center right justify], include_blank: "— inherit —", i18n_scope: "text_align")
+            number_field(I18n.t("design.fields.tracking"), :tracking, step: "0.1")
+            number_field(I18n.t("design.fields.space_width"), :space_width, step: "0.1")
+            number_field(I18n.t("design.fields.line_spacing"), :text_line_spacing, step: "0.1")
           end
         end
 
         # ── Bold & Emphasis ──
         def bold_emphasis_section
-          h2(class: "text-lg font-medium text-slate-900") { "Bold & Emphasis" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.bold_emphasis") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            font_select("Bold Font", :bold_font)
-            color_row("Bold Color", :bold_text_color)
-            font_select("Emphasis Font", :emphasis_font)
-            color_row("Emphasis Color", :emphasis_color)
+            font_select(I18n.t("design.fields.bold_font"), :bold_font)
+            color_row(I18n.t("design.fields.bold_color"), :bold_text_color)
+            font_select(I18n.t("design.fields.emphasis_font"), :emphasis_font)
+            color_row(I18n.t("design.fields.emphasis_color"), :emphasis_color)
           end
         end
 
         # ── Spacing ──
         def spacing_section
-          h2(class: "text-lg font-medium text-slate-900") { "Spacing" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.spacing") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            number_field("First Line Indent", :first_line_indent, step: "0.1")
-            number_field("Left Indent", :left_indent, step: "0.1")
-            number_field("Right Indent", :right_indent, step: "0.1")
-            number_field("Space Before (pt)", :space_before, step: "0.1")
-            number_field("Space After (pt)", :space_after, step: "0.1")
-            number_field("Space Before (lines)", :space_before_in_lines, step: "0.1")
-            number_field("Space After (lines)", :space_after_in_lines, step: "0.1")
+            number_field(I18n.t("design.fields.first_line_indent"), :first_line_indent, step: "0.1")
+            number_field(I18n.t("design.fields.left_indent"), :left_indent, step: "0.1")
+            number_field(I18n.t("design.fields.right_indent"), :right_indent, step: "0.1")
+            number_field(I18n.t("design.fields.space_before_pt"), :space_before, step: "0.1")
+            number_field(I18n.t("design.fields.space_after_pt"), :space_after, step: "0.1")
+            number_field(I18n.t("design.fields.space_before_lines"), :space_before_in_lines, step: "0.1")
+            number_field(I18n.t("design.fields.space_after_lines"), :space_after_in_lines, step: "0.1")
           end
         end
 
         # ── Fill ──
         def fill_section
-          h2(class: "text-lg font-medium text-slate-900") { "Fill" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.fill") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            select_field("Fill Type", :fill_type, %w[none solid gradient])
-            select_field("Gradient Dir.", :fill_gradient_direction, %w[horizontal vertical diagonal], include_blank: "— none —")
-            color_row("Fill Color", :fill_color)
-            color_row("Ending Color", :fill_ending_color)
+            select_field(I18n.t("design.fields.fill_type"), :fill_type, %w[none solid gradient], i18n_scope: "fill_type")
+            select_field(I18n.t("design.fields.gradient_dir"), :fill_gradient_direction, %w[horizontal vertical diagonal], include_blank: "— none —", i18n_scope: "gradient_dir")
+            color_row(I18n.t("design.fields.fill_color"), :fill_color)
+            color_row(I18n.t("design.fields.ending_color"), :fill_ending_color)
           end
         end
 
         # ── Border ──
         def border_section
-          h2(class: "text-lg font-medium text-slate-900") { "Border" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.border") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            number_field("Thickness (pt)", :border_thickness, step: "0.1")
-            color_row("Border Color", :border_color)
+            number_field(I18n.t("design.fields.thickness"), :border_thickness, step: "0.1")
+            color_row(I18n.t("design.fields.border_color"), :border_color)
           end
 
           div(class: "grid grid-cols-1 gap-4 sm:grid-cols-2 mt-2") do
@@ -103,10 +103,10 @@ module Design
 
         # ── Padding ──
         def padding_section
-          h2(class: "text-lg font-medium text-slate-900") { "Padding" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.padding") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            number_field("Padding Top (pt)", :padding_top, step: "0.1")
-            number_field("Padding Bottom (pt)", :padding_bottom, step: "0.1")
+            number_field(I18n.t("design.fields.padding_top"), :padding_top, step: "0.1")
+            number_field(I18n.t("design.fields.padding_bottom"), :padding_bottom, step: "0.1")
           end
         end
 
@@ -192,21 +192,21 @@ module Design
         # Border Side Editor — ports the data-controller="design--border-side-editor" wrapper verbatim
         def border_side_editor
           div do
-            label(class: "text-sm text-slate-600") { "Border Sides" }
+            label(class: "text-sm text-slate-600") { I18n.t("design.fields.border_sides") }
             div(class: "mt-1", data: { controller: "design--border-side-editor" }) do
               input(type: "hidden", name: "paragraph_style[border_side]", value: field_value(@paragraph_style.border_side), data: { "design--border-side-editor-target": "input" }, **disabled_attr)
               div(class: "flex flex-col items-center gap-0.5") do
                 button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "top" },
-                  class: "px-4 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { "Top" }
+                  class: "px-4 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.fields.top") }
                 div(class: "flex items-center gap-0.5") do
                   button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "left" },
-                    class: "px-0.5 py-2 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { "Left" }
+                    class: "px-0.5 py-2 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.fields.left") }
                   div(class: "w-20 h-14 bg-slate-50 border border-dashed border-slate-300", data: { "design--border-side-editor-target": "box" })
                   button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "right" },
-                    class: "px-0.5 py-2 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { "Right" }
+                    class: "px-0.5 py-2 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.fields.right") }
                 end
                 button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "bottom" },
-                  class: "px-3 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { "Bottom" }
+                  class: "px-3 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-slate-50", **disabled_attr) { I18n.t("design.fields.bottom") }
               end
             end
           end
@@ -215,7 +215,7 @@ module Design
         # Corner Editor — ports the data-controller="design--corner-editor" wrapper verbatim
         def corner_editor
           div do
-            label(class: "text-sm text-slate-600") { "Rounded Corners" }
+            label(class: "text-sm text-slate-600") { I18n.t("design.fields.rounded_corners") }
             div(class: "mt-1", data: { controller: "design--corner-editor" }) do
               input(type: "hidden", name: "paragraph_style[rounded_corners]", value: field_value(@paragraph_style.rounded_corners), data: { "design--corner-editor-target": "input" }, **disabled_attr)
               div(class: "flex flex-col items-center gap-0.5") do
@@ -235,12 +235,12 @@ module Design
               end
             end
             div(class: "flex items-center gap-3 mt-2") do
-              label(class: "text-sm text-slate-600 w-36 shrink-0") { "Corner Radius" }
+              label(class: "text-sm text-slate-600 w-36 shrink-0") { I18n.t("design.fields.corner_radius") }
               select(name: "paragraph_style[corner_radius]", class: "border border-slate-300 rounded px-2 py-1 text-sm w-full", **disabled_attr) do
                 current = @paragraph_style.corner_radius
                 option(value: "") { "— none —" }
                 %w[none small medium large].each do |opt|
-                  option(value: opt, selected: opt == current) { opt }
+                  option(value: opt, selected: opt == current) { I18n.t("design.options.corner_radius.#{opt}") }
                 end
               end
             end
