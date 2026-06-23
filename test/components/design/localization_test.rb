@@ -28,4 +28,14 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     assert_includes html, "가운데"
     assert_includes html, "아래"
   end
+
+  test "properties panel renders Korean labels, no English leftovers" do
+    html = I18n.with_locale(:ko) { panel }
+    assert_includes html, "레이아웃"          # Layout tab
+    assert_includes html, "본문 줄 수"         # Body Line Count
+    assert_includes html, "단락정의"           # Typography (user glossary)
+    refute_includes html, ">Layout<"
+    refute_includes html, "Body Line Count"
+    assert_not_includes html, "translation missing"
+  end
 end

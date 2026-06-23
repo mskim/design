@@ -58,7 +58,7 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
 
   test "renders Header / Footer section labels" do
     html = render_panel
-    assert_includes html, "Header / Footer"
+    assert_includes html, "Header/Footer"
     assert_includes html, %(name="document_design[header_left_content_string]")
     assert_includes html, %(name="document_design[footer_right_content_string]")
   end

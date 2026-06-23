@@ -25,7 +25,7 @@ module Design
         def render_header
           div(class: "shrink-0 flex items-center gap-2 px-4 py-2.5 border-b bg-slate-50") do
             h2(class: "text-sm font-semibold") { @document_design.doc_type.tr("_", " ").titleize }
-            span(class: "text-xs text-muted-foreground") { "Design Properties" }
+            span(class: "text-xs text-muted-foreground") { I18n.t("design.properties_panel.design_properties") }
           end
         end
 
@@ -47,9 +47,9 @@ module Design
             div(class: "p-4 space-y-3") do
               render RubyUI::Tabs.new(default: "layout") do
                 render RubyUI::TabsList.new(class: "w-full") do
-                  render RubyUI::TabsTrigger.new(value: "layout") { "Layout" }
-                  render RubyUI::TabsTrigger.new(value: "typography") { "Typography" }
-                  render RubyUI::TabsTrigger.new(value: "header_footer") { "Header/Footer" }
+                  render RubyUI::TabsTrigger.new(value: "layout") { I18n.t("design.properties_panel.layout") }
+                  render RubyUI::TabsTrigger.new(value: "typography") { I18n.t("design.properties_panel.typography") }
+                  render RubyUI::TabsTrigger.new(value: "header_footer") { I18n.t("design.properties_panel.header_footer") }
                 end
 
                 render RubyUI::TabsContent.new(value: "layout") do
@@ -70,7 +70,7 @@ module Design
                   button(
                     type: "submit",
                     class: "inline-flex w-full items-center justify-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-                  ) { "Save" }
+                  ) { I18n.t("design.properties_panel.save") }
                 end
               end
             end
@@ -82,14 +82,14 @@ module Design
         def render_layout_tab
           div(class: "space-y-3 pt-2") do
             div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-              number_field("Heading Lines", :heading_height_in_lines)
-              select_field("Heading V-Align", :heading_v_align, %w[center top bottom], i18n_scope: "v_align")
+              number_field(I18n.t("design.properties_panel.heading_lines"), :heading_height_in_lines)
+              select_field(I18n.t("design.properties_panel.heading_v_align"), :heading_v_align, %w[center top bottom], i18n_scope: "v_align")
               if @document_design.doc_type == "toc"
-                select_field("TOC Text V-Align", :toc_v_align, %w[bottom center top], i18n_scope: "v_align")
+                select_field(I18n.t("design.properties_panel.toc_v_align"), :toc_v_align, %w[bottom center top], i18n_scope: "v_align")
               end
-              number_field("Body Line Count", :body_line_count, placeholder: @paper_size.body_line_count)
-              number_field("Columns", :column_count)
-              number_field("Gutter (pt)", :gutter, step: "0.1")
+              number_field(I18n.t("design.properties_panel.body_line_count"), :body_line_count, placeholder: @paper_size.body_line_count)
+              number_field(I18n.t("design.properties_panel.columns"), :column_count)
+              number_field(I18n.t("design.properties_panel.gutter"), :gutter, step: "0.1")
             end
             heading_elements_section
             heading_background_section
@@ -107,15 +107,15 @@ module Design
 
         def render_text_box_section
           div(class: "rounded border border-slate-200 p-3 space-y-3") do
-            h3(class: "text-sm font-semibold text-slate-900") { "Text Box Position" }
+            h3(class: "text-sm font-semibold text-slate-900") { I18n.t("design.properties_panel.text_box_position") }
             div do
-              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { "Anchor Position" }
+              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.anchor_position") }
               select(
                 name: "document_design[text_box_anchor_position]",
                 class: "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm",
                 **disabled_attr
               ) do
-                option(value: "", selected: @document_design.text_box_anchor_position.nil?) { "Default (Bottom Left)" }
+                option(value: "", selected: @document_design.text_box_anchor_position.nil?) { I18n.t("design.properties_panel.anchor_default") }
                 ANCHOR_LABELS.each do |val, label_text|
                   option(value: val.to_s, selected: @document_design.text_box_anchor_position == val) { label_text }
                 end
@@ -123,7 +123,7 @@ module Design
             end
             div(class: "grid grid-cols-2 gap-2") do
               div do
-                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { "Grid Width" }
+                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.grid_width") }
                 input(
                   type: "number",
                   name: "document_design[text_box_grid_width]",
@@ -134,7 +134,7 @@ module Design
                 )
               end
               div do
-                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { "Grid Height" }
+                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.grid_height") }
                 input(
                   type: "number",
                   name: "document_design[text_box_grid_height]",
@@ -150,9 +150,9 @@ module Design
 
         def render_page_bg_section
           div(class: "rounded border border-slate-200 p-3 space-y-3") do
-            h3(class: "text-sm font-semibold text-slate-900") { "Page Background (Bleed)" }
+            h3(class: "text-sm font-semibold text-slate-900") { I18n.t("design.properties_panel.page_background") }
             div(data: { controller: "design--color-field" }) do
-              label(class: "block text-xs font-medium mb-1 text-slate-600") { "Background Color" }
+              label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.background_color") }
               div(class: "flex gap-2 items-center") do
                 input(
                   type: "color",
@@ -171,7 +171,7 @@ module Design
                   **disabled_attr
                 )
               end
-              p(class: "text-xs text-slate-500 mt-1") { "Extends 3mm beyond trim for bleed. Leave blank for no background." }
+              p(class: "text-xs text-slate-500 mt-1") { I18n.t("design.properties_panel.page_background_hint") }
             end
           end
         end
@@ -179,7 +179,7 @@ module Design
         def render_document_cover_section
           div(class: "rounded border border-slate-200 p-3 space-y-3",
               data: { controller: "design--toggle-visibility" }) do
-            h3(class: "text-sm font-semibold text-slate-900") { "Document Cover" }
+            h3(class: "text-sm font-semibold text-slate-900") { I18n.t("design.properties_panel.document_cover") }
             label(class: "flex items-center gap-2 text-sm text-slate-700") do
               input(type: "hidden", name: "document_design[has_document_cover]", value: "0")
               input(
@@ -191,13 +191,13 @@ module Design
                 data: { action: "change->design--toggle-visibility#toggle" },
                 **disabled_attr
               )
-              plain "Has Document Cover"
+              plain I18n.t("design.properties_panel.has_document_cover")
             end
             div(
               class: @document_design.has_document_cover? ? "" : "hidden",
               data: { "design--toggle-visibility-target": "content" }
             ) do
-              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { "Cover Type" }
+              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.cover_type") }
               select(
                 name: "document_design[cover_type]",
                 class: "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm",
@@ -249,13 +249,13 @@ module Design
                       href: typography_panel_url(override),
                       data: { turbo_frame: "properties_panel" },
                       class: "text-xs text-blue-600 hover:underline"
-                    ) { "Edit" }
+                    ) { I18n.t("design.properties_panel.edit") }
                   else
                     a(
                       href: typography_override_url(style.name),
                       data: { turbo_method: "post", turbo_frame: "properties_panel" },
                       class: "text-xs text-blue-600 hover:underline"
-                    ) { "Edit" }
+                    ) { I18n.t("design.properties_panel.edit") }
                   end
                 end
               end
@@ -263,7 +263,7 @@ module Design
 
             if @editable
               a(href: typography_new_style_url, data: { turbo_frame: "properties_panel" }) do
-                render RubyUI::Button.new(variant: :outline, size: :sm, class: "w-full mt-2") { "Add Style" }
+                render RubyUI::Button.new(variant: :outline, size: :sm, class: "w-full mt-2") { I18n.t("design.properties_panel.add_style") }
               end
             end
           end
@@ -300,7 +300,7 @@ module Design
         # --------------- Existing engine sections (ported from FormPanel) ---------------
 
         def heading_elements_section
-          h2(class: "text-lg font-medium text-slate-900") { "Heading Elements" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.properties_panel.heading_elements") }
           div(class: "rounded border border-slate-200 p-3 flex flex-col gap-2",
               data: { controller: "design--heading-elements" }) do
             div(data: { "design--heading-elements-target": "list" }) do
@@ -319,13 +319,13 @@ module Design
                   type: "button",
                   class: "px-3 py-1.5 text-xs font-medium rounded bg-slate-100 border border-slate-300 opacity-50 cursor-not-allowed",
                   disabled: true
-                ) { "+ Add" }
+                ) { I18n.t("design.properties_panel.add") }
               else
                 button(
                   type: "button",
                   class: "px-3 py-1.5 text-xs font-medium rounded bg-slate-100 border border-slate-300 hover:bg-slate-200",
                   data: { action: "design--heading-elements#add" }
-                ) { "+ Add" }
+                ) { I18n.t("design.properties_panel.add") }
               end
             end
             div(hidden: true, data: { "design--heading-elements-target": "template" }) { heading_element_row(nil, "IDX") }
@@ -366,7 +366,7 @@ module Design
         end
 
         def heading_background_section
-          h2(class: "text-lg font-medium text-slate-900") { "Heading Background" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.properties_panel.heading_background") }
           current = @document_design.heading_bg_type || "color"
           div(class: "rounded border border-slate-200 p-3 flex flex-col gap-3",
               data: { controller: "design--heading-bg" }) do
@@ -381,13 +381,13 @@ module Design
                     data: { action: "design--heading-bg#typeChanged", "design--heading-bg-target": "typeRadio" },
                     **disabled_attr
                   )
-                  plain bg_type.capitalize
+                  plain I18n.t("design.options.bg_type.#{bg_type}")
                 end
               end
             end
             div(class: current == "color" ? "" : "hidden",
                 data: { "design--heading-bg-target": "colorFields" }) do
-              label(class: "block text-xs font-medium mb-1 text-slate-600") { "Color" }
+              label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.color") }
               div(class: "flex items-center gap-1", data: { controller: "design--color-mode-field" }) do
                 input(
                   type: "color",
@@ -416,31 +416,31 @@ module Design
             end
             div(class: current == "image" ? "" : "hidden",
                 data: { "design--heading-bg-target": "imageFields" }) do
-              label(class: "block text-xs font-medium mb-1 text-slate-600") { "Image" }
+              label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.image") }
               input(type: "file", name: "document_design[heading_bg_image]", accept: "image/*",
                     class: "w-full text-xs", **disabled_attr)
               if @document_design.heading_bg_image.attached?
-                p(class: "text-xs text-slate-500 mt-1") { "Current: #{@document_design.heading_bg_image.filename}" }
+                p(class: "text-xs text-slate-500 mt-1") { I18n.t("design.properties_panel.current_image", filename: @document_design.heading_bg_image.filename) }
               end
             end
             div(class: current == "gradient" ? "" : "hidden",
                 data: { "design--heading-bg-target": "gradientFields" }) do
               div(class: "grid grid-cols-2 gap-2") do
                 div do
-                  label(class: "block text-xs font-medium mb-1 text-slate-600") { "Start" }
+                  label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.gradient_start") }
                   input(type: "color", name: "document_design[heading_bg_gradient_start]",
                         value: @document_design.heading_bg_gradient_start || "#ffffff",
                         class: "w-full h-8 rounded border cursor-pointer", **disabled_attr)
                 end
                 div do
-                  label(class: "block text-xs font-medium mb-1 text-slate-600") { "End" }
+                  label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.gradient_end") }
                   input(type: "color", name: "document_design[heading_bg_gradient_end]",
                         value: @document_design.heading_bg_gradient_end || "#000000",
                         class: "w-full h-8 rounded border cursor-pointer", **disabled_attr)
                 end
               end
               div do
-                label(class: "block text-xs font-medium mb-1 text-slate-600") { "Angle (degrees)" }
+                label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.angle") }
                 input(type: "number", name: "document_design[heading_bg_gradient_angle]",
                       value: (@document_design.heading_bg_gradient_angle || 0).to_s,
                       min: 0, max: 360, step: 1,
@@ -452,25 +452,25 @@ module Design
         end
 
         def header_footer_section
-          h2(class: "text-lg font-medium text-slate-900") { "Header / Footer" }
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.properties_panel.header_footer") }
           div(class: "flex flex-wrap gap-4") do
-            checkbox_field("Header", :has_header)
-            checkbox_field("Footer", :has_footer)
-            checkbox_field("Show on first page", :show_header_footer_on_first_page)
+            checkbox_field(I18n.t("design.properties_panel.header"), :has_header)
+            checkbox_field(I18n.t("design.properties_panel.footer"), :has_footer)
+            checkbox_field(I18n.t("design.properties_panel.show_on_first_page"), :show_header_footer_on_first_page)
           end
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            header_footer_slot("Header Left",  :header_left)
-            header_footer_slot("Header Right", :header_right)
-            header_footer_slot("Footer Left",  :footer_left)
-            header_footer_slot("Footer Right", :footer_right)
+            header_footer_slot(I18n.t("design.properties_panel.header_left"),  :header_left)
+            header_footer_slot(I18n.t("design.properties_panel.header_right"), :header_right)
+            header_footer_slot(I18n.t("design.properties_panel.footer_left"),  :footer_left)
+            header_footer_slot(I18n.t("design.properties_panel.footer_right"), :footer_right)
           end
         end
 
         def header_footer_slot(label_text, slot_prefix)
           div(class: "rounded border border-slate-200 p-3 space-y-1") do
             h4(class: "text-xs font-semibold text-slate-600") { label_text }
-            number_field("Y-offset (mm)", :"#{slot_prefix}_y_offset", step: "0.1")
-            text_field("Content", :"#{slot_prefix}_content_string")
+            number_field(I18n.t("design.properties_panel.y_offset"), :"#{slot_prefix}_y_offset", step: "0.1")
+            text_field(I18n.t("design.properties_panel.content"), :"#{slot_prefix}_content_string")
           end
         end
 
