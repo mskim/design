@@ -155,6 +155,8 @@ module Design
         :has_header, :has_footer,
         :header_left_content_string, :header_right_content_string,
         :footer_left_content_string, :footer_right_content_string,
+        :header_left_y_offset, :header_right_y_offset,
+        :footer_left_y_offset, :footer_right_y_offset,
         :show_header_footer_on_first_page,
         :heading_bg_type, :heading_bg_color, :heading_bg_image,
         :heading_bg_gradient_start, :heading_bg_gradient_end, :heading_bg_gradient_angle,

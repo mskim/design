@@ -459,10 +459,18 @@ module Design
             checkbox_field("Show on first page", :show_header_footer_on_first_page)
           end
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            text_field("Header Left", :header_left_content_string)
-            text_field("Header Right", :header_right_content_string)
-            text_field("Footer Left", :footer_left_content_string)
-            text_field("Footer Right", :footer_right_content_string)
+            header_footer_slot("Header Left",  :header_left)
+            header_footer_slot("Header Right", :header_right)
+            header_footer_slot("Footer Left",  :footer_left)
+            header_footer_slot("Footer Right", :footer_right)
+          end
+        end
+
+        def header_footer_slot(label_text, slot_prefix)
+          div(class: "rounded border border-slate-200 p-2 space-y-1.5") do
+            h4(class: "text-xs font-semibold text-slate-600") { label_text }
+            number_field("Y-offset (mm)", :"#{slot_prefix}_y_offset", step: "0.1")
+            text_field("Content", :"#{slot_prefix}_content_string")
           end
         end
 
