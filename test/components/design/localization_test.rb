@@ -1,7 +1,7 @@
 require "test_helper"
 
 class Design::LocalizationTest < ActiveSupport::TestCase
-  def panel(doc_type: "toc")
+  def panel_render(doc_type: "toc")
     theme = Design::Theme.create!(name: "L #{SecureRandom.hex(3)}", locale: "ko")
     ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     dd = ps.document_designs.create!(doc_type: doc_type)
@@ -19,7 +19,7 @@ class Design::LocalizationTest < ActiveSupport::TestCase
   end
 
   test "v-align select keeps English values but shows Korean labels in :ko" do
-    html = I18n.with_locale(:ko) { panel }
+    html = I18n.with_locale(:ko) { panel_render }
     # stored values stay English (the renderer reads these):
     assert_includes html, %(value="center")
     assert_includes html, %(value="top")
@@ -30,7 +30,7 @@ class Design::LocalizationTest < ActiveSupport::TestCase
   end
 
   test "properties panel renders Korean labels, no English leftovers" do
-    html = I18n.with_locale(:ko) { panel }
+    html = I18n.with_locale(:ko) { panel_render }
     assert_includes html, "레이아웃"          # Layout tab
     assert_includes html, "본문 줄 수"         # Body Line Count
     assert_includes html, "단락정의"           # Typography (user glossary)
@@ -40,9 +40,7 @@ class Design::LocalizationTest < ActiveSupport::TestCase
   end
 
   test "fields render Korean, no English leftovers" do
-    theme = Design::Theme.create!(name: "F #{SecureRandom.hex(3)}", locale: "ko")
-    style = theme.base_paragraph_styles.create!(name: "body", font_size: 10)
-    html = I18n.with_locale(:ko) { Design::Views::ParagraphStyles::Fields.new(paragraph_style: style, editable: true).call }
+    html = I18n.with_locale(:ko) { fields_render }
     assert_includes html, "자간"       # Tracking
     assert_includes html, "어간"       # Space Width (user glossary)
     assert_includes html, "행간"       # Line Spacing
@@ -52,27 +50,51 @@ class Design::LocalizationTest < ActiveSupport::TestCase
   end
 
   test "preview overlay labels are Korean" do
-    theme = Design::Theme.create!(name: "P #{SecureRandom.hex(3)}", locale: "ko")
-    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    dd = ps.document_designs.create!(doc_type: "title_page")
-    html = I18n.with_locale(:ko) do
-      Design::Views::DocumentDesigns::Preview.new(
-        document_design: dd, paper_size: ps, jpg_url: "/x.jpg",
-        overlay_data: [{ type: "heading_area", markup: "title", x: 0, y: 0, width: 50, height: 10 }],
-        page_width: 100, page_height: 100, style_urls: {}
-      ).call
-    end
+    html = I18n.with_locale(:ko) { preview_render }
     assert_includes html, "제목"   # Title overlay label
   end
 
   test "preview error is Korean" do
-    html = I18n.with_locale(:ko) { Design::Views::DocumentDesigns::PreviewError.new(error: "boom").call }
+    html = I18n.with_locale(:ko) { preview_error_render }
     assert_includes html, "미리보기 생성 실패"
     refute_includes html, "Preview generation failed"
   end
 
   test "paragraph panel renders Korean chrome" do
-    theme = Design::Theme.create!(name: "PN #{SecureRandom.hex(3)}", locale: "ko")
+    html = I18n.with_locale(:ko) { paragraph_panel_render }
+    assert_includes html, "저장"
+    assert_includes html, "← 뒤로"
+    assert_includes html, "기본값으로 되돌리기"
+    refute_includes html, ">Save<"
+    refute_includes html, "Revert to base"
+    assert_not_includes html, "translation missing"
+  end
+
+  # --- helpers for the cross-component no-leftover guard ---
+
+  def fields_render
+    theme = Design::Theme.create!(name: "GF #{SecureRandom.hex(3)}", locale: "ko")
+    style = theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    Design::Views::ParagraphStyles::Fields.new(paragraph_style: style, editable: true).call
+  end
+
+  def preview_render
+    theme = Design::Theme.create!(name: "GP #{SecureRandom.hex(3)}", locale: "ko")
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.create!(doc_type: "title_page")
+    Design::Views::DocumentDesigns::Preview.new(
+      document_design: dd, paper_size: ps, jpg_url: "/x.jpg",
+      overlay_data: [{ type: "heading_area", markup: "title", x: 0, y: 0, width: 50, height: 10 }],
+      page_width: 100, page_height: 100, style_urls: {}
+    ).call
+  end
+
+  def preview_error_render
+    Design::Views::DocumentDesigns::PreviewError.new(error: "boom").call
+  end
+
+  def paragraph_panel_render
+    theme = Design::Theme.create!(name: "GPN #{SecureRandom.hex(3)}", locale: "ko")
     style = theme.base_paragraph_styles.create!(name: "body", font_size: 10)
     c = Design::Views::ParagraphStyles::Panel.new(paragraph_style: style, panel_update_url: "/x", back_url: "/x", revert_url: "/x", editable: true)
     c.define_singleton_method(:helpers) do
@@ -80,12 +102,65 @@ class Design::LocalizationTest < ActiveSupport::TestCase
       def o.form_authenticity_token = "t"
       o
     end
-    html = I18n.with_locale(:ko) { c.call }
-    assert_includes html, "저장"
-    assert_includes html, "← 뒤로"
-    assert_includes html, "기본값으로 되돌리기"
-    refute_includes html, ">Save<"
-    refute_includes html, "Revert to base"
-    assert_not_includes html, "translation missing"
+    c.call
+  end
+
+  def paper_sizes_edit_render
+    theme = Design::Theme.create!(name: "GPS #{SecureRandom.hex(3)}", locale: "ko")
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    base = theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    c = Design::Views::PaperSizes::Edit.new(theme: theme, paper_size: ps, base_styles: [ base ])
+    c.define_singleton_method(:helpers) do
+      o = Object.new
+      def o.theme_path(*) = "/x"
+      def o.theme_paper_size_path(*) = "/x"
+      def o.edit_theme_paper_size_base_paragraph_style_path(*) = "/x"
+      def o.form_authenticity_token = "t"
+      o
+    end
+    c.call
+  end
+
+  test "no English leftovers across unit-renderable components under :ko" do
+    # Curated, SAFE glossary labels: distinctive English visible-label text that
+    # must be translated under :ko and that does NOT collide with CSS classes,
+    # HTML attributes, data-*, or intentional literals (CMYK/Hex/pt/mm/font
+    # names/etc. are exempt). Intentionally excludes words like Color/Image/Name/
+    # Top/Left/Border/Fill that appear inside markup attributes.
+    deny = %w[
+      Layout
+      Typography
+      Tracking
+      Margins
+      Generating
+      Heading
+    ]
+    deny += [
+      "Space Width",
+      "Line Spacing",
+      "Binding Margin",
+      "Base Text Styles",
+      "Revert to base",
+      "New Style",
+      "Generating preview",
+      "Heading V-Align",
+      "Body Line Count"
+    ]
+
+    renders = I18n.with_locale(:ko) do
+      [
+        panel_render,
+        fields_render,
+        preview_render,
+        preview_error_render,
+        paragraph_panel_render,
+        paper_sizes_edit_render
+      ]
+    end
+
+    renders.each do |html|
+      deny.each { |w| assert_not_includes html, w }
+      assert_not_includes html, "translation missing"
+    end
   end
 end
