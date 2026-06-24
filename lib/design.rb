@@ -1,6 +1,7 @@
 module RubyUI; end
 
 require_relative "design/engine"
+require_relative "design/action_registry"
 
 module Design
   class Configuration
@@ -11,6 +12,8 @@ module Design
       @user_class = "User"
       @authoring  = false
     end
+
+    def actions = @actions ||= Design::ActionRegistry.new
   end
 
   class << self
