@@ -13,13 +13,13 @@ module Design
         end
 
         def view_template
-          shell(title: @document_design.doc_type, action_slot: nil, sidebar: nil) do
+          shell(title: doc_type_label(@document_design.doc_type), action_slot: nil, sidebar: nil) do
             div(class: "mx-auto max-w-6xl px-6 py-10 flex flex-col gap-8") do
               render Design::Views::DocumentDesigns::EditorToolbar.new(
                 theme: @theme, paper_size: @paper_size, document_design: @document_design
               )
 
-              h1(class: "text-2xl font-semibold text-slate-900") { @document_design.doc_type }
+              h1(class: "text-2xl font-semibold text-slate-900") { doc_type_label(@document_design.doc_type) }
 
               div(class: "flex flex-col lg:flex-row gap-6") do
                 div(class: "flex-1 min-w-0") { preview_section }
