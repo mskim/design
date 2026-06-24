@@ -63,7 +63,7 @@ book_design has the full editor; it's pure-UI-portable **except** the preview, w
 ## Testing (Minitest)
 
 - **Controller:** `edit` renders the editor (sections + reset button); `update` round-trips the 11 fields (persist + redirect); invalid → 422; `reset` re-seeds the named preset's defaults (set a field, reset, assert it returns to the seeded default); `show` redirects to edit. All under an editable theme (auth guard enforced — a non-editable/system theme → 403).
-- **Preview endpoint:** with `Design.config.table_style_preview` stubbed to return a blob → `send_data` 200 image/jpeg; with it unset → `head :not_found`. (Reset the hook in `ensure`.)
+- **Preview endpoint:** with `Design.config.table_style_preview` set to return a blob → `send_data` 200 image/jpeg; with it unset → `head :not_found`. Set the hook directly (`Design.config.table_style_preview = ->(t, ts) { "JPGDATA" }`) and reset to `nil` in `ensure` — **not** `Object#stub` (Minitest 6 has no mock; see MEMORY).
 - **Components:** Edit renders the preview `<img>` when the hook is registered and the placeholder when not; Form renders the three sections with the right field names; theme-show renders the table-styles grid linking to each edit path.
 - **Locale parity:** `test/i18n/locale_parity_test.rb` green.
 
