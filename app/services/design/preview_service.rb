@@ -701,14 +701,7 @@ module Design
     end
 
     def convert_pdf_to_jpg(pdf_path, jpg_path)
-      # Read PDF as buffer to bypass Vips file-path caching
-      pdf_data = File.binread(pdf_path)
-      image = Vips::Image.new_from_buffer(pdf_data, "", dpi: PREVIEW_DPI, access: :sequential)
-      # Flatten alpha to white background if present
-      if image.bands == 4
-        image = image.flatten(background: [255, 255, 255])
-      end
-      image.jpegsave(jpg_path, Q: 85)
+      Design::PdfToJpg.convert(pdf_path, jpg_path, dpi: PREVIEW_DPI)
     end
 
     def synthesize_toc_heading_overlay
