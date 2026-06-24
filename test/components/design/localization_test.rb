@@ -105,15 +105,16 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     c.call
   end
 
-  def paper_sizes_edit_render
+  def paper_sizes_form_render
     theme = Design::Theme.create!(name: "GPS #{SecureRandom.hex(3)}", locale: "ko")
     ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     base = theme.base_paragraph_styles.create!(name: "body", font_size: 10)
-    c = Design::Views::PaperSizes::Edit.new(theme: theme, paper_size: ps, base_styles: [ base ])
+    c = Design::Views::PaperSizes::Form.new(theme: theme, paper_size: ps, base_styles: [ base ])
     c.define_singleton_method(:helpers) do
       o = Object.new
       def o.theme_path(*) = "/x"
       def o.theme_paper_size_path(*) = "/x"
+      def o.regenerate_theme_paper_size_path(*) = "/x"
       def o.edit_theme_paper_size_base_paragraph_style_path(*) = "/x"
       def o.form_authenticity_token = "t"
       o
@@ -159,7 +160,7 @@ class Design::LocalizationTest < ActiveSupport::TestCase
         preview_render,
         preview_error_render,
         paragraph_panel_render,
-        paper_sizes_edit_render
+        paper_sizes_form_render
       ]
     end
 
