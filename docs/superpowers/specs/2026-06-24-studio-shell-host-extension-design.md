@@ -20,7 +20,7 @@ There are two parallel UIs editing the same `Design::*` data: the lean gem studi
 - **Gem layout** `app/views/layouts/design.html.erb`: minimal `<body class="design-studio"><main>flash + yield</main></body>`, links the scoped `design` stylesheet. No nav chrome.
 - **Gem base component** `app/components/design/views/base.rb`: includes `Phlex::HTML`, Routes/ButtonTo/TurboFrameTag, `RubyUI`. Area views wrap content in a centered `.design-studio mx-auto max-w-6xl …` div. Navigation is `Design::Views::Breadcrumb` only.
 - **`Design::Configuration`** (`lib/design.rb`) already exposes host hooks (`current_user`, `authorize`, `authenticate`, `user_class`, `authoring`, `locale_for`, `home_url`, `themes_dir`) — the established pattern this spec extends with an `actions` registry.
-- **book_design** uses per-page contextual sidebars (e.g. `Pages::PaperSizes::Show` renders a sidebar of that size's doc-types), top action bars, and `Shared::EditorToolbar` (a breadcrumb + doc-type quick-switch dropdown). Both apps use **RubyUI**, so the design-token palette is largely shared; the gem's scoped Tailwind build (`app/assets/tailwind/design.css`, `source(none)` + `@source` over component files) compiles whatever classes the ported components use.
+- **book_design** uses per-page contextual sidebars (e.g. `Pages::PaperSizes::Show` renders a sidebar of that size's doc-types), top action bars, and `Shared::EditorToolbar` (a breadcrumb + doc-type quick-switch dropdown). Both apps use **RubyUI**, but **neither defines the RubyUI token palette** — verified: `--primary`/`--background`/`text-muted-foreground` produce 0 rules in both builds, so RubyUI buttons (`bg-primary`) and `text-muted-foreground` (used 52× in book_design) currently no-op; book_design's look comes from explicit utilities (slate/gray/blue) + layout classes that DO compile. The gem's scoped Tailwind build (`design.css`, `source(none)` + `@source` over component files) compiles whatever **explicit** classes the ported components use, but **not** the missing tokens.
 - **Host-only tools in book_design** surfaced as buttons/links: New theme, Import, Generate, Style browser (themes index); Export DB, Generate PDFs, Clone (theme show); Regenerate (paper size). Their actual flows are host controllers/pages.
 
 ## Decisions
@@ -29,7 +29,7 @@ There are two parallel UIs editing the same `Design::*` data: the lean gem studi
 |---|----------|
 | 1 | **Host-extension = declarative action registry.** Hosts register button **descriptors** per named slot via `Design.config.actions.for(slot){…}`; the gem renders them. book_write registers nothing → no buttons. |
 | 2 | **Shell = contextual sidebar (book_design model).** Top bar (home link + title/breadcrumb + host-action slot) + optional per-area sidebar slot + full-screen main. No global fixed nav. |
-| 3 | **Adopt book_design's styling wholesale** (token palette + doc-type colors) into the gem's **scoped** `.design-studio` build — fidelity first. No host CSS bleed; book_write isolated. |
+| 3 | **Author the RubyUI token palette** (from the RubyUI install template — neither app has it today) into the gem's **scoped** `.design-studio` build, so the studio is properly styled. Explicit utilities compile automatically via `@source`. No host CSS bleed; book_write isolated. |
 | 4 | **#0 re-houses the existing gem pages** in the shell as the verifiable deliverable; rich content ports are #1–#5. |
 | 5 | **Top bar is minimal:** home link + title/breadcrumb + action slot. No locale indicator / theme switcher in #0. |
 | 6 | **Doc-type switcher deferred to #3** (it's document-design-editor-specific). |
@@ -38,28 +38,34 @@ There are two parallel UIs editing the same `Design::*` data: the lean gem studi
 
 ### Action registry (the contract)
 
-`Design::Configuration#actions` returns a `Design::ActionRegistry`:
+`Design::Configuration#actions` returns a `Design::ActionRegistry` that only **stores raw blocks** — it does NOT call them (a `Proc` is bound to its definition site, the initializer, where `main_app`/route helpers don't exist; calling it there raises `NameError`). The block must be **re-bound to the view context** at render time. This mirrors the gem's existing host-hook pattern — `home_url` is invoked as `helpers.instance_exec(&Design.config.home_url)` (`app/components/design/views/themes/index.rb:25`; same `instance_exec` pattern in `app/controllers/design/application_controller.rb:22,46`).
+
 ```ruby
 module Design
   class ActionRegistry
-    def for(slot, &block) = registrations[slot.to_sym] = block      # host registers
-    def resolve(slot, context = nil) = registrations[slot.to_sym]   # gem renders
-      &.then { |b| Array(b.arity.zero? ? b.call : b.call(context)) } || []
+    def for(slot, &block) = registrations[slot.to_sym] = block   # host registers a block
+    def resolve(slot)     = registrations[slot.to_sym]           # gem fetches the RAW block (or nil)
     private def registrations = @registrations ||= {}
   end
 end
 ```
 - **Descriptor schema** (a Hash): `label:` (required), `path:` (required), `method:` (`:get`/`:post`/`:delete`, default `:get`), `icon:` (optional symbol), `confirm:` (optional string), `variant:` (optional RubyUI button variant).
-- **Gem render helper** `render_host_actions(slot, context = nil)` (in `Design::Views::Base`): calls `Design.config.actions.resolve(slot, context)` and renders each descriptor as a `RubyUI::Button`/link with the path + method (`button_to` for non-GET, `a` for GET), icon, and confirm. **The registered block is evaluated at render time inside the view context**, so host route helpers resolve via `main_app.*`.
-- **book_design** registers in `config/initializers/design.rb`:
+- **Gem render helper** `render_host_actions(slot, context = nil)` (in `Design::Views::Base`):
   ```ruby
-  Design.config.actions.for(:theme_show) do |theme|
-    [ { label: "Export", path: Rails.application.routes.url_helpers.export_theme_db_path(theme), method: :post, icon: :download },
-      { label: "Generate PDFs", path: …generate_style_pdfs_path(theme), method: :post } ]
+  def render_host_actions(slot, context = nil)
+    block = Design.config.actions.resolve(slot) or return
+    Array(helpers.instance_exec(context, &block)).each { |d| render_action_descriptor(d) }
   end
   ```
-  (Exact route-helper access — `main_app.*` in view vs `url_helpers` in block — is settled in the plan; the block runs in the gem view context where `main_app` is available, so the simplest form returns descriptors using `main_app.*`.)
-- **book_write** registers nothing → every slot resolves to `[]` → no host buttons. Graceful by construction; no gem code path assumes a host action exists.
+  `helpers.instance_exec` re-binds the block against the Phlex view's `ActionView` context, where **`main_app.*` resolves host routes** (the engine is `isolate_namespace Design`, so bare `helpers.export_theme_db_path` would hit the *engine's* routes — host routes are reachable only via `helpers.main_app.*`). `render_action_descriptor` emits `button_to`/`a` per `method`, maps `confirm:` → `data: { turbo_confirm: ... }` (the gem's Turbo convention, cf. the delete button in `themes/index.rb`), and `icon:`/`variant:` onto `RubyUI::Button`.
+- **book_design** registers in `config/initializers/design.rb` — descriptors use `main_app.*`:
+  ```ruby
+  Design.config.actions.for(:theme_show) do |theme|
+    [ { label: "Export",        path: main_app.export_theme_db_path(theme),     method: :post, icon: :download },
+      { label: "Generate PDFs", path: main_app.generate_style_pdfs_path(theme), method: :post } ]
+  end
+  ```
+- **book_write** registers nothing → `resolve` returns `nil` → `render_host_actions` no-ops → no host buttons. Graceful by construction; no gem code path assumes a host action exists.
 
 ### Shell component
 
@@ -71,20 +77,27 @@ renders:
 ```
 .design-studio (full-screen flex-col)
   ├─ top bar: [home link → Design.config.home_url or themes] · title/breadcrumb · render_host_actions(action_slot, action_context)
-  ├─ flash region
   └─ body (flex): [sidebar component if given] + [main: yield]
 ```
-- `sidebar:` is an optional Phlex component an area supplies (nil → full-width main). #0 ships the shell + an empty/absent sidebar; areas populate it in #1–#5.
-- `Design::Views::Base` gains `render_host_actions` + a `shell(**opts, &block)` convenience. The gem `design.html.erb` layout stays the outer HTML; `Shell` is the in-`<main>` chrome (so flash/csrf/asset tags remain in the layout).
+- **Sidebar contract:** `sidebar:` accepts a **Phlex component instance** (or `nil` → full-width main). When present, `Shell` renders it via `render sidebar` in a fixed-width left column (`w-64`, vertical-scroll) with main flexing to fill; when `nil`, main spans full width. #0 ships the shell with **no sidebar** (all re-housed pages pass `nil`); #1–#5 supply area sidebars conforming to this contract.
+- **Flash stays in the layout.** `design.html.erb` keeps its existing `data-flash` divs in `<main>` (above the Shell); `Shell` does **not** render flash. (Placement above the top bar is acceptable for #0; a later sub-project may move it in.)
+- **No JavaScript in #0.** The shell is fully static server-render (home link `a`, host actions via `button_to`/`a`); no Stimulus controller. (The interactive doc-type dropdown — `Shared::EditorToolbar` — is deferred to #3.)
+- `Design::Views::Base` gains `render_host_actions` + a `shell(**opts, &block)` convenience. `design.html.erb` stays the outer HTML (csrf/asset tags + flash); `Shell` is the in-`<main>` chrome.
 - **Slot-naming convention:** `<area>_<context>` — `themes_index`, `theme_show`, `paper_size_show`, `document_design_editor`, etc. #0 defines the convention + mechanism and wires the slots the **re-housed existing pages** use (`themes_index`, `theme_show`); later sub-projects add theirs.
 
 ### Styling foundation
 
-Adopt book_design's RubyUI/Tailwind **token palette** (the `--background`/`--foreground`/`--muted`/… CSS variables + doc-type color helpers) into the gem's scoped `design.css`, kept under `.design-studio`. Since both apps already use RubyUI, much of the palette is shared; the work is ensuring the gem's scoped build defines the same CSS variables and that doc-type color/icon helpers exist in the gem. Verify the exact token source in book_design (RubyUI install CSS vs a theme block) and mirror it into the gem build. Rebuild `app/assets/builds/design.css` (per the existing `design:tailwind:build` flow) and keep the freshness test green.
+**There is no existing token palette to copy** — verified: neither the gem's `design.css` nor book_design's `tailwind.css` defines the RubyUI tokens (`--primary`/`--background`/… → 0 rules in both builds). book_design's components use `text-muted-foreground` 52× and RubyUI buttons emit `bg-primary`, but those classes produce **no CSS rules today** — they silently no-op; book_design "looks fine" only because it leans on explicit utilities (slate/gray/blue) + layout classes that DO compile. The real token source is the **RubyUI install template** (`ruby_ui/install/templates/tailwind.css.erb`): a `:root { --background … --primary … --ring … }` block + an `@theme inline { --color-primary: var(--primary); … }` mapping.
+
+So the styling work is to **author that token block fresh** into the gem's scoped `design.css` (so RubyUI components + token classes actually render — making the studio properly styled, and at least as good as book_design). Two concrete tasks:
+1. Port the RubyUI install template's `:root` + `@theme inline` into `design.css`, plus the doc-type color helpers the ported pages will need.
+2. **Verify the tokens survive `Design::TailwindScoper.scope(..., under: ".design-studio")`** — a top-level `:root{}` re-scoped under `.design-studio` must still apply to elements inside the studio (the scoper may rewrite/strip `:root`; confirm via a rendered check, and adjust the scoper or emit the variables on `.design-studio {}` instead of `:root {}` if needed).
+
+Explicit utility classes (slate/blue/layout) need no token work — the gem's scoped `@source "../../components/**"` build compiles them automatically once the components live in the gem. Rebuild `app/assets/builds/design.css` via the existing `design:tailwind:build` flow and keep `DesignTailwindBuildFreshnessTest` green. (This is a **medium** task, not a trivial copy.)
 
 ### Scope / proof of #0
 
-Re-house the existing gem pages (`themes/index`, `themes/show`, `paper_sizes/edit`, `document_designs/edit`) in `Shell` — minimal content change, just so the shell + styling are live. Verifiable: `/design/themes` renders the new top bar + book_design-like styling; in book_design a registered `themes_index`/`theme_show` action button appears; in a no-registration context it's absent.
+Re-house the existing gem pages in `Shell` — minimal content change, just so the shell + styling are live. This is **per-view** (the centered `mx-auto max-w-*` wrapper lives in each view's `view_template`, not in `Base`): edit the **4 view files** `app/components/design/views/{themes/index,themes/show,paper_sizes/edit,document_designs/edit}.rb` to call `shell(...)` and drop their own wrapper. `themes/index.rb` already renders its own header + host home link (`:25`) — **remove/de-duplicate** it when the Shell top bar takes over. Verifiable: `/design/themes` renders the new top bar + proper styling; in book_design a registered `themes_index`/`theme_show` action button appears; in a no-registration context it's absent.
 
 ## Data flow
 
@@ -92,17 +105,17 @@ Host boot → `Design.config.actions.for(slot){…}` stores blocks. Request → 
 
 ## Testing
 
-- **`ActionRegistry` unit test:** `for`/`resolve` returns descriptors; unregistered slot → `[]`; arity-0 and arity-1 blocks both work.
-- **`render_host_actions` component test:** renders a registered descriptor as a button with the right path/method; renders nothing when unregistered; honors `method`/`confirm`/`icon`.
-- **`Shell` component test:** renders top bar (home link + title) + main (yielded content); renders the sidebar component when given, omits it when nil.
+- **`ActionRegistry` unit test:** `for`/`resolve` stores and returns the raw block; unregistered slot → `nil`.
+- **`render_host_actions` component test (incl. the render-time binding):** renders a registered descriptor as a button with the right path/method; **a descriptor whose `path:` is computed from a host route via `main_app.*` resolves correctly** (proves the `instance_exec` binding, not boot-time `call`); renders nothing when unregistered; arity-0 and arity-1 blocks both work; maps `confirm:` → `data-turbo-confirm`; honors `method`/`icon`/`variant`.
+- **`Shell` component test:** renders top bar (home link + title) + main (yielded content); renders the sidebar component (`render sidebar`) when given, omits the column when nil.
 - **Integration:** a gem dummy-app studio page renders through `Shell` (top bar present); with a stubbed registered action → button in output; without → absent.
-- **Styling:** `design.css` rebuilt; the existing `DesignTailwindBuildFreshnessTest` stays green.
+- **Styling:** `design.css` rebuilt; `DesignTailwindBuildFreshnessTest` stays green; **a check that the authored tokens actually apply inside `.design-studio`** after `TailwindScoper` (e.g. the built CSS contains the token variables scoped such that a `.design-studio` element resolves `--primary`).
 - Minitest only.
 
 ## Risks
 
-- **Route-helper context** — the registered block must resolve host routes at render time, not boot. Mitigation: blocks are `call`ed inside the view context (where `main_app`/url helpers exist); the registry stores blocks, never eager strings. A unit test renders a descriptor whose path is computed from a host route.
-- **Token-palette divergence** — if book_design's tokens come from a source the gem lacks, ported components look off. Mitigation: identify the exact token source and mirror it into the scoped build; the #0 proof page surfaces mismatches early.
+- **Route-helper context (was a spec bug, now fixed)** — a registered block is bound to its initializer definition site, so `block.call` raises `NameError` on `main_app`. Mitigation: the registry stores the **raw block**; `render_host_actions` re-binds it via `helpers.instance_exec(context, &block)` in the Phlex view (the proven `home_url` pattern), and descriptors use `main_app.*` (host routes; the engine is `isolate_namespace`d). A unit test renders a descriptor whose path is a host route.
+- **Token authoring + scoper interaction** — neither app defines the RubyUI tokens; they must be authored fresh, and a top-level `:root{}` block re-scoped under `.design-studio` by `Design::TailwindScoper` may not apply. Mitigation: author the tokens (RubyUI install template's `:root` + `@theme inline`), and **verify via a rendered check that they apply inside `.design-studio`** — if the scoper strips/mis-scopes `:root`, emit the variables on `.design-studio {}` instead. Medium task; the #0 proof page surfaces it early.
 - **Scoped-build coverage** — the gem's `@source` globs must cover the shell/new components so their classes compile. Mitigation: shell lives under the already-globbed `app/components/**`.
 - **book_write regression** — additive only (new config method, new components); book_write registers nothing and its `/design` pages gain the shell. Low risk; covered by rendering a studio page with no registrations.
 
