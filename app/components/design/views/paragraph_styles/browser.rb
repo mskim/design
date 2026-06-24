@@ -161,7 +161,8 @@ module Design
           # merged_paragraph_styles when a same-named base exists — not routable.
           # Resolve the persisted override at the doc-design level for the URL.
           if row[:is_override] && row[:document_design]
-            override = row[:document_design].paragraph_styles.find_by(name: row[:style].name)
+            # detect (not find_by) reuses the eager-loaded :paragraph_styles — no extra query per row.
+            override = row[:document_design].paragraph_styles.detect { |ps| ps.name == row[:style].name }
             return override && helpers.edit_theme_paper_size_document_design_paragraph_style_path(row[:theme], row[:paper_size], row[:document_design], override)
           end
           style = row[:style]
