@@ -36,6 +36,18 @@ class Design::ParagraphStylesFormTest < ActionDispatch::IntegrationTest
     assert_equal 9.0, style.reload.font_size
   end
 
+  test "doc-design-level style form renders a live preview frame; theme-level does not" do
+    style = @dd.paragraph_styles.create!(name: "body", font_size: 10)
+    get design.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style)
+    assert_response :success
+    assert_select "turbo-frame#preview_frame"
+    # theme-level: no preview frame
+    tstyle = @theme.base_paragraph_styles.create!(name: "body2", font_size: 10)
+    get design.edit_theme_theme_paragraph_style_path(@theme, tstyle)
+    assert_response :success
+    assert_select "turbo-frame#preview_frame", count: 0
+  end
+
   test "updating a table cell style persists vertical_align" do
     style = @dd.paragraph_styles.create!(name: "table_body_cell", font_size: 9)
     patch design.theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style),

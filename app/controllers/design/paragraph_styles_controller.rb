@@ -26,6 +26,9 @@ module Design
     def form_component
       Design::Views::ParagraphStyles::Form.new(
         paragraph_style: @paragraph_style,
+        theme: @theme,
+        paper_size: @paper_size,
+        document_design: @document_design,
         form_url: helpers.theme_paper_size_document_design_paragraph_style_path(@theme, @paper_size, @document_design, @paragraph_style),
         cancel_url: helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),
         crumbs: [
