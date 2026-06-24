@@ -36,6 +36,22 @@ module Design
       designs.sort_by { |dd| DOC_TYPE_ORDER.index(dd.doc_type) || DOC_TYPE_ORDER.length }
     end
 
+    # Reading-matter groups for the theme show page (mirrors book_design's grouping).
+    FRONTMATTER = %w[title_page inside_cover blank_page copyright toc foreword prologue dedication thanks information].freeze
+    BODYMATTER  = %w[chapter poem part_cover document_cover].freeze
+    REARMATTER  = %w[epilogue appendix help].freeze
+
+    # Partition designs into ordered matter groups; doc_types in none land in :other.
+    def self.grouped_by_matter(designs)
+      ordered = by_reading_order(designs)
+      {
+        frontmatter: ordered.select { |dd| FRONTMATTER.include?(dd.doc_type) },
+        bodymatter:  ordered.select { |dd| BODYMATTER.include?(dd.doc_type) },
+        rearmatter:  ordered.select { |dd| REARMATTER.include?(dd.doc_type) },
+        other:       ordered.reject { |dd| (FRONTMATTER + BODYMATTER + REARMATTER).include?(dd.doc_type) }
+      }
+    end
+
     DEFAULT_HEADING_ELEMENTS = {
       "inside_cover" => %w[title subtitle author publisher],
       "part_cover" => %w[title subtitle],
