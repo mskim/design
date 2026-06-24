@@ -17,7 +17,7 @@ The gem's `Design::Views::Themes::*` are sparse vs book_design's `Pages::Themes:
 
 ## Key findings (from exploration)
 
-- **Preview:** `Design::PreviewService` lives in the gem (`app/services/design/preview_service.rb`); `.generate` does PDF→JPG and returns `{ success:, jpg_path:, … }` with a tmp cache keyed on `DocumentDesign#updated_at`. book_design **calls `.generate` before** rendering the `<img src=preview_jpg_…_path(…, t: Time.now.to_i)>`; the gem's card renders the `<img>` without generating first. This is why studio previews are missing/broken.
+- **Preview:** `Design::PreviewService` lives in the gem (`app/services/design/preview_service.rb`); `.generate` does PDF→JPG and returns `{ success:, jpg_path:, … }` with a tmp cache keyed on a **content fingerprint** (MD5 of the design/paper-size/theme + paragraph-style/heading-element `updated_at`s), so it skips re-rendering unchanged designs. book_design **calls `.generate` before** rendering the `<img src=preview_jpg_…_path(…, t: Time.now.to_i)>`; the gem's card renders the `<img>` without generating first. This is why studio previews are missing/broken.
 - **Index:** gem `themes/index.rb` = 2-col System/Custom, `chapter_preview` (no generate), counts only. book_design `pages/themes/index.rb` = responsive `grid-cols-2…lg:grid-cols-6`, `RubyUI::Card`, generate-first preview, paper-size badges + body font.
 - **Show:** gem `themes/show.rb` = paper-size tabs + turbo-frame + flat 5-col grid (now via `Design::DocumentDesign.by_reading_order`). book_design `pages/themes/show.rb` = grouped by Frontmatter/Bodymatter/Rearmatter, pre-populated previews, plus table-styles + other-sizes (out of scope here).
 - **Form/CRUD:** gem `Design::ThemesController` has only `index/show/update(rename)/destroy/clone/generate_sizes`; engine routes lack `new/create/edit`. book_design `Pages::Themes::Form` collects name/description/locale + body-font/body-size/heading-font; `ThemesController#new/create/edit/update`. The fields are model attributes (`Design::Theme`: `name, description, locale, base_body_font, base_body_font_size, base_heading_font`, with `AVAILABLE_FONTS`) — **pure, gem-movable**.
@@ -57,11 +57,11 @@ def theme_chapter_preview(theme)
   img(src: helpers.preview_jpg_theme_paper_size_document_design_path(theme, ps, dd, t: cache_buster), …)
 end
 ```
-`cache_buster` derives from `dd.updated_at.to_i` (stable per content, busts on change) rather than `Time.now` (which defeats browser caching every load) — a small improvement over book_design's `Time.now.to_i` that still matches behavior. The show grid generates per visible doc design similarly.
+`cache_buster` matches book_design's `t: Time.now.to_i` (always-fresh thumbnail — the `PreviewService` fingerprint cache already avoids re-rendering unchanged designs on disk; the `Time.now` URL param means the browser re-fetches each load, which is acceptable now and folded into the deferred preview-perf pass per Decision 7). The show grid generates per visible doc design similarly. (A future perf pass can swap the URL param to the service's content fingerprint so the browser caches too.)
 
 ### Doc-type matter groups
 
-Add to `Design::DocumentDesign` (next to `DOC_TYPE_ORDER`): `FRONTMATTER`, `BODYMATTER`, `REARMATTER` constants (mirroring book_design's grouping). A helper `self.grouped_by_matter(designs)` returns ordered `{ frontmatter: [...], bodymatter: [...], rearmatter: [...] }` (each already `by_reading_order`, unknowns appended to a trailing group or omitted). The show view renders a section per non-empty group.
+Add to `Design::DocumentDesign` (next to `DOC_TYPE_ORDER`): `FRONTMATTER`, `BODYMATTER`, `REARMATTER` constants (mirroring book_design's grouping; the gem names the third group **`REARMATTER`** — book_design calls it `BACKMATTER`, but `REARMATTER` matches the gem's own `DOC_TYPE_ORDER` comment, an intentional rename). A helper `self.grouped_by_matter(designs)` returns ordered `{ frontmatter: [...], bodymatter: [...], rearmatter: [...], other: [...] }` — each bucket already `by_reading_order`; the explicit **`other:`** bucket holds any doc_type in none of the three groups (none today, but a safe parity bucket matching book_design's "Other" section). The show view renders a titled section per **non-empty** group, in that order.
 
 ### Controller + routes (gem)
 
@@ -76,12 +76,12 @@ Add to `Design::DocumentDesign` (next to `DOC_TYPE_ORDER`): `FRONTMATTER`, `BODY
 - **Component:** index renders a flat grid of cards with a generated preview `<img>` when the theme has a chapter doc (stub `PreviewService.generate` → `{success: true, …}`) and no strip when empty; renders name/font/badges; the gem-native "New theme" link present. Show renders the three matter sections in order with the right doc designs in each (stub previews). Form renders all fields + a validation error.
 - **Controller/integration:** `new` renders the form; `create` with valid params makes a theme + redirects to show; invalid → 422 + errors; `edit`/`update` round-trip the font/locale fields; `update` still enforces `editable_by?`.
 - **Preview helper:** `theme_chapter_preview` calls `generate` and only emits the `<img>` on success; cache-buster derives from `updated_at`.
-- **Grouping:** `grouped_by_matter` partitions correctly and orders by `by_reading_order`.
+- **Grouping:** `grouped_by_matter` partitions front/body/rear correctly and orders each by `by_reading_order`; a doc_type in none of the three groups lands in `other:` (and the show view renders only non-empty groups).
 - Minitest only; mirror existing gem component/controller test patterns; stub `PreviewService.generate` so tests don't shell out to PDF rendering.
 
 ## Risks
 
-- **Generate-on-render perf** (Decision 7) — N PDF→JPG per index load. Mitigation: `updated_at`-keyed cache in `PreviewService` already avoids re-rendering unchanged designs; the cache-buster keys on `updated_at` so the browser caches too; full async/batch caching is a deferred follow-up.
+- **Generate-on-render perf** (Decision 7) — N PDF→JPG per index load. Mitigation: the content-fingerprint cache in `PreviewService` already avoids re-rendering unchanged designs on disk; the `Time.now` URL param means the browser still re-fetches each load (matching book_design) — full async/batch caching + a fingerprint-based browser cache-buster is a deferred follow-up.
 - **Metadata-only created themes** (Decision 5) — a gem-created theme has no 34 base styles, so its previews/styles are sparse until cloned-from or host-generated. Matches book_design's plain create; documented in the Form.
 - **PreviewService in tests** — must be stubbed (it shells out to doc_processor_rb + ImageMagick). All preview-touching tests stub `.generate`.
 - **Styling** — book_design's card/badge/section classes must compile in the gem's scoped build; they're explicit utilities + RubyUI under `app/components/**` (already globbed). The intentionally-dead token classes no-op identically (no token authoring).
