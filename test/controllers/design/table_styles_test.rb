@@ -46,10 +46,12 @@ class Design::TableStylesTest < ActionDispatch::IntegrationTest
     assert_select "form[action=?]", design.reset_theme_table_style_path(@theme, @ts)
   end
 
-  test "edit shows a no-preview placeholder when no hook is registered" do
+  test "edit renders the preview frame and img with no hook registered" do
+    assert_nil Design.config.table_style_preview
     get design.edit_theme_table_style_path(@theme, @ts)
-    assert_select "turbo-frame#preview_frame", count: 0   # placeholder renders no preview frame
-    assert_includes response.body, I18n.t("design.table_styles.no_preview")
+    assert_response :success
+    assert_select "turbo-frame#preview_frame img[src*=?]", "preview"
+    assert_not_includes response.body, "No preview"
   end
 
   test "edit shows the preview img when the hook is registered" do

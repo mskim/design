@@ -347,7 +347,6 @@ ko:
       done: "완료"
       reset: "기본값으로 초기화"
       reset_confirm: "이 표 스타일을 기본값으로 초기화할까요?"
-      no_preview: "미리보기 없음"
       card_subtitle: "테두리, 색상, 여백"
 
     shared:

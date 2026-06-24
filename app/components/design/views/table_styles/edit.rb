@@ -20,13 +20,9 @@ module Design
 
         def preview_pane
           div(class: "flex-1 min-w-0 flex items-start justify-center rounded-lg border border-slate-200 bg-slate-50 p-4") do
-            if Design.config.table_style_preview
-              turbo_frame_tag("preview_frame") do
-                img(src: helpers.preview_theme_table_style_path(@theme, @table_style, t: @table_style.updated_at.to_i),
-                    alt: @table_style.name, class: "max-w-full border border-slate-200 bg-white shadow-sm")
-              end
-            else
-              div(class: "py-16 text-sm text-slate-400") { I18n.t("design.table_styles.no_preview") }
+            turbo_frame_tag("preview_frame") do
+              img(src: helpers.preview_theme_table_style_path(@theme, @table_style, t: @table_style.updated_at.to_i),
+                  alt: @table_style.name, class: "max-w-full border border-slate-200 bg-white shadow-sm")
             end
           end
         end

@@ -347,7 +347,6 @@ en:
       done: "Done"
       reset: "Reset to defaults"
       reset_confirm: "Reset this table style to defaults?"
-      no_preview: "No preview"
       card_subtitle: "Borders, colors, padding"
 
     shared:

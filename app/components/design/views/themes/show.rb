@@ -178,11 +178,7 @@ module Design
           a(href: helpers.edit_theme_table_style_path(@theme, ts),
             class: "block rounded-lg border border-slate-200 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all bg-white") do
             div(class: "aspect-[4/3] bg-slate-50 flex items-center justify-center overflow-hidden") do
-              if Design.config.table_style_preview
-                img(src: helpers.preview_theme_table_style_path(@theme, ts, t: ts.updated_at.to_i), alt: ts.name, class: "w-full h-full object-contain")
-              else
-                span(class: "text-xs text-slate-400") { I18n.t("design.table_styles.no_preview") }
-              end
+              img(src: helpers.preview_theme_table_style_path(@theme, ts, t: ts.updated_at.to_i), alt: ts.name, class: "w-full h-full object-contain")
             end
             div(class: "px-3 py-2 border-t border-slate-200") do
               h3(class: "text-sm font-medium text-slate-900") { ts.name.capitalize }
