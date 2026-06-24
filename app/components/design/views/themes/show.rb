@@ -130,7 +130,7 @@ module Design
         def doc_card(dd, index)
           ratio = "#{@selected_paper_size.width_mm} / #{@selected_paper_size.height_mm}"
           jpg_url = helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @selected_paper_size, dd)
-          label = doc_type_label(dd)
+          label = doc_type_label(dd.doc_type)
           div(class: "doc-card flex flex-col gap-1") do
             button(
               type: "button",
@@ -162,9 +162,6 @@ module Design
           end
         end
 
-        def doc_type_label(dd)
-          I18n.t("design.doc_types.#{dd.doc_type}", default: dd.doc_type)
-        end
       end
     end
   end

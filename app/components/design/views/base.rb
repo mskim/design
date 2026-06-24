@@ -27,6 +27,9 @@ module Design
       # Shared button styling — refined to match book_design's action buttons in a later task.
       def action_button_class = "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium border border-slate-300 hover:bg-slate-50"
 
+      # Localized label for a doc_type (falls back to the raw key for unmapped types).
+      def doc_type_label(doc_type) = I18n.t("design.doc_types.#{doc_type}", default: doc_type)
+
       # Generate (cached) the preview for a document design and emit an <img>; if
       # generation fails or args are missing, yield the fallback block (e.g. a
       # placeholder). Generation shells out to PreviewService (matches book_design's
