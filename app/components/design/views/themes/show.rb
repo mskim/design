@@ -39,6 +39,11 @@ module Design
               # Cloning is the read-only consumer's path to editing; an authoring host
               # edits system themes in place, so no clone button when already editable.
               clone_button if @theme.system? && !@theme.editable_by?(Design.current_user)
+              if @theme.editable_by?(Design.current_user)
+                a(href: helpers.edit_theme_path(@theme)) do
+                  RubyUI::Button(variant: :primary) { I18n.t("design.themes.edit_theme_button") }
+                end
+              end
               a(href: helpers.themes_path, class: "text-sm font-medium text-blue-600 hover:underline") do
                 I18n.t("design.themes.back_to_themes")
               end
@@ -83,11 +88,35 @@ module Design
           )
         end
 
+        MATTER_SECTIONS = [
+          [ :frontmatter, "design.themes.frontmatter" ],
+          [ :bodymatter,  "design.themes.bodymatter" ],
+          [ :rearmatter,  "design.themes.rearmatter" ]
+        ].freeze
+
         def doc_grid
+          grouped = Design::DocumentDesign.grouped_by_matter(@document_designs)
+          index = 0
           turbo_frame_tag "doc_grid" do
-            div(class: "doc-grid grid grid-cols-5 gap-4",
+            div(class: "flex flex-col gap-8",
                 data: { controller: "design--preview-gallery", "doc-grid": true }) do
-              @document_designs.each_with_index { |dd, i| doc_card(dd, i) }
+              MATTER_SECTIONS.each do |group, key|
+                designs = grouped[group]
+                next if designs.blank?
+                matter_section(key, designs, index)
+                index += designs.size
+              end
+            end
+          end
+        end
+
+        def matter_section(key, designs, start_index)
+          section do
+            h3(class: "text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3") do
+              I18n.t(key)
+            end
+            div(class: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4") do
+              designs.each_with_index { |dd, i| doc_card(dd, start_index + i) }
             end
           end
         end
@@ -107,7 +136,11 @@ module Design
                 index: index, url: jpg_url, label: label
               }
             ) do
-              img(src: jpg_url, loading: "lazy", alt: label, class: "w-full h-full object-contain")
+              design_preview_img(@theme, @selected_paper_size, dd, img_class: "w-full h-full object-contain") do
+                div(class: "flex h-full w-full items-center justify-center text-xs text-slate-400") do
+                  I18n.t("design.themes.no_preview")
+                end
+              end
             end
             div(class: "flex items-center justify-between gap-1") do
               span(class: "text-xs text-slate-600") { label }
