@@ -27,6 +27,23 @@ module Design
       # Shared button styling — refined to match book_design's action buttons in a later task.
       def action_button_class = "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium border border-slate-300 hover:bg-slate-50"
 
+      # Generate (cached) the preview for a document design and emit an <img>; if
+      # generation fails or args are missing, yield the fallback block (e.g. a
+      # placeholder). Generation shells out to PreviewService (matches book_design's
+      # generate-on-render); the PreviewService fingerprint cache skips unchanged designs.
+      # No `t:` cache-buster — stable JPG URL (browser caches; a fingerprint buster is a
+      # deferred perf follow-up).
+      def design_preview_img(theme, paper_size, document_design, img_class:, &fallback)
+        ok = paper_size && document_design &&
+             Design::PreviewService.new(document_design, paper_size: paper_size).generate[:success]
+        if ok
+          img(src: helpers.preview_jpg_theme_paper_size_document_design_path(theme, paper_size, document_design),
+              alt: document_design.doc_type, class: img_class)
+        elsif fallback
+          fallback.call
+        end
+      end
+
       # Studio chrome convenience. The body block must be passed to render(...) and
       # consumed via yield inside Shell#view_template — a block stored at .new and
       # invoked later renders nothing in Phlex 2.4.1.
