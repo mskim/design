@@ -32,6 +32,17 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
     refute_includes html, %(name="paragraph_style[vertical_align]")
   end
 
+  # ── fill gradient direction: renderer vocabulary (merged with book_design) ──
+
+  test "gradient direction uses the renderer vocabulary + angle (not horizontal/vertical/diagonal)" do
+    html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style).call
+    %w[top_to_bottom bottom_to_top left_to_right right_to_left angle].each do |opt|
+      assert_includes html, %(value="#{opt}"), "expected merged gradient option #{opt}"
+    end
+    refute_includes html, %(value="diagonal")
+    refute_includes html, %(value="horizontal")
+  end
+
   # ── Interactive border/corner widgets (KEEP — not plain text inputs) ──
 
   test "border section renders interactive border-side-editor (not plain text input)" do

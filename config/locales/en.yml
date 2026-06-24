@@ -75,9 +75,11 @@ en:
         solid: "Solid"
         gradient: "Gradient"
       gradient_dir:
-        horizontal: "Horizontal"
-        vertical: "Vertical"
-        diagonal: "Diagonal"
+        top_to_bottom: "Top → Bottom"
+        bottom_to_top: "Bottom → Top"
+        left_to_right: "Left → Right"
+        right_to_left: "Right → Left"
+        angle: "Angle"
       corner_radius:
         none: "None"
         small: "Small"

@@ -75,9 +75,11 @@ ko:
         solid: "단색"
         gradient: "그라데이션"
       gradient_dir:
-        horizontal: "가로"
-        vertical: "세로"
-        diagonal: "대각선"
+        top_to_bottom: "위 → 아래"
+        bottom_to_top: "아래 → 위"
+        left_to_right: "왼쪽 → 오른쪽"
+        right_to_left: "오른쪽 → 왼쪽"
+        angle: "각도"
       corner_radius:
         none: "없음"
         small: "작게"

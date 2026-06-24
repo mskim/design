@@ -93,7 +93,7 @@ module Design
           h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.fill") }
           div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
             select_field(I18n.t("design.fields.fill_type"), :fill_type, %w[none solid gradient], i18n_scope: "fill_type")
-            select_field(I18n.t("design.fields.gradient_dir"), :fill_gradient_direction, %w[horizontal vertical diagonal], include_blank: "— none —", i18n_scope: "gradient_dir")
+            select_field(I18n.t("design.fields.gradient_dir"), :fill_gradient_direction, %w[top_to_bottom bottom_to_top left_to_right right_to_left angle], include_blank: "— none —", i18n_scope: "gradient_dir")
             color_row(I18n.t("design.fields.fill_color"), :fill_color)
             color_row(I18n.t("design.fields.ending_color"), :fill_ending_color)
           end
