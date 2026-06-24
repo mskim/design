@@ -5,6 +5,12 @@ class Design::ThemesIndexFlatTest < ActionDispatch::IntegrationTest
     sign_in :david # admin (can_design?)
   end
 
+  test "themes index links to the style browser" do
+    get design.themes_path
+    assert_response :success
+    assert_select "a[href=?]", design.style_browser_path
+  end
+
   test "index is a single flat grid with a New theme link and rich cards" do
     t = Design::Theme.create!(name: "FlatT #{SecureRandom.hex(3)}", locale: "ko")
     get design.themes_path

@@ -279,6 +279,7 @@ en:
       padding_bottom: "Padding bottom"
 
     style_browser:
+      nav_link: "Style browser"
       title: "Style Browser"
       count: "%{count} paragraph styles"
       back_to_themes: "← Themes"

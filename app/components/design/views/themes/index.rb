@@ -11,8 +11,11 @@ module Design
             div(class: "themes-index mx-auto max-w-7xl px-6 py-10") do
               div(class: "flex items-center justify-between mb-6") do
                 h1(class: "text-2xl font-semibold") { I18n.t("design.themes.index_title") }
-                a(href: helpers.new_theme_path) do
-                  RubyUI::Button(variant: :primary) { I18n.t("design.themes.new_theme") }
+                div(class: "flex items-center gap-4") do
+                  a(href: helpers.style_browser_path, class: "text-sm font-medium text-blue-600 hover:underline") { I18n.t("design.style_browser.nav_link") }
+                  a(href: helpers.new_theme_path) do
+                    RubyUI::Button(variant: :primary) { I18n.t("design.themes.new_theme") }
+                  end
                 end
               end
               div(class: "themes-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4") do

@@ -279,6 +279,7 @@ ko:
       padding_bottom: "아래쪽 패딩"
 
     style_browser:
+      nav_link: "스타일 브라우저"
       title: "스타일 브라우저"
       count: "문단 스타일 %{count}개"
       back_to_themes: "← 테마"
