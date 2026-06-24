@@ -19,6 +19,7 @@ module Design
               else
                 p(class: "text-sm text-slate-500") { I18n.t("design.themes.no_custom_themes") }
               end
+              table_styles_section
             end
           end
         end
@@ -158,6 +159,34 @@ module Design
                   data: { turbo_frame: "_top" },
                   class: "text-xs text-blue-600 hover:underline") { I18n.t("design.themes.edit") }
               end
+            end
+          end
+        end
+
+        def table_styles_section
+          styles = @theme.table_styles.order(:name)
+          return if styles.empty?
+          div(class: "flex flex-col gap-3") do
+            h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.table_styles.section_title") }
+            div(class: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3") do
+              styles.each { |ts| table_style_card(ts) }
+            end
+          end
+        end
+
+        def table_style_card(ts)
+          a(href: helpers.edit_theme_table_style_path(@theme, ts),
+            class: "block rounded-lg border border-slate-200 overflow-hidden hover:shadow-md hover:border-blue-300 transition-all bg-white") do
+            div(class: "aspect-[4/3] bg-slate-50 flex items-center justify-center overflow-hidden") do
+              if Design.config.table_style_preview
+                img(src: helpers.preview_theme_table_style_path(@theme, ts, t: ts.updated_at.to_i), alt: ts.name, class: "w-full h-full object-contain")
+              else
+                span(class: "text-xs text-slate-400") { I18n.t("design.table_styles.no_preview") }
+              end
+            end
+            div(class: "px-3 py-2 border-t border-slate-200") do
+              h3(class: "text-sm font-medium text-slate-900") { ts.name.capitalize }
+              p(class: "text-xs text-slate-500") { I18n.t("design.table_styles.card_subtitle") }
             end
           end
         end
