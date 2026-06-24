@@ -478,15 +478,18 @@ git commit -m "feat(style_browser): styles table with override badge + swatches"
         # Override rows edit at the doc-design level; base rows are theme-level
         # (merged_paragraph_styles only yields theme-base + overrides — see spec Decision 4).
         def edit_path_for(row)
-          style = row[:style]
+          # An override row's row[:style] can be a merged DUP (id: nil) from
+          # merged_paragraph_styles when a same-named base exists — not routable.
+          # Resolve the persisted override at the doc-design level for the URL.
           if row[:is_override] && row[:document_design]
-            helpers.edit_theme_paper_size_document_design_paragraph_style_path(row[:theme], row[:paper_size], row[:document_design], style)
-          elsif style.styleable.is_a?(Design::Theme)
-            helpers.edit_theme_theme_paragraph_style_path(row[:theme], style)
+            override = row[:document_design].paragraph_styles.find_by(name: row[:style].name)
+            return override && helpers.edit_theme_paper_size_document_design_paragraph_style_path(row[:theme], row[:paper_size], row[:document_design], override)
           end
+          style = row[:style]
+          helpers.edit_theme_theme_paragraph_style_path(row[:theme], style) if style.styleable.is_a?(Design::Theme)
         end
 ```
-> `render_host_actions` (from `Base`, used in #1/#2) renders the registered descriptors with the row as context; renders nothing if no block is registered. Reuse `design.shared.edit` (exists).
+> `render_host_actions` (from `Base`, used in #1/#2) renders the registered descriptors with the row as context; renders nothing if no block is registered. Reuse `design.shared.edit` (exists). **IMPORTANT:** `merged_paragraph_styles` returns `override.dup` (id: nil) for an override row when a same-named base exists, so the merged `row[:style]` is NOT routable — resolve the persisted override via `find_by(name:)` for the doc-design edit URL (above).
 
 - [ ] **Step 4: Run** — `bin/rails test test/controllers/design/style_browser_test.rb` → PASS (all browser tests).
 
