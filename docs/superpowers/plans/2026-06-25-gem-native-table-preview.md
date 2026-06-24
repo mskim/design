@@ -551,40 +551,29 @@ git commit -m "feat(table-preview): add Design::TableStylePreviewService orchest
 
 ### Task 6: Rewire `TableStylePreviewsController#show` (gem-native default, hook override, error rescue)
 
+> **Do NOT create a new test file.** `test/controllers/design/table_styles_test.rb` already owns the preview-endpoint tests (lines 10–23) and the component-preview tests (lines 35–47). Editing them in place avoids two divergent sources of truth (reviewer I1). This task edits the **endpoint** tests (10–23); Task 7 edits the **component** tests (35–47).
+
 **Files:**
 - Modify: `app/controllers/design/table_style_previews_controller.rb`
-- Test: `test/controllers/design/table_style_previews_test.rb` (new)
+- Modify: `test/controllers/design/table_styles_test.rb` (rewrite the no-hook endpoint test; add error + unknown-id tests; keep the existing hook-override test)
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Edit the existing endpoint tests** in `test/controllers/design/table_styles_test.rb`
+
+**Keep** the hook-override test (lines 10–18, `"preview sends host-rendered jpeg when the hook is registered"`) as-is — it still tests the override path. (Its manual `ensure … = nil` is redundant given test_helper's config restore, but harmless; leave it.)
+
+**Replace** the no-hook 404 test (lines 20–23) with a native-render test, and **add** an error-rescue test + an unknown-id test:
 
 ```ruby
-# test/controllers/design/table_style_previews_test.rb
-require "test_helper"
-
-class Design::TableStylePreviewsTest < ActionDispatch::IntegrationTest
-  setup do
-    sign_in :david
-    @theme = Design::Theme.create!(name: "TSP #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
-    @ts = @theme.table_styles.find_by(name: "grid")
-  end
-
-  test "renders a JPEG natively with no hook registered" do
+  test "preview renders a jpeg natively when no hook is registered" do
     assert_nil Design.config.table_style_preview
     get design.preview_theme_table_style_path(@theme, @ts)
     assert_response :success
     assert_equal "image/jpeg", response.media_type
-    assert response.body.bytesize > 1000
-  end
-
-  test "uses the host hook as an override when registered" do
-    Design.config.table_style_preview = ->(_theme, _ts) { "OVERRIDE-BYTES" }  # restored by teardown
-    get design.preview_theme_table_style_path(@theme, @ts)
-    assert_response :success
-    assert_equal "OVERRIDE-BYTES", response.body
+    assert response.body.bytesize > 1000, "native jpeg too small"
   end
 
   test "a render error degrades to 422, not 500" do
-    Design.config.table_style_preview = ->(_theme, _ts) { raise "boom" }  # restored by teardown
+    Design.config.table_style_preview = ->(_t, _ts) { raise "boom" }  # restored by teardown
     get design.preview_theme_table_style_path(@theme, @ts)
     assert_response :unprocessable_entity
   end
@@ -593,13 +582,12 @@ class Design::TableStylePreviewsTest < ActionDispatch::IntegrationTest
     get design.preview_theme_table_style_path(@theme, 0)
     assert_response :not_found
   end
-end
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run the file to verify the new/edited tests fail**
 
-Run: `bin/rails test test/controllers/design/table_style_previews_test.rb`
-Expected: FAIL — the no-hook case currently returns `404` (`head :not_found unless blob`) and the error case isn't rescued.
+Run: `bin/rails test test/controllers/design/table_styles_test.rb`
+Expected: FAIL — the no-hook case currently returns `404` (`head :not_found unless blob`) and the error case isn't rescued (it would 500). The hook-override and edit/update/reset tests still pass.
 
 - [ ] **Step 3: Rewire the controller**
 
@@ -632,13 +620,13 @@ end
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `bin/rails test test/controllers/design/table_style_previews_test.rb`
-Expected: PASS (4 runs, 0 failures)
+Run: `bin/rails test test/controllers/design/table_styles_test.rb`
+Expected: PASS — the rewritten/added endpoint tests pass; the rest of the file is still green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add app/controllers/design/table_style_previews_controller.rb test/controllers/design/table_style_previews_test.rb
+git add app/controllers/design/table_style_previews_controller.rb test/controllers/design/table_styles_test.rb
 git commit -m "feat(table-preview): render natively in controller; hook becomes override; rescue to 422"
 ```
 
@@ -653,11 +641,24 @@ Drop the `if Design.config.table_style_preview` gate (and the `else` placeholder
 - Modify: `app/components/design/views/themes/show.rb` (table_style_card, ~line 176–192)
 - Modify: `config/locales/en.yml` (remove `table_styles.no_preview`, line ~350)
 - Modify: `config/locales/ko.yml` (remove `table_styles.no_preview`, line ~350)
-- Test: `test/controllers/design/table_styles_test.rb` (extend) and `test/controllers/design/themes_show_table_styles_test.rb` (extend)
+- Modify: `test/controllers/design/table_styles_test.rb` (rewrite the placeholder test, lines 35–39; keep the hook-img test 41–47)
+- Modify: `test/controllers/design/themes_show_table_styles_test.rb` (append a no-hook img test)
 
-- [ ] **Step 1: Write the failing assertions** (img always present; placeholder gone — both with NO hook)
+- [ ] **Step 1: Edit the existing component tests** (img always present; placeholder gone)
 
-Append to `test/controllers/design/themes_show_table_styles_test.rb`:
+In `test/controllers/design/table_styles_test.rb`, **replace** the placeholder test (lines 35–39, `"edit shows a no-preview placeholder when no hook is registered"`) with a native-render assertion. **Keep** the hook-registered img test (lines 41–47) as-is (still valid — the img renders, hook or not).
+
+```ruby
+  test "edit renders the preview frame and img with no hook registered" do
+    assert_nil Design.config.table_style_preview
+    get design.edit_theme_table_style_path(@theme, @ts)
+    assert_response :success
+    assert_select "turbo-frame#preview_frame img[src*=?]", "preview"
+    assert_not_includes response.body, "No preview"
+  end
+```
+
+In `test/controllers/design/themes_show_table_styles_test.rb`, **append** (its `setup` uses `@theme`/`@ts`, `sign_in :david`):
 
 ```ruby
   test "theme show renders table-style preview images with no hook registered" do
@@ -665,22 +666,11 @@ Append to `test/controllers/design/themes_show_table_styles_test.rb`:
     get design.theme_path(@theme)
     assert_response :success
     assert_select "img[src*=?]", "table_styles/#{@ts.id}/preview"
-    assert_not_includes response.body, I18n.t("design.table_styles.no_preview", default: "No preview")
+    assert_not_includes response.body, "No preview"
   end
 ```
 
-Append to `test/controllers/design/table_styles_test.rb` (mirror its existing `setup`/`sign_in`; it edits a table style):
-
-```ruby
-  test "table-style editor renders the preview image with no hook registered" do
-    assert_nil Design.config.table_style_preview
-    get design.edit_theme_table_style_path(@theme, @ts)
-    assert_response :success
-    assert_select "turbo-frame#preview_frame img[src*=?]", "table_styles/#{@ts.id}/preview"
-  end
-```
-
-> If `table_styles_test.rb`'s `setup` uses a different ivar than `@theme`/`@ts`, adapt the assertion to its names. Read the file's `setup` block first.
+> Asserting absence with the literal `"No preview"` (not `I18n.t`) avoids a `translation missing` raise once the key is deleted in Step 5.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -710,10 +700,11 @@ Expected: FAIL — with no hook, the components currently render the "No preview
 
 - [ ] **Step 5: Remove the dead `table_styles.no_preview` key** from both locales
 
-In `config/locales/en.yml` and `config/locales/ko.yml`, delete the `no_preview:` line **under the `table_styles:` section** (≈ line 350). **Do NOT** remove the `no_preview:` under the `themes:` section (≈ line 34) — `themes/show.rb:148` still uses `design.themes.no_preview`. Verify before deleting:
+Both locales have **two** identically-indented `no_preview:` lines (`themes:` ≈ line 34, `table_styles:` ≈ line 350). Delete **only the one under the `table_styles:` section** — by line number / section context, **not** by string match (a text-match delete would hit both). **Keep** the `themes:` one — `themes/show.rb:148` still uses `design.themes.no_preview`. Verify the two hits and their sections first:
 
 ```bash
-grep -n "no_preview" config/locales/en.yml   # expect two hits; remove only the one under table_styles:
+grep -n "no_preview" config/locales/en.yml   # two hits: ~34 (themes, keep) and ~350 (table_styles, remove)
+grep -n "no_preview" config/locales/ko.yml   # same two lines
 ```
 
 - [ ] **Step 6: Run the component tests + the i18n parity test**
@@ -751,8 +742,8 @@ The gem now provides table previews natively, so book_design's 5 services + the 
 - Delete: `app/services/hex_to_cmyk.rb`
 - Delete: `test/services/table_style_resolver_test.rb`
 - Delete: `test/services/hex_to_cmyk_test.rb`
-- Modify: `config/initializers/design.rb` (remove the `c.table_style_preview = …` line)
-- Modify: `test/integration/studio_cutover_test.rb` (drop hook setup; assert gem-native preview)
+- Modify: `config/initializers/design.rb` (remove the `c.table_style_preview = …` line — this is the only hook registration)
+- Modify (maybe): `test/integration/studio_cutover_test.rb` (its preview assertion becomes gem-native once the initializer line is gone; no hook setup lives here to remove)
 
 - [ ] **Step 1: Re-verify nothing else references the 5 services** (guard before deleting)
 
@@ -766,24 +757,11 @@ Expected: only `config/initializers/design.rb` (the hook) and `test/services/{ta
 
 - [ ] **Step 2: Read the cutover test's current preview assertion**
 
-Run: `sed -n '1,40p' test/integration/studio_cutover_test.rb` (find where it sets `Design.config.table_style_preview` and asserts the preview). Note the exact setup lines to remove and the assertion to keep (it should still GET the preview path and expect `image/jpeg`, now served gem-natively).
+Run: `sed -n '1,40p' test/integration/studio_cutover_test.rb`. Note: the hook is registered in `config/initializers/design.rb:17`, **not** in this test — so the test itself has no hook setup to remove. It already GETs the preview path and asserts `image/jpeg`; once Step 4 removes the initializer line, that same assertion exercises the **gem-native** path and should pass unchanged. Find the existing preview assertion and confirm it expects `image/jpeg`.
 
-- [ ] **Step 3: Update the cutover test** — drop the hook setup, keep (or add) a gem-native preview assertion
+- [ ] **Step 3: Confirm (don't break) the cutover preview assertion**
 
-Remove any `Design.config.table_style_preview = …` setup in that test. Ensure it still asserts the preview endpoint works without the hook, e.g.:
-
-```ruby
-  test "table-style preview renders natively (no host hook)" do
-    sign_in :david   # adapt to the file's existing auth helper
-    theme = Design::Theme.system_themes.first
-    ts = theme.table_styles.first
-    get "/design/themes/#{theme.id}/table_styles/#{ts.id}/preview"
-    assert_response :success
-    assert_equal "image/jpeg", response.media_type
-  end
-```
-
-> Adapt fixture/auth/route specifics to what the file already uses. The point: the assertion must pass **with no hook registered**.
+Leave the existing preview assertion in place — after Step 4 it tests the gem-native path. If the file has no explicit "renders natively" wording, optionally rename the test for clarity, but **do not** add hook setup. The assertion must pass **with no hook registered** (which is the state after Step 4). If the existing assertion already covers `image/jpeg` from the preview endpoint, no edit is needed here beyond Step 4.
 
 - [ ] **Step 4: Remove the hook registration**
 
