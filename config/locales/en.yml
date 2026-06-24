@@ -35,6 +35,19 @@ en:
       gallery_close: "Close"
       gallery_prev: "Previous"
       gallery_next: "Next"
+      new_title: "New Theme"
+      edit_title: "Edit Theme"
+      identity: "Identity"
+      name_label: "Name"
+      description_label: "Description"
+      locale_label: "Locale"
+      default_fonts: "Default Fonts"
+      body_font: "Body Font"
+      body_font_size: "Body Font Size"
+      heading_font: "Heading Font"
+      update_button: "Update Theme"
+      create_button: "Create Theme"
+      created_notice: "Theme created: %{name}"
 
     options:
       v_align:

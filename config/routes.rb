@@ -1,5 +1,5 @@
 Design::Engine.routes.draw do
-  resources :themes, only: [:index, :show, :update, :destroy] do
+  resources :themes, only: [:index, :show, :new, :create, :edit, :update, :destroy] do
     post :clone, on: :member
     post :generate_sizes, on: :member
     resources :theme_paragraph_styles, only: [:edit, :update], controller: "theme_paragraph_styles"

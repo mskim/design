@@ -35,6 +35,19 @@ ko:
       gallery_close: "닫기"
       gallery_prev: "이전"
       gallery_next: "다음"
+      new_title: "새 테마"
+      edit_title: "테마 편집"
+      identity: "기본 정보"
+      name_label: "이름"
+      description_label: "설명"
+      locale_label: "언어"
+      default_fonts: "기본 글꼴"
+      body_font: "본문 글꼴"
+      body_font_size: "본문 글꼴 크기"
+      heading_font: "제목 글꼴"
+      update_button: "테마 수정"
+      create_button: "테마 만들기"
+      created_notice: "테마가 생성되었습니다: %{name}"
 
     options:
       v_align:

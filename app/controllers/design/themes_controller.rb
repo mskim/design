@@ -1,6 +1,6 @@
 module Design
   class ThemesController < Design::ApplicationController
-    before_action :set_theme, only: [ :show, :update, :destroy, :clone, :generate_sizes ]
+    before_action :set_theme, only: [ :show, :edit, :update, :destroy, :clone, :generate_sizes ]
 
     def index
       @system_themes = Design::Theme.system_themes.order(:name)
@@ -16,6 +16,24 @@ module Design
         theme: @theme, paper_sizes: @paper_sizes,
         selected_paper_size: @selected_paper_size, document_designs: @document_designs
       )
+    end
+
+    def new
+      render Design::Views::Themes::Form.new(theme: Design::Theme.new(locale: I18n.locale.to_s))
+    end
+
+    def create
+      @theme = Design::Theme.new(theme_params.merge(user: Design.current_user))
+      if @theme.save
+        redirect_to theme_path(@theme), notice: t("design.themes.created_notice", name: @theme.name)
+      else
+        render Design::Views::Themes::Form.new(theme: @theme), status: :unprocessable_entity
+      end
+    end
+
+    def edit
+      return head :forbidden unless @theme.editable_by?(Design.current_user)
+      render Design::Views::Themes::Form.new(theme: @theme)
     end
 
     def update
@@ -64,7 +82,7 @@ module Design
     end
 
     def theme_params
-      params.require(:theme).permit(:name)
+      params.require(:theme).permit(:name, :description, :locale, :base_body_font, :base_body_font_size, :base_heading_font)
     end
   end
 end
