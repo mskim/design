@@ -5,6 +5,12 @@ Design::Engine.routes.draw do
     post :clone, on: :member
     post :generate_sizes, on: :member
     resources :theme_paragraph_styles, only: [:edit, :update], controller: "theme_paragraph_styles"
+    resources :table_styles, only: [ :show, :edit, :update ] do
+      member do
+        get :preview, to: "table_style_previews#show", as: :preview
+        post :reset
+      end
+    end
     resources :paper_sizes, only: [:new, :create, :edit, :update, :destroy] do
       post :regenerate, on: :member
       resources :base_paragraph_styles, only: [:edit, :update], controller: "base_paragraph_styles"

@@ -6,7 +6,7 @@ require_relative "design/action_registry"
 module Design
   class Configuration
     attr_accessor :current_user, :authorize, :authenticate, :user_class, :authoring,
-                  :home_url, :locale_for, :themes_dir
+                  :home_url, :locale_for, :themes_dir, :table_style_preview
 
     def initialize
       @user_class = "User"
