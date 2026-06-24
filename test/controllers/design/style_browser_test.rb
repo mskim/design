@@ -36,4 +36,27 @@ class Design::StyleBrowserTest < ActionDispatch::IntegrationTest
     get design.style_browser_path(theme: @theme.name, size: @ps.size_name, doc_type: "chapter")
     assert_includes response.body, "#112233"
   end
+
+  test "base row Edit link points at the theme-level style edit; override row at the doc-design level" do
+    dd = @ps.document_designs.create!(doc_type: "chapter")
+    base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    ovr_dd = @ps.document_designs.create!(doc_type: "toc")
+    ovr_dd.paragraph_styles.create!(name: "body", font_size: 12)
+    get design.style_browser_path # all-doc-types view → base rows + override rows
+    # base "body" row → theme-level edit
+    assert_select "a[href=?]", design.edit_theme_theme_paragraph_style_path(@theme, base)
+    # override row → doc-design-level edit
+    ovr = ovr_dd.paragraph_styles.find_by(name: "body")
+    assert_select "a[href=?]", design.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @ps, ovr_dd, ovr)
+  end
+
+  test "renders a registered host action in the per-row slot" do
+    Design.config.actions.for(:style_browser_row) { |row| [ { label: "PDF", path: "/x.pdf" } ] }
+    @ps.document_designs.create!(doc_type: "chapter")
+    @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    get design.style_browser_path
+    assert_select "a[href='/x.pdf']", text: "PDF"
+  ensure
+    Design.config.actions.for(:style_browser_row) { nil }   # reset (registrations is private)
+  end
 end
