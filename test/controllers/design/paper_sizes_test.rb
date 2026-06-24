@@ -69,6 +69,18 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_select "div", text: /can.t be blank|greater than/i
   end
 
+  test "destroy removes the size and cascades its document designs" do
+    other = @theme.paper_sizes.create!(size_name: "46판", width_mm: 127, height_mm: 188)
+    Design::PaperSizeSeeder.call(other)   # model-built size has no docs; seed so we can assert the cascade
+    dd_ids = other.document_designs.pluck(:id)
+    assert dd_ids.any?
+    assert_difference -> { @theme.paper_sizes.count }, -1 do
+      delete design.theme_paper_size_path(@theme, other)
+    end
+    assert_response :redirect
+    assert_equal 0, Design::DocumentDesign.where(id: dd_ids).count, "dependent: :destroy should cascade"
+  end
+
   test "regenerate re-derives non-overridden defaults but preserves an overridden field" do
     # Override body_line_count via update; regenerate must keep it.
     patch design.theme_paper_size_path(@theme, @ps), params: { paper_size: { body_line_count: 99 } }
