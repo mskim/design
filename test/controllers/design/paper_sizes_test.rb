@@ -68,4 +68,16 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_select "div", text: /can.t be blank|greater than/i
   end
+
+  test "regenerate re-derives non-overridden defaults but preserves an overridden field" do
+    # Override body_line_count via update; regenerate must keep it.
+    patch design.theme_paper_size_path(@theme, @ps), params: { paper_size: { body_line_count: 99 } }
+    # Clear a non-overridden margin to a sentinel so we can see it recomputed.
+    @ps.update_columns(left_margin_mm: 1)
+    post design.regenerate_theme_paper_size_path(@theme, @ps)
+    assert_response :redirect
+    @ps.reload
+    assert_equal 99, @ps.body_line_count, "overridden field must survive regenerate"
+    assert_not_equal 1.0, @ps.left_margin_mm, "non-overridden margin should be recomputed"
+  end
 end

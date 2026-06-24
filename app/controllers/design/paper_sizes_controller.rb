@@ -1,7 +1,7 @@
 module Design
   class PaperSizesController < Design::ApplicationController
     before_action :set_theme
-    before_action :set_paper_size, only: [:edit, :update]
+    before_action :set_paper_size, only: [:edit, :update, :regenerate]
     before_action :ensure_theme_editable
 
     def new
@@ -23,6 +23,12 @@ module Design
     def edit
       @base_styles = @paper_size.paragraph_styles.order(:name)
       render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size, base_styles: @base_styles)
+    end
+
+    def regenerate
+      Design::DefaultGenerator.call(@paper_size)
+      Design::ThemeDbExportService.new(@theme).export!
+      redirect_to design.edit_theme_paper_size_path(@theme, @paper_size), notice: I18n.t("design.paper_sizes.regenerated_notice")
     end
 
     def update
