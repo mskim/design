@@ -224,6 +224,7 @@ en:
       deleted_notice: "Paper size deleted."
 
     document_designs:
+      switch_doc_type: "Switch document type"
       edit_title: "Edit Document Design"
       heading: "Heading Area"
       heading_height: "Heading height (lines)"

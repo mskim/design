@@ -86,4 +86,38 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     assert @dd.has_document_cover?
     assert_equal "spread", @dd.cover_type
   end
+
+  test "edit renders the editor toolbar with clickable theme and paper-size links" do
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    assert_response :success
+    assert_select "a[href=?]", design.theme_path(@theme)
+    assert_select "a[href=?]", design.edit_theme_paper_size_path(@theme, @ps)
+  end
+
+  test "edit renders the doc-type dropdown wired to design--dropdown" do
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    assert_select "[data-controller~='design--dropdown']"
+    assert_select "[data-design--dropdown-target='menu']"
+  end
+
+  test "doc-type switcher lists interior siblings in reading order, excludes cover panels, marks current" do
+    title    = @ps.document_designs.create!(doc_type: "title_page")
+    epilogue = @ps.document_designs.create!(doc_type: "epilogue")
+    cover    = @ps.document_designs.create!(doc_type: "front_page") # must be excluded
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd) # @dd = chapter
+    body = response.body
+
+    title_path    = design.edit_theme_paper_size_document_design_path(@theme, @ps, title)
+    chapter_path  = design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    epilogue_path = design.edit_theme_paper_size_document_design_path(@theme, @ps, epilogue)
+    cover_path    = design.edit_theme_paper_size_document_design_path(@theme, @ps, cover)
+
+    # reading order: title_page (front) < chapter (body) < epilogue (rear)
+    assert body.index(title_path) < body.index(chapter_path), "title_page before chapter"
+    assert body.index(chapter_path) < body.index(epilogue_path), "chapter before epilogue"
+    # cover panel excluded from the switcher
+    assert_select "a[href=?]", cover_path, count: 0
+    # current doc design highlighted
+    assert_select "a.bg-blue-50[href=?]", chapter_path
+  end
 end

@@ -224,6 +224,7 @@ ko:
       deleted_notice: "판형을 삭제했습니다."
 
     document_designs:
+      switch_doc_type: "문서 유형 전환"
       edit_title: "문서 디자인 편집"
       heading: "제목 영역"
       heading_height: "제목 영역 높이 (줄 수)"
