@@ -99,4 +99,23 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_equal 99, @ps.body_line_count, "overridden field must survive regenerate"
     assert_not_equal 1.0, @ps.left_margin_mm, "non-overridden margin should be recomputed"
   end
+
+  test "write actions are forbidden on a non-editable (system) theme" do
+    system_theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    sys_ps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    patch design.theme_paper_size_path(system_theme, sys_ps), params: { paper_size: { left_margin_mm: 5 } }
+    assert_response :forbidden
+    delete design.theme_paper_size_path(system_theme, sys_ps)
+    assert_response :forbidden
+  end
+
+  test "deleting the last size leaves theme show renderable with no size selector" do
+    # Destroy the only size, then render theme show: view_template falls to the
+    # empty-state branch (no size_selector / Edit link), not a broken edit URL.
+    delete design.theme_paper_size_path(@theme, @ps)
+    assert_equal 0, @theme.reload.paper_sizes.count
+    get design.theme_path(@theme)
+    assert_response :success
+    assert_select "a[href=?]", design.new_theme_paper_size_path(@theme), count: 0
+  end
 end
