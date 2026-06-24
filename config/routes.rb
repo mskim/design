@@ -3,7 +3,8 @@ Design::Engine.routes.draw do
     post :clone, on: :member
     post :generate_sizes, on: :member
     resources :theme_paragraph_styles, only: [:edit, :update], controller: "theme_paragraph_styles"
-    resources :paper_sizes, only: [:edit, :update] do
+    resources :paper_sizes, only: [:new, :create, :edit, :update, :destroy] do
+      post :regenerate, on: :member
       resources :base_paragraph_styles, only: [:edit, :update], controller: "base_paragraph_styles"
       resources :document_designs, only: [:edit, :update] do
         member do
