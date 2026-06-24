@@ -29,7 +29,7 @@ There are two parallel UIs editing the same `Design::*` data: the lean gem studi
 |---|----------|
 | 1 | **Host-extension = declarative action registry.** Hosts register button **descriptors** per named slot via `Design.config.actions.for(slot){…}`; the gem renders them. book_write registers nothing → no buttons. |
 | 2 | **Shell = contextual sidebar (book_design model).** Top bar (home link + title/breadcrumb + host-action slot) + optional per-area sidebar slot + full-screen main. No global fixed nav. |
-| 3 | **Author the RubyUI token palette** (from the RubyUI install template — neither app has it today) into the gem's **scoped** `.design-studio` build, so the studio is properly styled. Explicit utilities compile automatically via `@source`. No host CSS bleed; book_write isolated. |
+| 3 | **Match book_design's exact current look — do NOT author tokens.** Reuse book_design's exact classes; the explicit utilities (slate/blue/layout) compile automatically via the gem's scoped `@source`, and the dead token classes (`bg-primary`, `text-muted-foreground`) stay no-op in the gem just as they do in book_design → pixel-identical. The goal is **consistency** (one UI, one look), not a nicer studio. (Authoring the token palette is deferred as a future *single-place* improvement — done once in the gem, it would properly style both apps.) No host CSS bleed; book_write isolated. |
 | 4 | **#0 re-houses the existing gem pages** in the shell as the verifiable deliverable; rich content ports are #1–#5. |
 | 5 | **Top bar is minimal:** home link + title/breadcrumb + action slot. No locale indicator / theme switcher in #0. |
 | 6 | **Doc-type switcher deferred to #3** (it's document-design-editor-specific). |
@@ -87,13 +87,13 @@ renders:
 
 ### Styling foundation
 
-**There is no existing token palette to copy** — verified: neither the gem's `design.css` nor book_design's `tailwind.css` defines the RubyUI tokens (`--primary`/`--background`/… → 0 rules in both builds). book_design's components use `text-muted-foreground` 52× and RubyUI buttons emit `bg-primary`, but those classes produce **no CSS rules today** — they silently no-op; book_design "looks fine" only because it leans on explicit utilities (slate/gray/blue) + layout classes that DO compile. The real token source is the **RubyUI install template** (`ruby_ui/install/templates/tailwind.css.erb`): a `:root { --background … --primary … --ring … }` block + an `@theme inline { --color-primary: var(--primary); … }` mapping.
+**There is no existing token palette to copy** — verified: neither the gem's `design.css` nor book_design's `tailwind.css` defines the RubyUI tokens (`--primary`/`--background`/… → 0 rules in both builds). book_design's components use `text-muted-foreground` 52× and RubyUI buttons emit `bg-primary`, but those classes produce **no CSS rules today** — they silently no-op; book_design "looks fine" only because it leans on explicit utilities (slate/gray/blue) + layout classes that DO compile. (The token palette could be authored from the RubyUI install template — but doing so is explicitly **out of scope** for #0, since it would make the studio diverge from book_design's current look.)
 
-So the styling work is to **author that token block fresh** into the gem's scoped `design.css` (so RubyUI components + token classes actually render — making the studio properly styled, and at least as good as book_design). Two concrete tasks:
-1. Port the RubyUI install template's `:root` + `@theme inline` into `design.css`, plus the doc-type color helpers the ported pages will need.
-2. **Verify the tokens survive `Design::TailwindScoper.scope(..., under: ".design-studio")`** — a top-level `:root{}` re-scoped under `.design-studio` must still apply to elements inside the studio (the scoper may rewrite/strip `:root`; confirm via a rendered check, and adjust the scoper or emit the variables on `.design-studio {}` instead of `:root {}` if needed).
+**To match book_design exactly, #0 does NOT author tokens.** The gem must reproduce *both* of book_design's behaviors — which its scoped build already does automatically:
+- **Explicit utilities** (slate/blue/layout): build the shell chrome with the same explicit classes book_design's top bars/sidebars use; the gem's `@source "../../components/**"` build compiles them → identical chrome.
+- **Dead tokens**: the gem also lacks the palette, so `bg-primary`/`text-muted-foreground` no-op in the gem exactly as in book_design → identical (non-)styling.
 
-Explicit utility classes (slate/blue/layout) need no token work — the gem's scoped `@source "../../components/**"` build compiles them automatically once the components live in the gem. Rebuild `app/assets/builds/design.css` via the existing `design:tailwind:build` flow and keep `DesignTailwindBuildFreshnessTest` green. (This is a **medium** task, not a trivial copy.)
+So the styling work is small: build the shell chrome with book_design's explicit classes, rebuild `app/assets/builds/design.css` via the `design:tailwind:build` flow, keep `DesignTailwindBuildFreshnessTest` green. **No `:root`/`@theme` token block** (that would make the studio look *better than* book_design — a divergence we don't want). If proper token styling is ever wanted, it's a future single-place change in the gem that upgrades both apps at once. **Small** task.
 
 ### Scope / proof of #0
 
@@ -109,13 +109,13 @@ Host boot → `Design.config.actions.for(slot){…}` stores blocks. Request → 
 - **`render_host_actions` component test (incl. the render-time binding):** renders a registered descriptor as a button with the right path/method; **a descriptor whose `path:` is computed from a host route via `main_app.*` resolves correctly** (proves the `instance_exec` binding, not boot-time `call`); renders nothing when unregistered; arity-0 and arity-1 blocks both work; maps `confirm:` → `data-turbo-confirm`; honors `method`/`icon`/`variant`.
 - **`Shell` component test:** renders top bar (home link + title) + main (yielded content); renders the sidebar component (`render sidebar`) when given, omits the column when nil.
 - **Integration:** a gem dummy-app studio page renders through `Shell` (top bar present); with a stubbed registered action → button in output; without → absent.
-- **Styling:** `design.css` rebuilt; `DesignTailwindBuildFreshnessTest` stays green; **a check that the authored tokens actually apply inside `.design-studio`** after `TailwindScoper` (e.g. the built CSS contains the token variables scoped such that a `.design-studio` element resolves `--primary`).
+- **Styling:** `design.css` rebuilt; `DesignTailwindBuildFreshnessTest` stays green. (No token-authoring, so no token/scoper check needed in #0.)
 - Minitest only.
 
 ## Risks
 
 - **Route-helper context (was a spec bug, now fixed)** — a registered block is bound to its initializer definition site, so `block.call` raises `NameError` on `main_app`. Mitigation: the registry stores the **raw block**; `render_host_actions` re-binds it via `helpers.instance_exec(context, &block)` in the Phlex view (the proven `home_url` pattern), and descriptors use `main_app.*` (host routes; the engine is `isolate_namespace`d). A unit test renders a descriptor whose path is a host route.
-- **Token authoring + scoper interaction** — neither app defines the RubyUI tokens; they must be authored fresh, and a top-level `:root{}` block re-scoped under `.design-studio` by `Design::TailwindScoper` may not apply. Mitigation: author the tokens (RubyUI install template's `:root` + `@theme inline`), and **verify via a rendered check that they apply inside `.design-studio`** — if the scoper strips/mis-scopes `:root`, emit the variables on `.design-studio {}` instead. Medium task; the #0 proof page surfaces it early.
+- **Look-match fidelity** — matching book_design exactly relies on the shell chrome reusing book_design's *exact* explicit utility classes (the gem's `@source` compiles them) and on the dead token classes no-opping identically in both apps. Mitigation: build the shell from book_design's chrome classes verbatim; the #0 proof page (compare `/design` vs `/themes` chrome) surfaces any drift. No token block is authored (out of scope), so there's no scoper/`:root` concern in #0.
 - **Scoped-build coverage** — the gem's `@source` globs must cover the shell/new components so their classes compile. Mitigation: shell lives under the already-globbed `app/components/**`.
 - **book_write regression** — additive only (new config method, new components); book_write registers nothing and its `/design` pages gain the shell. Low risk; covered by rendering a studio page with no registrations.
 
