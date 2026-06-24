@@ -20,6 +20,22 @@
 - `Design::DocumentDesign` has `DOC_TYPE_ORDER` + `by_reading_order` (prior fix); `COVER_PANEL_TYPES`.
 - Minitest only. Commit to `main`. Do NOT push. Leave `Gemfile.lock` unstaged. Tests mirror `test/components/design/*` (render via `.call` + `define_singleton_method` stubs) and `test/controllers/design/*` (integration).
 
+**Test mechanics (CRITICAL — used by several tasks):**
+- **Editability:** a theme created without a `user:` is `system?` and the dummy app sets `authoring = false`, so `editable_by?` is **false** → `edit`/`update`/`edit_theme_button` are forbidden/hidden. Any test that exercises edit/update or asserts the native "Edit Theme" button MUST create an **owned custom theme + sign in**: `Design::Theme.create!(name: …, locale: "ko", user: users(:david))` and `sign_in :david` in `setup` (mirror `test/controllers/design/themes_controller_test.rb` + `themes_show_editable_chips_test.rb`). `Design.current_user` reads `CurrentDesigner` (set by `sign_in`). `create` itself is NOT gated, so plain create tests don't need an owner.
+- **Stubbing `PreviewService`** (Minitest 6 here has NO `Object#stub`/`stub_any_instance`/Mocha): use the repo's established **factory-swap** pattern from `test/controllers/design/document_designs_preview_test.rb`:
+  ```ruby
+  def stub_preview_service(fake)
+    original = Design::PreviewService.method(:new)
+    Design::PreviewService.define_singleton_method(:new) { |*, **| fake }
+    yield
+  ensure
+    Design::PreviewService.singleton_class.send(:define_method, :new, original)
+  end
+  # usage: fake = Object.new; def fake.generate = { success: true }
+  #        stub_preview_service(fake) { … render … }
+  ```
+  Every preview-touching test (Task 2; Task 4/5 for themes WITH a chapter doc; updated `themes_controller_test.rb` cases) uses this — do NOT use `stub_any_instance`/`define_method(:generate)`. The fake's `generate` returning `{ success: true }` (no `jpg_path`) is fine — `design_preview_img` only reads `[:success]`.
+
 ---
 
 ## File Structure
@@ -140,8 +156,19 @@ class Design::DesignPreviewImgTest < ActiveSupport::TestCase
     c.call
   end
 
+  # factory-swap stub (the repo pattern — see document_designs_preview_test.rb + Conventions)
+  def stub_preview_service(success:)
+    fake = Object.new
+    fake.define_singleton_method(:generate) { { success: success } }
+    original = Design::PreviewService.method(:new)
+    Design::PreviewService.define_singleton_method(:new) { |*, **| fake }
+    yield
+  ensure
+    Design::PreviewService.singleton_class.send(:define_method, :new, original)
+  end
+
   test "renders the img when generate succeeds" do
-    Design::PreviewService.stub_any_instance(:generate, { success: true }) do
+    stub_preview_service(success: true) do
       html = render
       assert_includes html, %(src="/preview.jpg")
       assert_includes html, %(class="thumb")
@@ -150,7 +177,7 @@ class Design::DesignPreviewImgTest < ActiveSupport::TestCase
   end
 
   test "renders the fallback when generate fails" do
-    Design::PreviewService.stub_any_instance(:generate, { success: false }) do
+    stub_preview_service(success: false) do
       html = render
       assert_includes html, "NOPREVIEW"
       refute_includes html, "<img"
@@ -158,11 +185,7 @@ class Design::DesignPreviewImgTest < ActiveSupport::TestCase
   end
 end
 ```
-> NOTE on stubbing: Minitest 6 in this repo has **no** `stub_any_instance` / `Object#stub` (see the repo's testing notes). Use the repo's established stubbing approach instead — define the stub on the **PreviewService instance** via dependency, or stub `Design::PreviewService.new(...).generate` by overriding `generate` on the class for the test, e.g.:
-> ```ruby
-> Design::PreviewService.define_method(:generate) { { success: true } }   # in a begin/ensure that restores the original
-> ```
-> Mirror whatever stubbing pattern the existing `test/components/design/preview_render_test.rb` / preview tests use. The ASSERTIONS (img on success, fallback on failure) are the contract; adapt the stub mechanism to what works in this suite. Run → FAIL (`design_preview_img` undefined).
+Run → FAIL (`design_preview_img` undefined).
 
 - [ ] **Step 2: Run it; verify it FAILS.**
 
@@ -172,11 +195,15 @@ end
       # generation fails or args are missing, yield the fallback block (e.g. a
       # placeholder). Generation shells out to PreviewService (matches book_design's
       # generate-on-render); the PreviewService fingerprint cache skips unchanged designs.
+      # NOTE: no `t:` cache-buster — that keeps the JPG URL stable (so existing
+      # `img[src=?]` assertions hold, and the browser caches the thumbnail). A
+      # regenerated JPG may briefly show stale in-browser; adding a fingerprint-based
+      # buster is part of the deferred preview-perf pass (spec Decision 7).
       def design_preview_img(theme, paper_size, document_design, img_class:, &fallback)
         ok = paper_size && document_design &&
              Design::PreviewService.new(document_design, paper_size: paper_size).generate[:success]
         if ok
-          img(src: helpers.preview_jpg_theme_paper_size_document_design_path(theme, paper_size, document_design, t: Time.now.to_i),
+          img(src: helpers.preview_jpg_theme_paper_size_document_design_path(theme, paper_size, document_design),
               alt: document_design.doc_type, class: img_class)
         elsif fallback
           fallback.call
@@ -203,8 +230,7 @@ git commit -m "feat(themes): design_preview_img — generate-first preview helpe
 require "test_helper"
 
 class Design::ThemesFormTest < ActionDispatch::IntegrationTest
-  # Mirror the auth/locale setup of the gem's other integration tests
-  # (e.g. test/controllers/design/editor_locale_test.rb / studio_shell_test.rb).
+  setup { sign_in :david }   # editability needs a signed-in designer (see Conventions)
 
   test "new renders the form" do
     get design.new_theme_path
@@ -226,8 +252,8 @@ class Design::ThemesFormTest < ActionDispatch::IntegrationTest
     assert_select "form"
   end
 
-  test "edit + update round-trips fonts and locale" do
-    theme = Design::Theme.create!(name: "E #{SecureRandom.hex(3)}", locale: "ko")
+  test "edit + update round-trips fonts and locale (owned custom theme)" do
+    theme = Design::Theme.create!(name: "E #{SecureRandom.hex(3)}", locale: "ko", user: users(:david))
     get design.edit_theme_path(theme)
     assert_response :success
     patch design.theme_path(theme), params: { theme: { base_body_font_size: 11.5, locale: "en" } }
@@ -236,7 +262,7 @@ class Design::ThemesFormTest < ActionDispatch::IntegrationTest
   end
 end
 ```
-> Match the gem's integration-test auth pattern (sign-in / `Design.config.locale_for`) from `editor_locale_test.rb` / `studio_shell_test.rb`; if a theme must be editable, ensure `Design.authoring?`/`authorize` returns true in the dummy config (it does — `authoring` default + the dummy initializer). Run → FAIL (no `new_theme_path` route).
+> Mirror the exact `sign_in`/fixture pattern of `test/controllers/design/themes_controller_test.rb` (it signs in + uses `users(:david)`). The edit/update theme MUST be owned (`user: users(:david)`) — a `user_id`-less theme is `system?` and not editable when the dummy's `authoring = false`. Run → FAIL (no `new_theme_path` route).
 
 - [ ] **Step 2: Run it; verify it FAILS.**
 
@@ -332,10 +358,11 @@ module Design
           end
         end
 
+        # NOTE: the gem has NO RubyUI::Alert (only badge/button/card/tabs) — use a plain div.
         def render_errors
           return unless @theme.errors.any?
-          render RubyUI::Alert.new(class: "mb-4") do
-            ul(class: "list-disc pl-4 text-sm") { @theme.errors.full_messages.each { |m| li { m } } }
+          div(class: "mb-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700") do
+            ul(class: "list-disc pl-4") { @theme.errors.full_messages.each { |m| li { m } } }
           end
         end
       end
@@ -375,7 +402,7 @@ end
 ```
 > `update` already uses `theme_params` + `editable_by?`; the wider permit makes it a full update. Its redirect/notice can stay, or switch to `theme_path(@theme)` — keep existing behavior to avoid breaking the rename test; if a rename test asserts `renamed_notice`, leave it.
 
-- [ ] **Step 6: Add i18n keys** to `config/locales/ko.yml` + `en.yml` under `design.themes`: `edit_title`, `new_title`, `identity`, `name_label`, `description_label`, `locale_label`, `default_fonts`, `body_font`, `body_font_size`, `heading_font`, `update_button`, `create_button`, `created_notice` (with `%{name}`). (Korean + English; both files, identical keys — a parity test enforces this.)
+- [ ] **Step 6: Add i18n keys** to `config/locales/ko.yml` + `en.yml` under `design.themes`: `edit_title`, `new_title`, `identity`, `name_label`, `description_label`, `locale_label`, `default_fonts`, `body_font`, `body_font_size`, `heading_font`, `update_button`, `create_button`, `created_notice` (with `%{name}`). (Korean + English; **both files, identical keys** — `test/i18n/locale_parity_test.rb` enforces this.) NOTE: `design.shared.cancel` already exists (from the localization sub-project) — the Form **reuses** it; do not re-add.
 
 - [ ] **Step 7: Run the test; verify it PASSES.** Then run `bin/rails test test/i18n/locale_parity_test.rb` (keys mirrored).
 
@@ -451,8 +478,14 @@ end
         end
 ```
 Add `paper_size_badges` (★ for default, like book_design). Keep the per-theme clone/rename/delete affordances available somewhere sensible (e.g. the show page already has clone; for the index card, you MAY drop the inline rename/clone forms in favor of the card linking to show — confirm with existing tests; if a test asserts the inline rename/clone on the index, keep them or move the assertion). The gem-native "New theme" button replaces book_design's host one.
+> **i18n:** add `design.themes.sizes_count` + `design.themes.doc_types_count` (with `%{count}`) to BOTH `ko.yml` + `en.yml` (parity test). The Korean uses count interpolation, e.g. `"판형 %{count}개"` / `"문서 유형 %{count}개"`.
 
-- [ ] **Step 5: Run the test; verify it PASSES.** Then the **full suite** `bin/rails test 2>&1 | tail -8` — existing themes-index tests (`themes_index_redesign_test.rb`, the `studio_shell_test.rb` asserting `.themes-grid`) may assert the old 2-col structure or inline forms; update them to the flat grid and FLAG each change as the intended redesign (not silent breakage). Rebuild `design.css` if new classes were added (`bin/rails runner '…tailwind build…'` per the #0 plan) and keep `DesignTailwindBuildFreshnessTest` green.
+- [ ] **Step 5: Run the test; verify it PASSES.** Then the **full suite** `bin/rails test 2>&1 | tail -8`. **These existing tests WILL break — update each (flag as intended redesign, not silent breakage):**
+  - `test/controllers/design/themes_controller_test.rb` — its `index` test (`:60-69`) asserts a preview `img[src=?]` (now generate-first → wrap with `stub_preview_service(success: true)`; URL still matches since we dropped `t:`) and its `.preview-empty` test (`:71-80` — keep emitting `.preview-empty` in the card's fallback, or update the assertion).
+  - `test/components/design/themes_index_phlex_test.rb` — asserts `.themes-grid [data-theme-card]` and the old constructor (`system_themes:/custom_themes:` → now `themes:`); update the render call + structure assertions.
+  - `test/controllers/design/themes_index_redesign_test.rb` — asserts `section[data-themes=system]` + inline clone/rename forms (the 2-col split is gone); rewrite to the flat grid.
+  - `test/controllers/design/studio_shell_test.rb` — asserts `.themes-grid` count (should still pass — one grid — but verify).
+  Rebuild `design.css` if new classes were added (`bin/rails runner '…tailwind build…'` per the #0 plan) and keep `DesignTailwindBuildFreshnessTest` green.
 
 - [ ] **Step 6: Commit:**
 ```bash
@@ -471,21 +504,36 @@ git commit -m "feat(themes): flat grid index with rich cards + generated preview
 require "test_helper"
 
 class Design::ThemesShowGroupedTest < ActionDispatch::IntegrationTest
+  setup { sign_in :david }   # the "Edit Theme" button is gated on editability
+
   test "show groups interior doc designs into matter sections in order" do
-    t = Design::Theme.create!(name: "ShowG #{SecureRandom.hex(3)}", locale: "ko")
+    t = Design::Theme.create!(name: "ShowG #{SecureRandom.hex(3)}", locale: "ko", user: users(:david))
     ps = t.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     %w[appendix chapter title_page].each { |d| ps.document_designs.create!(doc_type: d) }
-    get design.theme_path(t)
+    stub_preview_service(success: false) do   # avoid shelling out; cards fall back to placeholder
+      get design.theme_path(t)
+    end
     assert_response :success
     # the three section headings appear, Front before Body before Rear
     body = response.body
     assert_operator body.index(I18n.t("design.themes.frontmatter")), :<, body.index(I18n.t("design.themes.bodymatter"))
     assert_operator body.index(I18n.t("design.themes.bodymatter")), :<, body.index(I18n.t("design.themes.rearmatter"))
-    assert_select "a[href=?]", design.edit_theme_path(t)   # native Edit Theme
+    assert_select "a[href=?]", design.edit_theme_path(t)   # native Edit Theme (owned + signed-in)
+  end
+
+  # factory-swap stub — copy the helper from Conventions / document_designs_preview_test.rb
+  def stub_preview_service(success:)
+    fake = Object.new
+    fake.define_singleton_method(:generate) { { success: success } }
+    original = Design::PreviewService.method(:new)
+    Design::PreviewService.define_singleton_method(:new) { |*, **| fake }
+    yield
+  ensure
+    Design::PreviewService.singleton_class.send(:define_method, :new, original)
   end
 end
 ```
-> These doc_types have no rendered preview unless generated; the show view should render the grouped cards with the `design_preview_img` fallback (placeholder) so no shell-out happens for ungenerated previews — OR stub `PreviewService.generate`. If the show page calls generate eagerly, stub it in the test. Run → FAIL (current show is a flat grid, no section headings, no native Edit link).
+> The theme is owned + we `sign_in :david` so the "Edit Theme" button (gated on `editable_by?`) renders. `stub_preview_service` keeps the grouped cards off PDF rendering (they fall back to the placeholder). Run → FAIL (current show is a flat grid, no section headings, no native Edit link).
 
 - [ ] **Step 2: Run it; verify it FAILS.**
 
@@ -497,7 +545,10 @@ end
 
 - [ ] **Step 4: Add i18n keys** `design.themes.{frontmatter,bodymatter,rearmatter,other,edit_theme_button}` to both `ko.yml` + `en.yml`.
 
-- [ ] **Step 5: Run the test; verify it PASSES.** Full suite `bin/rails test 2>&1 | tail -8` — update any existing show test asserting the old flat grid; FLAG changes. Rebuild `design.css` if classes changed; keep freshness green.
+- [ ] **Step 5: Run the test; verify it PASSES.** Full suite `bin/rails test 2>&1 | tail -8`. **Existing show tests that break — update each (flag as intended):**
+  - `test/controllers/design/themes_controller_test.rb` — its 4 show tests (`:82-124`) assert `[data-doc-grid] img` counts + bare `img[src=?]` (no `t:` — still matches) on a flat grid; the regrouped sections change the structure → wrap preview-asserting cases with `stub_preview_service(success: true)` and update the count/structure assertions to the grouped layout.
+  - `test/controllers/design/themes_show_editable_chips_test.rb` — asserts the show page's editable chips/structure; verify it still holds after regrouping (its doc-type chips are about the PropertiesPanel/editor, likely unaffected, but run it).
+  Rebuild `design.css` if classes changed; keep freshness green.
 
 - [ ] **Step 6: Commit:**
 ```bash
