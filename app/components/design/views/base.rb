@@ -26,6 +26,11 @@ module Design
 
       # Shared button styling — refined to match book_design's action buttons in a later task.
       def action_button_class = "inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium border border-slate-300 hover:bg-slate-50"
+
+      # Studio chrome convenience. The body block must be passed to render(...) and
+      # consumed via yield inside Shell#view_template — a block stored at .new and
+      # invoked later renders nothing in Phlex 2.4.1.
+      def shell(**opts, &block) = render(Design::Views::Shell.new(**opts), &block)
     end
   end
 end
