@@ -58,9 +58,9 @@ module Design
     # (front_page, seneca, …) belong to the cover editor and don't render as
     # interior pages, so they're excluded from the grid.
     def interior_document_designs(paper_size)
-      paper_size.document_designs
-                .where.not(doc_type: Design::DocumentDesign::COVER_PANEL_TYPES)
-                .order(:doc_type)
+      Design::DocumentDesign.by_reading_order(
+        paper_size.document_designs.where.not(doc_type: Design::DocumentDesign::COVER_PANEL_TYPES)
+      )
     end
 
     def theme_params

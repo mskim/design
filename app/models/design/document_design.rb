@@ -24,6 +24,18 @@ module Design
     COVER_PANEL_TYPES = %w[front_page back_page seneca front_wing back_wing].freeze
     ALL_DOC_TYPES = (SINGLE_PAGE_TYPES + MULTI_PAGE_TYPES + COVER_PANEL_TYPES).freeze
 
+    # Canonical reading order (frontmatter → bodymatter → rearmatter) for displaying
+    # a paper size's document designs. doc_types not listed sort to the end.
+    DOC_TYPE_ORDER = %w[
+      title_page copyright inside_cover dedication thanks foreword prologue information help toc
+      part_cover document_cover chapter poem
+      epilogue appendix
+    ].freeze
+
+    def self.by_reading_order(designs)
+      designs.sort_by { |dd| DOC_TYPE_ORDER.index(dd.doc_type) || DOC_TYPE_ORDER.length }
+    end
+
     DEFAULT_HEADING_ELEMENTS = {
       "inside_cover" => %w[title subtitle author publisher],
       "part_cover" => %w[title subtitle],
