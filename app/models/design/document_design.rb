@@ -36,6 +36,10 @@ module Design
       designs.sort_by { |dd| DOC_TYPE_ORDER.index(dd.doc_type) || DOC_TYPE_ORDER.length }
     end
 
+    def self.interior_for(paper_size)
+      by_reading_order(paper_size.document_designs.where.not(doc_type: COVER_PANEL_TYPES))
+    end
+
     # Reading-matter groups for the theme show page (mirrors book_design's grouping).
     FRONTMATTER = %w[title_page inside_cover blank_page copyright toc foreword prologue dedication thanks information].freeze
     BODYMATTER  = %w[chapter poem part_cover document_cover].freeze
