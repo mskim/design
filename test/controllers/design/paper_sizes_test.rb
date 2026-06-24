@@ -37,7 +37,8 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     end
     created = @theme.paper_sizes.order(:created_at).last
     assert_response :redirect
-    assert created.document_designs.any?, "after_create DefaultGenerator should populate document designs"
+    assert_equal Design::DocumentDesign::ALL_DOC_TYPES.size, created.document_designs.count,
+                 "create should seed every doc type via PaperSizeSeeder"
   end
 
   test "create with invalid params re-renders 422 with errors" do

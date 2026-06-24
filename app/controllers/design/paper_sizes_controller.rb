@@ -12,6 +12,7 @@ module Design
     def create
       @paper_size = @theme.paper_sizes.new(paper_size_params)
       if @paper_size.save
+        Design::PaperSizeSeeder.call(@paper_size)
         Design::ThemeDbExportService.new(@theme).export!
         redirect_to design.edit_theme_paper_size_path(@theme, @paper_size), notice: I18n.t("design.paper_sizes.created_notice")
       else
