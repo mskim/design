@@ -65,7 +65,13 @@ module Design
           div(class: "flex items-center gap-2 flex-wrap") do
             span(class: "text-sm text-slate-500") { "#{I18n.t('design.themes.size_label')}:" }
             @paper_sizes.each { |ps| size_pill(ps) }
-            generate_sizes_button if @theme.editable_by?(Design.current_user)
+            if @theme.editable_by?(Design.current_user)
+              a(href: helpers.new_theme_paper_size_path(@theme), data: { turbo_frame: "_top" },
+                class: "text-sm font-medium text-blue-600 hover:underline") { "＋ #{I18n.t('design.paper_sizes.new_title')}" }
+              a(href: helpers.edit_theme_paper_size_path(@theme, @selected_paper_size), data: { turbo_frame: "_top" },
+                class: "text-sm font-medium text-blue-600 hover:underline") { I18n.t("design.shared.edit") }
+              generate_sizes_button
+            end
           end
         end
 

@@ -81,6 +81,13 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_equal 0, Design::DocumentDesign.where(id: dd_ids).count, "dependent: :destroy should cascade"
   end
 
+  test "show links to add a new paper size and edit the active one" do
+    get design.theme_path(@theme, paper_size_id: @ps.id)
+    assert_response :success
+    assert_select "a[href=?]", design.new_theme_paper_size_path(@theme)
+    assert_select "a[href=?]", design.edit_theme_paper_size_path(@theme, @ps)
+  end
+
   test "regenerate re-derives non-overridden defaults but preserves an overridden field" do
     # Override body_line_count via update; regenerate must keep it.
     patch design.theme_paper_size_path(@theme, @ps), params: { paper_size: { body_line_count: 99 } }
