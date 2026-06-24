@@ -9,16 +9,18 @@ module Design
         end
 
         def view_template
-          div(class: "design-studio mx-auto max-w-4xl px-6 py-10 flex flex-col gap-8") do
-            render Design::Views::Breadcrumb.new(crumbs: [
-              [ @theme.name, helpers.theme_path(@theme) ],
-              [ @paper_size.display_name, nil ]
-            ])
+          shell(title: @paper_size.display_name, action_slot: nil, sidebar: nil) do
+            div(class: "mx-auto max-w-4xl px-6 py-10 flex flex-col gap-8") do
+              render Design::Views::Breadcrumb.new(crumbs: [
+                [ @theme.name, helpers.theme_path(@theme) ],
+                [ @paper_size.display_name, nil ]
+              ])
 
-            h1(class: "text-2xl font-semibold text-slate-900") { @paper_size.display_name }
+              h1(class: "text-2xl font-semibold text-slate-900") { @paper_size.display_name }
 
-            edit_form
-            base_styles_section if @base_styles.any?
+              edit_form
+              base_styles_section if @base_styles.any?
+            end
           end
         end
 

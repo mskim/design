@@ -10,13 +10,15 @@ module Design
         end
 
         def view_template
-          div(class: "design-studio mx-auto max-w-5xl px-6 py-10 flex flex-col gap-6") do
-            header_section
-            if @selected_paper_size
-              size_selector
-              doc_grid
-            else
-              p(class: "text-sm text-slate-500") { I18n.t("design.themes.no_custom_themes") }
+          shell(title: @theme.name, action_slot: :theme_show, action_context: @theme, sidebar: nil) do
+            div(class: "mx-auto max-w-5xl px-6 py-10 flex flex-col gap-6") do
+              header_section
+              if @selected_paper_size
+                size_selector
+                doc_grid
+              else
+                p(class: "text-sm text-slate-500") { I18n.t("design.themes.no_custom_themes") }
+              end
             end
           end
         end

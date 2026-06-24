@@ -13,21 +13,23 @@ module Design
         end
 
         def view_template
-          div(class: "design-studio mx-auto max-w-6xl px-6 py-10 flex flex-col gap-8") do
-            render Design::Views::Breadcrumb.new(crumbs: [
-              [ @theme.name, helpers.theme_path(@theme) ],
-              [ @paper_size.display_name, helpers.edit_theme_paper_size_path(@theme, @paper_size) ],
-              [ @document_design.doc_type, nil ]
-            ])
+          shell(title: @document_design.doc_type, action_slot: nil, sidebar: nil) do
+            div(class: "mx-auto max-w-6xl px-6 py-10 flex flex-col gap-8") do
+              render Design::Views::Breadcrumb.new(crumbs: [
+                [ @theme.name, helpers.theme_path(@theme) ],
+                [ @paper_size.display_name, helpers.edit_theme_paper_size_path(@theme, @paper_size) ],
+                [ @document_design.doc_type, nil ]
+              ])
 
-            h1(class: "text-2xl font-semibold text-slate-900") { @document_design.doc_type }
+              h1(class: "text-2xl font-semibold text-slate-900") { @document_design.doc_type }
 
-            div(class: "flex flex-col lg:flex-row gap-6") do
-              div(class: "flex-1 min-w-0") { preview_section }
-              div(class: "lg:w-[28rem] lg:shrink-0") { render Design::Views::DocumentDesigns::PropertiesPanel.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: @editable) }
+              div(class: "flex flex-col lg:flex-row gap-6") do
+                div(class: "flex-1 min-w-0") { preview_section }
+                div(class: "lg:w-[28rem] lg:shrink-0") { render Design::Views::DocumentDesigns::PropertiesPanel.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: @editable) }
+              end
+              document_styles_section if @paragraph_styles.any?
+              base_styles_section
             end
-            document_styles_section if @paragraph_styles.any?
-            base_styles_section
           end
         end
 

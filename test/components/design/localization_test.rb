@@ -118,6 +118,11 @@ class Design::LocalizationTest < ActiveSupport::TestCase
       def o.form_authenticity_token = "t"
       o
     end
+    # Re-housing this view in the Shell means its top bar now resolves
+    # config.home_url. The default (`-> { main_app.root_path }`) needs a real
+    # view context the Shell child component lacks in a pure unit render, so
+    # pin a static home target for this render (test_helper restores config).
+    Design.config.home_url = -> { "/" }
     c.call
   end
 

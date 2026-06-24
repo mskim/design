@@ -8,9 +8,8 @@ module Design
         end
 
         def view_template
-          div(class: "design-studio mx-auto max-w-6xl px-6 py-10 flex flex-col gap-8") do
-            header_bar
-            div(class: "themes-grid grid grid-cols-1 gap-8 lg:grid-cols-2") do
+          shell(title: I18n.t("design.themes.index_title"), action_slot: :themes_index, sidebar: nil) do
+            div(class: "themes-grid mx-auto max-w-6xl px-6 py-10 grid grid-cols-1 gap-8 lg:grid-cols-2") do
               themes_column(:system, I18n.t("design.themes.system_themes"), @system_themes) { |t| system_theme_card(t) }
               themes_column(:custom, I18n.t("design.themes.custom_themes"), @custom_themes) { |t| custom_theme_card(t) }
             end
@@ -18,15 +17,6 @@ module Design
         end
 
         private
-
-        def header_bar
-          div(class: "design-studio__header flex items-center justify-between gap-4") do
-            h1(class: "text-2xl font-semibold") { I18n.t("design.themes.index_title") }
-            a(href: helpers.instance_exec(&Design.config.home_url), class: "design-studio__home text-sm text-blue-600 hover:underline") do
-              I18n.t("design.themes.back_to_home")
-            end
-          end
-        end
 
         def themes_column(key, title, themes)
           section(class: "themes-column flex flex-col gap-3", data: { themes: key }) do
