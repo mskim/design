@@ -15,15 +15,15 @@ Move table-style preview rendering **into the gem** so `Design::TableStylePrevie
 |---|----------|
 | 1 | **Port the 5-service pipeline into the gem** under `Design::`: `TableStylePreviewService` (orchestrator), `TableStyleResolver`, `SingleTablePdf`, `TableStylePreviewSample`, `HexToCmyk`. Faithful ports of book_design's (`app/services/*`). |
 | 2 | **DRY the PDF→JPG step:** extract the identical `convert_pdf_to_jpg` from `PreviewService` into a shared `Design::PdfToJpg.convert(pdf_path, jpg_path, dpi:)`; both `PreviewService` and `TableStylePreviewService` use it. |
-| 3 | **Hook becomes an optional override.** `TableStylePreviewsController#show`: `blob = Design.config.table_style_preview ? hook.call(theme, ts) : Design::TableStylePreviewService.call(theme, ts)`. No more `head :not_found` for an unset hook — the gem always renders (404 only on RecordNotFound / a genuine render failure). |
-| 4 | **Components always render the preview `<img>`.** Drop the `if Design.config.table_style_preview` gates in `TableStyles::Edit` (preview pane, `edit.rb:23`) and `Themes::Show` (table-style grid, `show.rb:181`) — render the `<img>` unconditionally; keep a graceful fallback only if a render error makes the endpoint fail. |
+| 3 | **Hook becomes an optional override.** `TableStylePreviewsController#show`: `blob = Design.config.table_style_preview ? hook.call(theme, ts) : Design::TableStylePreviewService.call(theme, ts)`. No more `head :not_found` for an unset hook. **Render-error behavior is explicit:** `show` rescues `StandardError` from the service/hook → log + `head :unprocessable_entity` (the `<img>`'s `onerror`/`alt` then degrades gracefully), so one bad table style never 500s the grid. `ActiveRecord::RecordNotFound` → `head :not_found` (unchanged). |
+| 4 | **Components always render the preview `<img>`.** Drop the `if Design.config.table_style_preview` gates in `TableStyles::Edit` (preview pane, `edit.rb:23`) and `Themes::Show` (table-style grid, `show.rb:181`) — render the `<img>` unconditionally. **Delete the `else`-branch placeholder markup** in both; if `design.table_styles.no_preview` (gem locales) becomes unused after that, remove the key. Keep only the `<img alt=…>`/`onerror` as the degrade path (paired with Decision 3's rescue). |
 | 5 | **book_design deletes its copy** (convergence — one source of truth): remove `app/services/{table_style_preview_renderer,table_style_resolver,single_table_pdf,table_style_preview_sample,hex_to_cmyk}.rb`, the two tests (`test/services/{table_style_resolver,hex_to_cmyk}_test.rb`), and the `c.table_style_preview = …` line in `config/initializers/design.rb`. (Confirmed: those + the hook are the only references.) |
 | 6 | **Caching deferred.** Render on demand (matches book_design + #5); a fingerprint cache for the N-per-grid-load case is a later perf pass (consistent with #1/#5). |
 
 ## Key findings (from exploration)
 
 - **The 5 book_design services** (`app/services/`): `TableStylePreviewRenderer` (→ resolver → SingleTablePdf → Vips, returns a JPEG blob); `TableStyleResolver` (`TableStyle` + theme `base_paragraph_styles` for `table_heading_cell`/`table_body_cell` → a `style_hash`, colors via `HexToCmyk`); `SingleTablePdf` (`require "hexapdf"` + `DocProcessorRb::Layout::InlineTable.new(rows:, width:, style_hash:).measure` + `draw_pdf(canvas, x:, y:)` on a 595.28×200 page); `TableStylePreviewSample::SAMPLE` (a 1-header/3-body Region/Population/Area table); `HexToCmyk` (~20-line hex→CMYK).
-- **Gem already has the deps:** `Gemfile.lock` → `hexapdf (>= 0.44)` is the gem's own gemspec dependency; `PreviewService` already uses `DocProcessorRb` + Vips for the identical PDF→JPG. So nothing new to add.
+- **Deps are present but transitive:** `hexapdf (1.9.1)` resolves via `doc_processor_rb`'s gemspec and `ruby-vips (2.3.0)` via `image_processing` (gem-root Gemfile) — `PreviewService` already `require`s both. `design.gemspec` declares neither directly. Since `SingleTablePdf` adds a **first-party** `require "hexapdf"` in gem app code, **add `spec.add_dependency "hexapdf"` to `design.gemspec`** (declare the dependency the gem now relies on directly; ruby-vips stays transitive via image_processing, as `PreviewService` already does). No new *installed* gem — just an honest contract.
 - **`PreviewService#convert_pdf_to_jpg`** is byte-identical to `TableStylePreviewRenderer#convert_pdf_to_jpg` (read buffer → flatten alpha to white → `jpegsave Q: 85`, DPI 150) — extract once (Decision 2).
 - **Controller (#5):** `TableStylePreviewsController#show` currently `blob = Design.config.table_style_preview&.call(...)` → `head :not_found unless blob`. Rewire per Decision 3.
 - **Components (#5):** `table_styles/edit.rb:23` and `themes/show.rb:181` gate the `<img>`/`turbo_frame` on `Design.config.table_style_preview`. Rewire per Decision 4.
@@ -38,8 +38,9 @@ Move table-style preview rendering **into the gem** so `Design::TableStylePrevie
 - **`Design::PdfToJpg.convert(pdf_path, jpg_path, dpi: 150)`** — the extracted shared Vips step; `PreviewService#convert_pdf_to_jpg` is refactored to call it (no behavior change).
 
 ### Rewire (gem)
-- `TableStylePreviewsController#show` — Decision 3 (gem-native default; hook override).
-- `TableStyles::Edit#preview_pane` + `Themes::Show#table_style_card` — Decision 4 (always render the `<img>`).
+- `TableStylePreviewsController#show` — Decision 3 (gem-native default; hook override; rescue → `head :unprocessable_entity`).
+- `TableStyles::Edit#preview_pane` + `Themes::Show#table_style_card` — Decision 4 (always render the `<img>`; delete the placeholder else-branch).
+- `design.gemspec` — add `spec.add_dependency "hexapdf"` (first-party `require` now lives in `SingleTablePdf`).
 
 ### book_design (delete)
 - Remove the 5 services + 2 tests + the `c.table_style_preview` registration (Decision 5). Verify the full suite + eager-load stay green (book_design's table previews now come from the gem).
@@ -50,8 +51,8 @@ Move table-style preview rendering **into the gem** so `Design::TableStylePrevie
 - `Design::HexToCmyk` — port book_design's cases (`#ffffff → [0,0,0,0]`, `#000000 → [0,0,0,100]`, `#cccccc → [0,0,0,20]`).
 - `Design::TableStyleResolver` — port book_design's test (style_hash keys/values, CMYK conversion, header/body cell paragraph hashes).
 - `Design::TableStylePreviewService.call(theme, ts)` — returns a non-empty `image/jpeg` blob (real render: `doc_processor_rb` InlineTable + Vips). Use a seeded theme + one of its table styles. (Env must have Vips/doc_processor — the gem's `PreviewService` tests already require this.)
-- Controller `show`: **default (no hook)** → `200 image/jpeg`, non-empty; **with a hook registered** → uses the hook (assert the override path, e.g. a stub blob). Reset the hook in `ensure`.
-- Components: `TableStyles::Edit` renders `turbo-frame#preview_frame img` and `Themes::Show` renders the table-style card `<img>` **with no hook registered** (the old placeholder path is gone).
+- Controller `show`: **default (no hook)** → `200 image/jpeg`, non-empty; **with a hook registered** → uses the hook (assert the override path, e.g. a stub blob); **service raises** → `head :unprocessable_entity` (stub the service to raise; assert no 500). For the hook test, **save the original `Design.config.table_style_preview` and restore it in `ensure`** (not just nil it) — this mutates a shared singleton, so save/restore + keep this test off parallel workers that share config (mirrors the known doc_processor_rb/global-state caveat).
+- Components: `TableStyles::Edit` renders `turbo-frame#preview_frame img` and `Themes::Show` renders the table-style card `<img>` **with no hook registered** (the old `else`-branch placeholder is gone — assert the placeholder markup is absent).
 - `Design::PdfToJpg.convert` round-trips a tiny PDF → JPEG (or covered transitively by the service test).
 
 **book_design (Minitest):** after deletion — the existing `StudioCutoverTest` table-preview assertion (#6) should now pass **without** registering the hook (gem-native); update it to drop the hook setup. Full suite + `Rails.application.eager_load!` green (no dangling refs to the deleted services).
