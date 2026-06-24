@@ -27,8 +27,9 @@ module Design
 
     def update
       if @paper_size.update(paper_size_params)
+        @paper_size.mark_overridden_from_changes(Design::PaperSize::GENERATABLE_FIELDS)
         Design::ThemeDbExportService.new(@theme).export!
-        redirect_to design.theme_path(@theme), notice: "Paper size updated."
+        redirect_to design.theme_path(@theme), notice: I18n.t("design.paper_sizes.updated_notice")
       else
         render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size, base_styles: @paper_size.paragraph_styles.order(:name)), status: :unprocessable_entity
       end

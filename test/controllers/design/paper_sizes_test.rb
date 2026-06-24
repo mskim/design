@@ -30,6 +30,26 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_equal 30.0, @ps.reload.left_margin_mm
   end
 
+  test "update round-trips identity + margin fields" do
+    patch design.theme_paper_size_path(@theme, @ps),
+          params: { paper_size: { local_name: "신국판", width_mm: 150, top_margin_mm: 22 } }
+    assert_response :redirect
+    @ps.reload
+    assert_equal "신국판", @ps.local_name
+    assert_equal 150.0, @ps.width_mm
+    assert_equal 22.0, @ps.top_margin_mm
+  end
+
+  test "update marks an edited generatable field as overridden" do
+    patch design.theme_paper_size_path(@theme, @ps), params: { paper_size: { body_line_count: 99 } }
+    assert @ps.reload.overridden?(:body_line_count), "edited generatable field must be marked overridden"
+  end
+
+  test "update with invalid params re-renders 422" do
+    patch design.theme_paper_size_path(@theme, @ps), params: { paper_size: { size_name: "" } }
+    assert_response :unprocessable_entity
+  end
+
   test "create with valid params adds a size, auto-generates docs, and redirects" do
     assert_difference -> { @theme.paper_sizes.count }, 1 do
       post design.theme_paper_sizes_path(@theme),
