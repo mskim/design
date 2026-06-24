@@ -11,6 +11,7 @@ module Design
           identity_section
           font_section
           text_section
+          table_cell_section
           bold_emphasis_section
           spacing_section
           fill_section
@@ -48,6 +49,17 @@ module Design
             number_field(I18n.t("design.fields.tracking"), :tracking, step: "0.1")
             number_field(I18n.t("design.fields.space_width"), :space_width, step: "0.1")
             number_field(I18n.t("design.fields.line_spacing"), :text_line_spacing, step: "0.1")
+          end
+        end
+
+        # ── Table cell (only for table_heading_cell / table_body_cell) ──
+        def table_cell_section
+          return unless @paragraph_style.name.in?(%w[table_heading_cell table_body_cell])
+
+          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.fields.table_cell") }
+          div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
+            select_field(I18n.t("design.fields.vertical_align"), :vertical_align,
+                         Design::ParagraphStyle::VERTICAL_ALIGNS, include_blank: "— inherit —")
           end
         end
 

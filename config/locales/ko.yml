@@ -168,6 +168,8 @@ ko:
       padding: "안쪽 여백"
       padding_top: "위쪽 여백 (pt)"
       padding_bottom: "아래쪽 여백 (pt)"
+      table_cell: "표 셀"
+      vertical_align: "세로 정렬"
 
     doc_types:
       title_page: "표제지"

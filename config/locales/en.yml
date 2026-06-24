@@ -168,6 +168,8 @@ en:
       padding: "Padding"
       padding_top: "Padding Top (pt)"
       padding_bottom: "Padding Bottom (pt)"
+      table_cell: "Table Cell"
+      vertical_align: "Vertical align"
 
     doc_types:
       title_page: "Title page"

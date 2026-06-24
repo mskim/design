@@ -35,4 +35,12 @@ class Design::ParagraphStylesFormTest < ActionDispatch::IntegrationTest
     patch design.theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style), params: { paragraph_style: { font_size: 9 } }
     assert_equal 9.0, style.reload.font_size
   end
+
+  test "updating a table cell style persists vertical_align" do
+    style = @dd.paragraph_styles.create!(name: "table_body_cell", font_size: 9)
+    patch design.theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style),
+          params: { paragraph_style: { vertical_align: "middle" } }
+    assert_response :redirect
+    assert_equal "middle", style.reload.vertical_align
+  end
 end

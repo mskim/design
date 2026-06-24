@@ -1,5 +1,7 @@
 module Design
   class BaseParagraphStylesController < Design::ApplicationController
+    include Design::ParagraphStyleParams
+
     before_action :set_theme
     before_action :set_paper_size
     before_action :set_paragraph_style
@@ -39,19 +41,6 @@ module Design
 
     def set_paragraph_style
       @paragraph_style = @paper_size.paragraph_styles.find(params[:id])
-    end
-
-    def paragraph_style_params
-      params.require(:paragraph_style).permit(
-        :name, :korean_name, :font, :font_size, :scale,
-        :text_color, :text_align, :tracking, :space_width, :text_line_spacing,
-        :first_line_indent, :left_indent, :right_indent,
-        :space_before, :space_after, :space_before_in_lines, :space_after_in_lines,
-        :bold_font, :bold_text_color, :emphasis_font, :emphasis_color,
-        :fill_type, :fill_color, :fill_ending_color, :fill_gradient_direction,
-        :border_thickness, :border_color, :border_side, :rounded_corners, :corner_radius,
-        :padding_top, :padding_bottom
-      )
     end
   end
 end

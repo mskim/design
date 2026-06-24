@@ -19,6 +19,19 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
     assert_includes html, %(name="paragraph_style[corner_radius]")
   end
 
+  # ── vertical_align (table cells only) ──
+
+  test "vertical_align select renders for a table_body_cell style" do
+    style = @ps.paragraph_styles.create!(name: "table_body_cell", font_size: 9)
+    html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: style).call
+    assert_includes html, %(name="paragraph_style[vertical_align]")
+  end
+
+  test "vertical_align select is absent for a body style" do
+    html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style).call
+    refute_includes html, %(name="paragraph_style[vertical_align]")
+  end
+
   # ── Interactive border/corner widgets (KEEP — not plain text inputs) ──
 
   test "border section renders interactive border-side-editor (not plain text input)" do
