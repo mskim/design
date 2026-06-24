@@ -62,21 +62,39 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
     ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     dd = ps.document_designs.create!(doc_type: "chapter")
 
-    get design.themes_path
+    # The flat index now generates previews on render (design_preview_img),
+    # so a theme with a chapter doc triggers a PreviewService shell-out — stub it.
+    fake = Object.new
+    def fake.generate = { success: true, jpg_path: "/tmp/x.jpg" }
+    stub_preview_service(fake) do
+      get design.themes_path
+    end
 
     assert_response :success
     assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, dd)
   end
 
-  test "index shows a no-preview placeholder for a theme without a chapter doc" do
+  test "index omits the preview strip for a theme without a chapter doc" do
     theme = Design::Theme.create!(name: "Empty #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
     theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
 
+    # No chapter doc on the default size → the flat card renders no preview
+    # strip at all (the old grid had a .preview-empty placeholder; the
+    # redesigned card simply omits the image area).
     get design.themes_path
 
     assert_response :success
-    assert_select "[data-theme-card='#{theme.id}'] img", count: 0
-    assert_select "[data-theme-card='#{theme.id}'] .preview-empty"
+    assert_select ".theme-card img", count: 0
+    assert_includes response.body, theme.name
+  end
+
+  # Minitest 6 dropped Object#stub; swap the class .new manually and restore.
+  def stub_preview_service(fake)
+    original = Design::PreviewService.method(:new)
+    Design::PreviewService.define_singleton_method(:new) { |*, **| fake }
+    yield
+  ensure
+    Design::PreviewService.singleton_class.send(:define_method, :new, original)
   end
 
   test "show renders a preview image per doc-type of the selected size and no style list" do

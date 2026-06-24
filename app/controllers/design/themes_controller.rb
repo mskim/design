@@ -3,9 +3,8 @@ module Design
     before_action :set_theme, only: [ :show, :edit, :update, :destroy, :clone, :generate_sizes ]
 
     def index
-      @system_themes = Design::Theme.system_themes.order(:name)
-      @custom_themes = Design::Theme.custom_themes.order(:name)
-      render Design::Views::Themes::Index.new(system_themes: @system_themes, custom_themes: @custom_themes)
+      @themes = Design::Theme.order(:name)
+      render Design::Views::Themes::Index.new(themes: @themes)
     end
 
     def show

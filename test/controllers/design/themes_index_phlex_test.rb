@@ -7,10 +7,11 @@ class Design::ThemesIndexPhlexTest < ActionDispatch::IntegrationTest
   end
 
   test "themes index renders the Phlex page in the design layout" do
+    Design::Theme.create!(name: "Phlex #{SecureRandom.hex(3)}", locale: "ko")
     get "/design/themes"
     assert_response :success
     assert_select "body.design-studio"
-    assert_select ".themes-grid [data-theme-card]"   # two-column theme card gallery
+    assert_select ".themes-grid .theme-card"         # flat responsive card grid
     assert_match %r{/assets/design-\w+\.css}, response.body  # engine stylesheet loaded (digested)
   end
 

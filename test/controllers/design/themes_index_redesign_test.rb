@@ -13,28 +13,31 @@ class Design::ThemesIndexRedesignTest < ActionDispatch::IntegrationTest
     assert_select "a.design-studio__home[href=?]", "/"
   end
 
-  test "lays system and custom themes out in two columns" do
-    assert_select ".themes-grid section[data-themes=system]"
-    assert_select ".themes-grid section[data-themes=custom]"
+  # Redesign: the index is now a single flat responsive grid of rich cards —
+  # no system/custom column split.
+  test "lays all themes out in one flat grid" do
+    assert_select ".themes-grid", 1
+    assert_select "section[data-themes=system]", count: 0
+    assert_select "section[data-themes=custom]", count: 0
   end
 
-  test "renders each theme as a card with a chapter preview and book-list-style meta" do
-    assert_select "section[data-themes=system] [data-theme-card]" do
-      assert_select ".theme-card__preview"
-      assert_select ".theme-card__name", text: @system.name
-      assert_select ".theme-card__meta" # paper sizes / doc types summary
-    end
+  # Each theme renders as a card linking to its show page (where clone/edit live).
+  test "renders each theme as a card linking to its show page" do
+    assert_select "a.theme-card[href=?]", "/design/themes/#{@system.id}"
+    assert_select "a.theme-card[href=?]", "/design/themes/#{@mine.id}"
+    assert_includes response.body, @system.name
+    assert_includes response.body, @mine.name
   end
 
-  test "system themes can be cloned with a chosen name" do
-    assert_select "form[action=?][method=post]", "/design/themes/#{@system.id}/clone" do
-      assert_select "input[name=name]"
-    end
+  # Clone/rename moved off the index onto the theme show page — the index no
+  # longer carries inline clone or rename forms.
+  test "no inline clone or rename forms on the index" do
+    assert_select "form[action=?]", "/design/themes/#{@system.id}/clone", count: 0
+    assert_select "form input[name=?]", "theme[name]", count: 0
   end
 
-  test "custom themes can be renamed inline" do
-    assert_select "section[data-themes=custom] form[action=?]", "/design/themes/#{@mine.id}" do
-      assert_select "input[name=?]", "theme[name]"
-    end
+  # The gem-native New theme link is present.
+  test "offers a New theme link" do
+    assert_select "a[href=?]", design.new_theme_path
   end
 end
