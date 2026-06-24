@@ -211,12 +211,19 @@ class Design::ShellTest < ActiveSupport::TestCase
   end
 
   def shell(**opts, &block)
-    c = Class.new(Design::Views::Base) do
+    blk = block || proc { plain "MAIN" }
+    parent = Class.new(Design::Views::Base) do
       define_method(:initialize) { |o, b| @o = o; @b = b }
-      define_method(:view_template) { render Design::Views::Shell.new(**@o, &@b) }
-    end.new(opts, block || proc { plain "MAIN" })
-    c.define_singleton_method(:helpers) { o = Object.new; def o.instance_exec(*); end; o }
-    c.call
+      # block to render(...), NOT to Shell.new — Phlex 2.4.1 only renders the
+      # block when it's passed to render and consumed via yield in the Shell.
+      define_method(:view_template) { render(Design::Views::Shell.new(**@o), &@b) }
+    end.new(opts, blk)
+    # home_href falls back to helpers.themes_path when Design.config.home_url is unset;
+    # stub helpers to satisfy both paths so the bare .call render works.
+    parent.define_singleton_method(:helpers) do
+      Object.new.tap { |o| o.define_singleton_method(:themes_path) { "/themes" } }
+    end
+    parent.call
   end
 
   test "renders top bar with title + yielded main" do
@@ -246,13 +253,15 @@ end
 module Design
   module Views
     class Shell < Design::Views::Base
-      def initialize(title:, breadcrumb: nil, action_slot: nil, action_context: nil, sidebar: nil, &block)
+      # NOTE: the body block is NOT captured here. In Phlex 2.4.1 a block stored at
+      # `.new` and invoked later renders nothing — it must be passed to `render(...)`
+      # and consumed via `yield` in view_template (see Base#shell below).
+      def initialize(title:, breadcrumb: nil, action_slot: nil, action_context: nil, sidebar: nil)
         @title = title
         @breadcrumb = breadcrumb
         @action_slot = action_slot
         @action_context = action_context
         @sidebar = sidebar
-        @body = block
       end
 
       def view_template
@@ -262,7 +271,7 @@ module Design
             if @sidebar
               aside(class: "w-64 shrink-0 overflow-y-auto border-r border-slate-200") { render @sidebar }
             end
-            main(class: "flex-1 overflow-y-auto") { @body&.call }
+            main(class: "flex-1 overflow-y-auto") { yield }   # renders the block passed to render(Shell.new(...), &block)
           end
         end
       end
@@ -272,7 +281,7 @@ module Design
       def top_bar
         header(class: "flex items-center justify-between gap-4 border-b border-slate-200 px-6 py-4") do
           div(class: "flex items-center gap-3 min-w-0") do
-            a(href: home_href, class: "text-sm text-blue-600 hover:underline shrink-0") { I18n.t("design.themes.index_title") }
+            a(href: home_href, class: "design-studio__home text-sm text-blue-600 hover:underline shrink-0") { I18n.t("design.themes.back_to_home") }
             span(class: "truncate text-lg font-semibold") { @breadcrumb || @title }
           end
           div(class: "flex items-center gap-2 shrink-0") { render_host_actions(@action_slot, @action_context) if @action_slot }
@@ -289,9 +298,9 @@ end
 ```
 > Replace the placeholder chrome classes (`border-slate-200`, `px-6 py-4`, etc.) with book_design's exact classes from `pages/themes/show.rb` / `pages/paper_sizes/show.rb` so the look matches. `@body&.call` renders the Phlex block content (confirm Phlex block-capture form against the gem's Phlex version; if `yield`-style is required, adapt).
 
-Add a convenience to `DG/app/components/design/views/base.rb`:
+Add a convenience to `DG/app/components/design/views/base.rb` — **the block goes to `render`, not to `Shell.new`** (Phlex 2.4.1 requirement):
 ```ruby
-      def shell(**opts, &block) = render Design::Views::Shell.new(**opts, &block)
+      def shell(**opts, &block) = render(Design::Views::Shell.new(**opts), &block)
 ```
 
 - [ ] **Step 4: Rebuild the scoped CSS** (the new Shell adds classes):
@@ -344,7 +353,7 @@ end
 
 - [ ] **Step 4: Rebuild CSS** (re-run the Task 3 Step-4 runner) since wrapper classes changed.
 
-- [ ] **Step 5: Run tests; verify PASS** — `bin/rails test test/controllers/design/studio_shell_test.rb test/design_tailwind_build_freshness_test.rb`, then the **full suite** `bin/rails test 2>&1 | tail -6` to confirm no regression (existing themes/index tests may assert the old `design-studio__header` or `back_to_home` link — update those assertions to the shell equivalents, FLAGGING each change as the intended de-dup, not silent breakage).
+- [ ] **Step 5: Run tests; verify PASS** — `bin/rails test test/controllers/design/studio_shell_test.rb test/design_tailwind_build_freshness_test.rb`, then the **full suite** `bin/rails test 2>&1 | tail -6` to confirm no regression. **Known breaker:** `test/controllers/design/themes_index_redesign_test.rb:13` asserts `a.design-studio__home[href=?], "/"` — the Shell home link keeps the `design-studio__home` class and the same `home_url` href, so this should still pass; if its surrounding assertions reference the old `header_bar` structure, update them to the Shell's top bar and FLAG each change as the intended de-dup (not silent breakage). Any other view test asserting the old centered-wrapper/`design-studio__header`: same.
 
 - [ ] **Step 6: Commit:**
 ```bash
@@ -382,9 +391,9 @@ end
 - [ ] **Step 3: Register actions** in `BD/config/initializers/design.rb` (inside the existing `Design.configure do |c|` block or a `Design.config.actions` call after it). Use `main_app.*` route helpers (resolved at render time):
 ```ruby
   Design.config.actions.for(:theme_show) do |theme|
-    [ { label: "Export",        path: main_app.export_theme_db_path(theme),     method: :post, icon: :download },
-      { label: "Generate PDFs", path: main_app.generate_style_pdfs_path(theme), method: :post },
-      { label: "Clone",         path: main_app.clone_theme_path(theme),         method: :post } ]
+    [ { label: "Export",        path: main_app.export_theme_db_theme_path(theme),     method: :post, icon: :download },
+      { label: "Generate PDFs", path: main_app.generate_style_pdfs_theme_path(theme), method: :post },
+      { label: "Clone",         path: main_app.clone_theme_path(theme),               method: :post } ]
   end
   Design.config.actions.for(:themes_index) do
     [ { label: "New theme",     path: main_app.new_theme_path,        method: :get },
@@ -393,7 +402,7 @@ end
       { label: "Style browser", path: main_app.style_browser_path,    method: :get } ]
   end
 ```
-> Verify each route helper exists in `BD/config/routes.rb` (`export_theme_db`, `generate_style_pdfs`, `clone` on theme member; `import`, `generate` on themes collection; `style_browser`; `new_theme`). Drop any descriptor whose route doesn't exist.
+> Verify each helper with `cd BD && bin/rails routes -g theme`. NOTE: **member actions yield `<action>_theme_path`** — `export_theme_db_theme_path`, `generate_style_pdfs_theme_path`, `clone_theme_path` (NOT `export_theme_db_path`). Collection/standard helpers: `import_themes_path`, `generate_themes_path`, `style_browser_path`, `new_theme_path`. Drop any descriptor whose route doesn't exist.
 
 - [ ] **Step 4: Run the test; verify it PASSES.**
 
