@@ -9,6 +9,16 @@ module Design
       render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size)
     end
 
+    def create
+      @paper_size = @theme.paper_sizes.new(paper_size_params)
+      if @paper_size.save
+        Design::ThemeDbExportService.new(@theme).export!
+        redirect_to design.edit_theme_paper_size_path(@theme, @paper_size), notice: I18n.t("design.paper_sizes.created_notice")
+      else
+        render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size), status: :unprocessable_entity
+      end
+    end
+
     def edit
       @base_styles = @paper_size.paragraph_styles.order(:name)
       render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size, base_styles: @base_styles)
@@ -31,6 +41,7 @@ module Design
 
     def paper_size_params
       params.require(:paper_size).permit(
+        :size_name, :local_name, :width_mm, :height_mm,
         :left_margin_mm, :top_margin_mm, :right_margin_mm, :bottom_margin_mm,
         :binding_margin_mm, :body_line_count, :toc_page_count
       )

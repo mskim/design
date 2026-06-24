@@ -10,8 +10,16 @@ module Design
 
     def call
       fill_layout
-      @paper_size.document_designs.each { |dd| generate_headings_for(dd) }   # no-op until Task 4
+      seed_document_designs
+      @paper_size.document_designs.each { |dd| generate_headings_for(dd) }
       @paper_size
+    end
+
+    def seed_document_designs
+      existing = @paper_size.document_designs.pluck(:doc_type)
+      (Design::DocumentDesign::ALL_DOC_TYPES - existing).each do |doc_type|
+        @paper_size.document_designs.create!(doc_type: doc_type)
+      end
     end
 
     def fill_layout

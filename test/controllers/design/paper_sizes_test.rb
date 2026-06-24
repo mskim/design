@@ -29,4 +29,22 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_response :redirect
     assert_equal 30.0, @ps.reload.left_margin_mm
   end
+
+  test "create with valid params adds a size, auto-generates docs, and redirects" do
+    assert_difference -> { @theme.paper_sizes.count }, 1 do
+      post design.theme_paper_sizes_path(@theme),
+           params: { paper_size: { size_name: "46판", width_mm: 127, height_mm: 188 } }
+    end
+    created = @theme.paper_sizes.order(:created_at).last
+    assert_response :redirect
+    assert created.document_designs.any?, "after_create DefaultGenerator should populate document designs"
+  end
+
+  test "create with invalid params re-renders 422 with errors" do
+    assert_no_difference -> { @theme.paper_sizes.count } do
+      post design.theme_paper_sizes_path(@theme), params: { paper_size: { size_name: "", width_mm: 0 } }
+    end
+    assert_response :unprocessable_entity
+    assert_select "div", text: /can.t be blank|greater than/i
+  end
 end
