@@ -278,6 +278,17 @@ ko:
       padding_top: "위쪽 패딩"
       padding_bottom: "아래쪽 패딩"
 
+    style_browser:
+      title: "스타일 브라우저"
+      count: "문단 스타일 %{count}개"
+      back_to_themes: "← 테마"
+      f_theme: "테마"
+      f_size: "판형"
+      f_doc_type: "문서 유형"
+      f_style: "스타일 이름"
+      all: "전체"
+      empty: "선택한 필터에 해당하는 스타일이 없습니다."
+
     editor:
       preview: "미리보기"
       loading_preview: "미리보기 불러오는 중…"

@@ -1,4 +1,6 @@
 Design::Engine.routes.draw do
+  get "style_browser", to: "style_browser#index", as: :style_browser
+
   resources :themes, only: [:index, :show, :new, :create, :edit, :update, :destroy] do
     post :clone, on: :member
     post :generate_sizes, on: :member

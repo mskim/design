@@ -278,6 +278,17 @@ en:
       padding_top: "Padding top"
       padding_bottom: "Padding bottom"
 
+    style_browser:
+      title: "Style Browser"
+      count: "%{count} paragraph styles"
+      back_to_themes: "← Themes"
+      f_theme: "Theme"
+      f_size: "Paper Size"
+      f_doc_type: "Doc Type"
+      f_style: "Style Name"
+      all: "All"
+      empty: "No styles found for the selected filters."
+
     editor:
       preview: "Preview"
       loading_preview: "Loading preview…"
