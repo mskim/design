@@ -38,8 +38,8 @@ module Design
 
     def build_doc_types
       scope = Design::DocumentDesign.joins(:paper_size)
-      scope = scope.where(paper_sizes: { theme_id: @selected_theme.id }) if @selected_theme
-      scope = scope.where(paper_sizes: { size_name: @selected_size_name }) if @selected_size_name
+      scope = scope.where(design_paper_sizes: { theme_id: @selected_theme.id }) if @selected_theme
+      scope = scope.where(design_paper_sizes: { size_name: @selected_size_name }) if @selected_size_name
       scope.distinct.pluck(:doc_type).sort
     end
 
@@ -47,8 +47,8 @@ module Design
       scope = Design::DocumentDesign.includes(:paragraph_styles, paper_size: { theme: :base_paragraph_styles })
       if @selected_theme || @selected_size_name
         scope = scope.joins(:paper_size)
-        scope = scope.where(paper_sizes: { theme_id: @selected_theme.id }) if @selected_theme
-        scope = scope.where(paper_sizes: { size_name: @selected_size_name }) if @selected_size_name
+        scope = scope.where(design_paper_sizes: { theme_id: @selected_theme.id }) if @selected_theme
+        scope = scope.where(design_paper_sizes: { size_name: @selected_size_name }) if @selected_size_name
       end
       scope = scope.where(doc_type: @selected_doc_type) if @selected_doc_type
       scope

@@ -73,9 +73,81 @@ module Design
           end
         end
 
-        # Filled in Task 2.
         def styles_table
-          div { "" }
+          div(class: "overflow-x-auto") do
+            table(class: "w-full text-sm") do
+              thead do
+                tr(class: "border-b border-slate-200 text-slate-700") do
+                  %w[name korean theme size doc_type font font_size color fill border actions].each do |k|
+                    align = %w[font_size].include?(k) ? "text-right" : (k == "actions" ? "text-center" : "text-left")
+                    th(class: "#{align} py-2 px-2 font-medium") { I18n.t("design.style_browser.col_#{k}") }
+                  end
+                end
+              end
+              tbody do
+                @style_rows.each { |row| style_row(row) }
+              end
+            end
+          end
+        end
+
+        def style_row(row)
+          style = row[:style]
+          tr(class: "border-b border-slate-100 hover:bg-slate-50") do
+            td(class: "py-2 px-2 font-medium text-slate-900") { style.name }
+            td(class: "py-2 px-2 text-slate-500") { style.korean_name.presence || "—" }
+            td(class: "py-2 px-2") { row[:theme].name }
+            td(class: "py-2 px-2") { row[:paper_size].size_name }
+            td(class: "py-2 px-2") { doc_type_cell(row) }
+            td(class: "py-2 px-2") { style.font.presence || "—" }
+            td(class: "py-2 px-2 text-right") { style.font_size&.to_s || "—" }
+            td(class: "py-2 px-2") { color_swatch(style.text_color) }
+            td(class: "py-2 px-2") { fill_info(style) }
+            td(class: "py-2 px-2") { border_info(style) }
+            td(class: "py-2 px-2 text-center") { actions_cell(row) }   # filled in Task 3
+          end
+        end
+
+        def doc_type_cell(row)
+          if row[:doc_type].nil?
+            span(class: "text-slate-400 italic") { I18n.t("design.style_browser.all_docs") }
+          elsif row[:is_override]
+            div(class: "flex items-center gap-1") do
+              plain doc_type_label(row[:doc_type])
+              RubyUI::Badge(variant: :slate, size: :sm) { I18n.t("design.style_browser.override") }
+            end
+          else
+            plain doc_type_label(row[:doc_type])
+          end
+        end
+
+        def color_swatch(color)
+          return plain("—") unless color.present?
+          div(class: "flex items-center gap-1") do
+            span(class: "inline-block w-3 h-3 rounded-full border border-slate-300", style: "background-color: #{color}")
+            span(class: "text-xs") { color }
+          end
+        end
+
+        def fill_info(style)
+          return plain("—") unless style.fill_type.present? && style.fill_color.present?
+          div(class: "flex items-center gap-1") do
+            span(class: "inline-block w-3 h-3 rounded border border-slate-300", style: "background-color: #{style.fill_color}")
+            span(class: "text-xs") { style.fill_type }
+          end
+        end
+
+        def border_info(style)
+          return plain("—") unless style.border_thickness.present? && style.border_thickness > 0
+          div(class: "flex items-center gap-1") do
+            span(class: "inline-block w-3 h-3 rounded border border-slate-300", style: "background-color: #{style.border_color}") if style.border_color.present?
+            span(class: "text-xs") { "#{style.border_thickness}pt" }
+          end
+        end
+
+        # Filled in Task 3.
+        def actions_cell(row)
+          plain ""
         end
       end
     end
