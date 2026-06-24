@@ -17,8 +17,22 @@ class Design::TableStylesTest < ActionDispatch::IntegrationTest
     Design.config.table_style_preview = nil
   end
 
-  test "preview is 404 when no hook is registered" do
+  test "preview renders a jpeg natively when no hook is registered" do
+    assert_nil Design.config.table_style_preview
     get design.preview_theme_table_style_path(@theme, @ts)
+    assert_response :success
+    assert_equal "image/jpeg", response.media_type
+    assert response.body.bytesize > 1000, "native jpeg too small"
+  end
+
+  test "a render error degrades to 422, not 500" do
+    Design.config.table_style_preview = ->(_t, _ts) { raise "boom" }  # restored by teardown
+    get design.preview_theme_table_style_path(@theme, @ts)
+    assert_response :unprocessable_entity
+  end
+
+  test "unknown table style is 404" do
+    get design.preview_theme_table_style_path(@theme, 0)
     assert_response :not_found
   end
 

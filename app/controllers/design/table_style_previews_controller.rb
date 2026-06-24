@@ -4,13 +4,20 @@ module Design
 
     def show
       table_style = @theme.table_styles.find(params[:id])
-      blob = Design.config.table_style_preview&.call(@theme, table_style)
-      return head :not_found unless blob
+      blob =
+        if Design.config.table_style_preview
+          Design.config.table_style_preview.call(@theme, table_style)
+        else
+          Design::TableStylePreviewService.call(@theme, table_style)
+        end
 
       expires_now
       send_data blob, type: "image/jpeg", disposition: "inline"
     rescue ActiveRecord::RecordNotFound
       head :not_found
+    rescue => e
+      Rails.logger.error("[design] table-style preview failed: #{e.class}: #{e.message}")
+      head :unprocessable_entity
     end
   end
 end
