@@ -7,6 +7,61 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
       Design::Theme.create!(name: "Seoul", locale: "ko")
   end
 
+  test "index renders a clone control for each theme card" do
+    get "/design/themes"
+
+    assert_response :success
+    assert_select "form[action=?]", "/design/themes/#{@system_theme.id}/clone"
+  end
+
+  test "index renders a delete control for an editable (owned) theme" do
+    theme = Design::Theme.create!(name: "Mine", locale: "ko", user: users(:david))
+
+    get "/design/themes"
+
+    assert_select %(form[action="/design/themes/#{theme.id}"] input[name="_method"][value="delete"])
+  end
+
+  test "index hides the from-scratch New theme button on a consumer host" do
+    Design.config.authoring = false
+
+    get "/design/themes"
+
+    assert_select %(a[href="/design/themes/new"]), false
+  end
+
+  test "index shows the from-scratch New theme button on an authoring host" do
+    Design.config.authoring = true
+
+    get "/design/themes"
+
+    assert_select %(a[href="/design/themes/new"])
+  end
+
+  test "index renders a rename control for an editable theme" do
+    theme = Design::Theme.create!(name: "Mine", locale: "ko", user: users(:david))
+
+    get "/design/themes"
+
+    assert_select %(form[action="/design/themes/#{theme.id}"] input[name="theme[name]"])
+  end
+
+  test "index omits the delete control for a read-only system theme (consumer host)" do
+    Design.config.authoring = false
+
+    get "/design/themes"
+
+    assert_select %(form[action="/design/themes/#{@system_theme.id}"] input[name="_method"][value="delete"]), false
+  end
+
+  test "index renders a delete control for a system theme on an authoring host" do
+    Design.config.authoring = true
+
+    get "/design/themes"
+
+    assert_select %(form[action="/design/themes/#{@system_theme.id}"] input[name="_method"][value="delete"])
+  end
+
   test "clone uses the submitted name for the new theme" do
     assert_difference -> { Design::Theme.where(user: users(:david)).count }, +1 do
       post "/design/themes/#{@system_theme.id}/clone", params: { name: "My Brochure Theme" }
