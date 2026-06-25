@@ -21,23 +21,31 @@ class Design::ThemesIndexRedesignTest < ActionDispatch::IntegrationTest
     assert_select "section[data-themes=custom]", count: 0
   end
 
-  # Each theme renders as a card linking to its show page (where clone/edit live).
+  # Each theme renders as a card linking to its show page.
   test "renders each theme as a card linking to its show page" do
-    assert_select "a.theme-card[href=?]", "/design/themes/#{@system.id}"
-    assert_select "a.theme-card[href=?]", "/design/themes/#{@mine.id}"
+    assert_select ".theme-card", minimum: 2
+    assert_select "a[href=?]", "/design/themes/#{@system.id}"
+    assert_select "a[href=?]", "/design/themes/#{@mine.id}"
     assert_includes response.body, @system.name
     assert_includes response.body, @mine.name
   end
 
-  # Clone/rename moved off the index onto the theme show page — the index no
-  # longer carries inline clone or rename forms.
-  test "no inline clone or rename forms on the index" do
-    assert_select "form[action=?]", "/design/themes/#{@system.id}/clone", count: 0
-    assert_select "form input[name=?]", "theme[name]", count: 0
+  # The card actions live inline on the index: Clone (always — the start-a-new-
+  # design path) plus Rename/Delete for themes the user may edit (here @mine).
+  test "renders inline clone, rename, and delete actions on the cards" do
+    assert_select "form[action=?]", "/design/themes/#{@system.id}/clone"
+    assert_select %(form[action="/design/themes/#{@mine.id}"] input[name="theme[name]"])
+    assert_select %(form[action="/design/themes/#{@mine.id}"] input[name="_method"][value="delete"])
   end
 
-  # The gem-native New theme link is present.
-  test "offers a New theme link" do
+  # The from-scratch New theme link is an authoring-host tool only.
+  test "offers a New theme link on authoring hosts only" do
+    Design.config.authoring = true
+    get "/design/themes"
     assert_select "a[href=?]", design.new_theme_path
+
+    Design.config.authoring = false
+    get "/design/themes"
+    assert_select "a[href=?]", design.new_theme_path, false
   end
 end

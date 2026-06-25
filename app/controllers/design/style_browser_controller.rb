@@ -1,5 +1,10 @@
 module Design
   class StyleBrowserController < Design::ApplicationController
+    # The cross-theme style browser is an authoring-host inspection tool. On
+    # consumer hosts (book_write) styles are edited scoped to a document design,
+    # so the feature is hidden and its route redirects back to the theme list.
+    before_action :require_authoring
+
     def index
       @themes = Design::Theme.all.order(:name)
       @selected_theme_name = params[:theme].presence
@@ -29,6 +34,10 @@ module Design
     end
 
     private
+
+    def require_authoring
+      redirect_to themes_path unless Design.authoring?
+    end
 
     def build_size_names
       scope = Design::PaperSize.all

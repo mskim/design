@@ -3,8 +3,15 @@ require "test_helper"
 class Design::StyleBrowserTest < ActionDispatch::IntegrationTest
   setup do
     sign_in :david
+    Design.config.authoring = true # the style browser is an authoring-host tool
     @theme = Design::Theme.create!(name: "Br #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     @ps = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+  end
+
+  test "consumer hosts cannot reach the style browser (route gated)" do
+    Design.config.authoring = false
+    get design.style_browser_path
+    assert_redirected_to design.themes_path
   end
 
   test "renders the browser with four cascading auto-submit filters" do
