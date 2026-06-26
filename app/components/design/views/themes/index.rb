@@ -12,13 +12,6 @@ module Design
               div(class: "flex items-center justify-between mb-6") do
                 h1(class: "text-2xl font-semibold") { I18n.t("design.themes.index_title") }
                 div(class: "flex items-center gap-4") do
-                  # The cross-theme style browser lists every paragraph style in
-                  # every theme — an authoring-host inspection tool. Consumer hosts
-                  # (book_write) edit styles scoped to a document design, so it's
-                  # hidden there (and the route is gated too).
-                  if Design.authoring?
-                    a(href: helpers.style_browser_path, class: "text-sm font-medium text-blue-600 hover:underline") { I18n.t("design.style_browser.nav_link") }
-                  end
                   # From-scratch theme creation is an authoring-host tool only. On
                   # consumer hosts (book_write) a blank theme has no styles and is
                   # useless — the sanctioned path is to clone an existing theme, so
