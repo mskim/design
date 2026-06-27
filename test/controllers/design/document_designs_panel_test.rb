@@ -30,6 +30,24 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_includes response.body, %(name="paragraph_style[font_size]")
   end
 
+  test "panel full navigation (preview click) renders a full page with preview on the left" do
+    theme_style = @theme.base_paragraph_styles.create!(name: "body")
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: theme_style.id)
+    assert_response :success
+    # Full page: the document preview AND the style's edit form.
+    assert_select "turbo-frame#preview_frame"
+    assert_select "turbo-frame#properties_panel form[data-controller~='design--panel-autosave']"
+  end
+
+  test "panel as a turbo-frame request renders only the bare panel (embedded, no preview)" do
+    theme_style = @theme.base_paragraph_styles.create!(name: "body")
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: theme_style.id),
+        headers: { "Turbo-Frame" => "properties_panel" }
+    assert_response :success
+    assert_select "turbo-frame#properties_panel"
+    assert_select "turbo-frame#preview_frame", count: 0
+  end
+
   test "panel_update saves the style at its level + replaces preview_frame" do
     theme_style = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
     fake = Object.new

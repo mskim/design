@@ -39,10 +39,21 @@ module Design
 
     def panel
       style = find_panel_style(params[:level], params[:style_id])
-      render_paragraph_style_panel(
-        style,
-        panel_update_url: helpers.panel_update_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: params[:level], style_id: style.id),
-        revert_url: document_style_revert_url(style, params[:level]))
+      panel_update_url = helpers.panel_update_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: params[:level], style_id: style.id)
+      revert_url = document_style_revert_url(style, params[:level])
+
+      # Embedded (typography tab / style list, via a turbo-frame request): just the
+      # bare panel that swaps into properties_panel. Full navigation (clicking a
+      # style in the preview): a full page with the preview on the left.
+      if turbo_frame_request?
+        render_paragraph_style_panel(style, panel_update_url: panel_update_url, revert_url: revert_url)
+      else
+        render Design::Views::ParagraphStyles::EditPage.new(
+          paragraph_style: style, theme: @theme, paper_size: @paper_size, document_design: @document_design,
+          panel_update_url: panel_update_url,
+          back_url: helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),
+          revert_url: revert_url, editable: editable?)
+      end
     end
 
     def panel_update
