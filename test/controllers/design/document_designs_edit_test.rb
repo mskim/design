@@ -39,6 +39,18 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  # ── document style list opens the inline panel (single editor) ──
+
+  test "document style-row edit link opens the inline panel, not a separate form page" do
+    style = @dd.paragraph_styles.create!(name: "caption")
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    assert_response :success
+    panel_path = design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: style.id)
+    # The style-list row's Edit link (.font-medium, distinct from the typography
+    # tab's text-xs links) targets the panel route + properties_panel frame.
+    assert_select "a.font-medium[href=?][data-turbo-frame='properties_panel']", panel_path
+  end
+
   # ── properties_panel endpoint ──
 
   test "properties_panel endpoint renders the PropertiesPanel frame with tabs" do

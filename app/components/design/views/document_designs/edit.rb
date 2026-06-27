@@ -62,7 +62,8 @@ module Design
               end
             end
             a(
-              href: helpers.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @paper_size, @document_design, style),
+              href: helpers.panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: "document", style_id: style.id),
+              data: { turbo_frame: "properties_panel" },
               class: "text-sm font-medium text-blue-600 hover:underline"
             ) { I18n.t("design.shared.edit") }
           end
