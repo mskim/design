@@ -15,8 +15,8 @@ class Design::EditorLocaleTest < ActionDispatch::IntegrationTest
     get design.edit_theme_paper_size_document_design_path(th, ps, dd)
 
     assert_response :success
-    assert_includes response.body, "미리보기"          # Preview
-    assert_includes response.body, "기본 텍스트 스타일"  # Base Text Styles
+    assert_includes response.body, "미리보기"   # Preview
+    assert_includes response.body, "단락정의"   # Typography tab
     refute_includes response.body, ">Preview<"
   end
 end

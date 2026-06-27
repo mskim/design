@@ -39,16 +39,14 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
-  # ── document style list opens the inline panel (single editor) ──
-
-  test "document style-row edit link opens the inline panel, not a separate form page" do
-    style = @dd.paragraph_styles.create!(name: "caption")
+  # The standalone document/base style lists below the tabs were removed; styles are
+  # edited via the 단락정의 (typography) tab and by clicking styles in the preview.
+  test "edit page no longer renders the standalone style lists" do
+    @dd.paragraph_styles.create!(name: "caption")
     get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
     assert_response :success
-    panel_path = design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: style.id)
-    # The style-list row's Edit link (.font-medium, distinct from the typography
-    # tab's text-xs links) targets the panel route + properties_panel frame.
-    assert_select "a.font-medium[href=?][data-turbo-frame='properties_panel']", panel_path
+    assert_select "h2", text: I18n.t("design.editor.document_styles"), count: 0
+    assert_select "h2", text: I18n.t("design.editor.base_text_styles"), count: 0
   end
 
   # ── properties_panel endpoint ──
