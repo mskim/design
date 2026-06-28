@@ -57,8 +57,10 @@ module Design
     # paper sizes (the current document is one of them). The theme base is untouched;
     # because all sizes share one base, identical override attrs resolve identically.
     def apply_paragraph_style_to_doc_type!(doc_type, name, attrs)
-      document_designs.where(doc_type: doc_type).find_each do |dd|
-        dd.upsert_paragraph_style!(name, attrs)
+      transaction do
+        document_designs.where(doc_type: doc_type).find_each do |dd|
+          dd.upsert_paragraph_style!(name, attrs)
+        end
       end
     end
 
