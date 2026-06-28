@@ -66,12 +66,14 @@ module Design
     # of that name exists only as a document override), then destroy every same-name
     # per-doc_type override across the theme so the base value shows everywhere.
     def apply_paragraph_style_to_all!(name, attrs)
-      base = base_paragraph_styles.find_or_initialize_by(name: name)
-      base.update!(attrs.except(:name))
-      document_designs.find_each do |dd|
-        dd.paragraph_styles.where(name: name).destroy_all
+      transaction do
+        base = base_paragraph_styles.find_or_initialize_by(name: name)
+        base.update!(attrs.except(:name))
+        document_designs.find_each do |dd|
+          dd.paragraph_styles.where(name: name).destroy_all
+        end
+        base
       end
-      base
     end
 
     # Distinct doc_types that currently have a same-name document override — i.e. the
