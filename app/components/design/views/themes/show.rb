@@ -10,7 +10,10 @@ module Design
         end
 
         def view_template
-          shell(title: @theme.name, action_slot: :theme_show, action_context: @theme, sidebar: nil) do
+          # The selected size travels with the action context so host actions (e.g.
+          # "Generate PDFs") can scope themselves to the size currently in view.
+          shell(title: @theme.name, action_slot: :theme_show,
+                action_context: { theme: @theme, paper_size: @selected_paper_size }, sidebar: nil) do
             div(class: "mx-auto max-w-5xl px-6 py-10 flex flex-col gap-6") do
               header_section
               if @selected_paper_size
