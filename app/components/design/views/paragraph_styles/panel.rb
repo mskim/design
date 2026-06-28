@@ -57,7 +57,7 @@ module Design
                data: { controller: "design--panel-autosave design--save-scope",
                        action: "submit->design--save-scope#confirmScope submit->design--panel-autosave#save",
                        "design--save-scope-count-value": @save_scope_shadow_count,
-                       "design--save-scope-message-value": I18n.t("design.panel.apply_to_all_confirm") }) do
+                       "design--save-scope-message-value": I18n.t("design.panel.apply_to_all_confirm", count: @save_scope_shadow_count) }) do
             if @paragraph_style.persisted?
               input(type: "hidden", name: "_method", value: "patch")
             end

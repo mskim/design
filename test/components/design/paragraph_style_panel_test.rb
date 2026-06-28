@@ -143,6 +143,8 @@ class Design::ParagraphStylePanelTest < ActiveSupport::TestCase
     assert_includes html, "design--save-scope"
     assert_includes html, %(data-design--save-scope-count-value="2")
     assert_match %r{data-controller="design--panel-autosave design--save-scope"}, html
+    # The confirm message is interpolated server-side with the count (locale-agnostic check).
+    assert_match %r{data-design--save-scope-message-value="2[^"]*"}, html
   end
 
   test "omits the checkbox when no document_design is supplied" do
