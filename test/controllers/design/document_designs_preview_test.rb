@@ -35,7 +35,7 @@ class Design::DocumentDesignsPreviewTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "boom"
   end
 
-  test "preview overlay zones are panel links targeting the properties_panel frame" do
+  test "preview overlay zones navigate to the style's panel via the overlay-link controller" do
     @theme.base_paragraph_styles.create!(name: "body") unless @theme.base_paragraph_styles.exists?(name: "body")
     fake = Object.new
     def fake.generate = { success: true, jpg_path: "/tmp/x.jpg", page_width: 432.0, page_height: 648.0, error: nil,
@@ -46,7 +46,9 @@ class Design::DocumentDesignsPreviewTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, "/panel"          # panel URL, not edit
     assert_includes response.body, "level=theme"      # body is a theme-base style
-    assert_includes response.body, %(data-turbo-frame="properties_panel")
+    # Navigates via the controller (no SVG <a href> — Turbo's link handler throws on those).
+    assert_includes response.body, "design--overlay-link#navigate"
+    refute_includes response.body, %(data-turbo-frame="properties_panel")
   end
 
   test "writer is forbidden" do

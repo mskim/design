@@ -194,7 +194,11 @@ module Design
 
           def wrapper(url, css_class:, &block)
             if url
-              a(href: url, class: css_class, style: "pointer-events: auto; cursor: pointer;", data: { turbo_frame: "properties_panel" }, &block)
+              # No href on the SVG anchor — Turbo's link handler throws on an SVG
+              # anchor's href. The overlay-link controller navigates on click instead.
+              a(class: css_class, style: "pointer-events: auto; cursor: pointer;",
+                data: { controller: "design--overlay-link", "design--overlay-link-url-value": url,
+                        action: "click->design--overlay-link#navigate" }, &block)
             else
               g(class: css_class, style: "pointer-events: auto; cursor: pointer;", &block)
             end

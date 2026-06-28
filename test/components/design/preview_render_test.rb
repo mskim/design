@@ -7,7 +7,7 @@ class Design::PreviewRenderTest < ActiveSupport::TestCase
     @dd = @ps.document_designs.create!(doc_type: "chapter")
   end
 
-  test "Preview renders frame + img + overlay zone that targets the properties_panel frame" do
+  test "Preview renders frame + img + overlay zone wired to navigate to the style's edit page" do
     html = Design::Views::DocumentDesigns::Preview.new(
       document_design: @dd, paper_size: @ps, jpg_url: "/x.jpg",
       overlay_data: [ { type: "paragraph", markup: "body", x: 10, y: 10, width: 100, height: 20 } ],
@@ -17,8 +17,9 @@ class Design::PreviewRenderTest < ActiveSupport::TestCase
     assert_includes html, "turbo-frame"
     assert_includes html, "/x.jpg"
     assert_includes html, "<svg"
-    assert_includes html, "/design/zzz/edit"     # the zone link
-    assert_includes html, "properties_panel"     # the zone <a> targets the swappable frame
+    assert_includes html, "/design/zzz/edit"        # the zone's target url (value)
+    assert_includes html, "design--overlay-link"    # navigates via the controller, not an SVG href
+    refute_includes html, 'href="/design/zzz/edit"' # no SVG <a href> (Turbo chokes on those)
   end
 
   test "overlay zone with no matching style_url renders inertly (g, no link) without raising" do
