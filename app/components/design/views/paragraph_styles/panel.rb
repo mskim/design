@@ -47,9 +47,12 @@ module Design
         end
 
         def render_form
+          # Explicit Save only — no autosave on change (it lagged and got confusing
+          # when several fields were edited at once). The Save button submits, which
+          # the controller intercepts to update the preview in place.
           form(action: @panel_update_url, method: "post", class: "flex flex-col gap-5",
                data: { controller: "design--panel-autosave",
-                       action: "input->design--panel-autosave#scheduleUpdate change->design--panel-autosave#scheduleUpdate submit->design--panel-autosave#save" }) do
+                       action: "submit->design--panel-autosave#save" }) do
             if @paragraph_style.persisted?
               input(type: "hidden", name: "_method", value: "patch")
             end
