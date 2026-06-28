@@ -187,16 +187,19 @@ module Design
         end
 
         def color_field(field, value)
-          div(class: "flex items-center gap-1 flex-1", data: { controller: "design--color-mode-field" }) do
-            input(type: "color", data: { "design--color-mode-field-target": "picker", action: "input->design--color-mode-field#pickerChanged" }, class: "h-7 w-7 cursor-pointer border-0 p-0", **disabled_attr)
-            select(data: { "design--color-mode-field-target": "mode", action: "change->design--color-mode-field#modeChanged" }, class: "text-xs px-1 py-0.5", **disabled_attr) do
+          # min-w-0 lets the text input shrink inside its grid cell (so a long value
+          # like "CMYK=0,0,0,100" scrolls within the field instead of overflowing into
+          # the next column); shrink-0 keeps the swatch + mode picker at their size.
+          div(class: "flex w-full min-w-0 items-center gap-1", data: { controller: "design--color-mode-field" }) do
+            input(type: "color", data: { "design--color-mode-field-target": "picker", action: "input->design--color-mode-field#pickerChanged" }, class: "h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-300 p-0", **disabled_attr)
+            select(data: { "design--color-mode-field-target": "mode", action: "change->design--color-mode-field#modeChanged" }, class: "shrink-0 text-xs px-1 py-0.5", **disabled_attr) do
               option(value: "cmyk") { "CMYK" }
               option(value: "hex") { "Hex" }
               option(value: "named") { "Name" }
             end
             input(type: "text", name: "paragraph_style[#{field}]", value: field_value(value),
                   data: { "design--color-mode-field-target": "input", action: "input->design--color-mode-field#textChanged" },
-                  class: "flex-1 border border-slate-300 rounded px-2 py-1",
+                  class: "min-w-0 flex-1 border border-slate-300 rounded px-2 py-1",
                   **disabled_attr)
           end
         end
