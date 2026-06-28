@@ -1,5 +1,12 @@
 module Design
   class PreviewService
+    # doc_processor_rb's DBDocument rebinds its global Sequel::Model classes to the
+    # active SQLite file on every instantiation (setup_models → model.dataset = db[...]).
+    # That shared global state means two DBDocuments can't be alive at once in a single
+    # process without clobbering each other's model bindings (UNIQUE/readonly errors).
+    # Serialize the model-touching phase of generation across all threads in the process.
+    GENERATION_LOCK = Mutex.new
+
     PREVIEW_DPI = 150
     FALLBACK_HEADING = {
       "title" => "첫번째 이야기",
@@ -27,35 +34,55 @@ module Design
       cached = load_cached_preview
       return cached if cached
 
-      dir = preview_dir
-      FileUtils.rm_rf(dir)
-      FileUtils.mkdir_p(dir)
+      FileUtils.mkdir_p(preview_dir)
 
-      db_path = File.join(dir, "preview.db")
-      pdf_path = File.join(dir, "preview.pdf")
-      jpg_path = File.join(dir, "preview.jpg")
+      # Render into a private per-call working dir, then atomically publish the
+      # JPG + cache stamp into preview_dir. Two requests for the same document can
+      # overlap (lazy preview frame + a save), and a shared working dir let one
+      # request's rm_rf/recreate corrupt the other's half-written SQLite DB. The
+      # working dir sits under tmp/previews so the final rename stays on one FS.
+      work = work_dir
+      FileUtils.mkdir_p(work)
+
+      db_path = File.join(work, "preview.db")
+      pdf_path = File.join(work, "preview.pdf")
+      work_jpg = File.join(work, "preview.jpg")
 
       db_doc = nil
+      overlay_data = nil
       begin
-        # 1. Create and populate SQLite database
-        db_doc = create_db_document(db_path)
-        populate_database(db_doc)
+        # The DB build, PDF render, and overlay read all go through doc_processor's
+        # global Sequel models, so they must run one-at-a-time per process.
+        GENERATION_LOCK.synchronize do
+          # 1. Create and populate SQLite database
+          db_doc = create_db_document(db_path)
+          populate_database(db_doc)
 
-        # 2. Generate PDF via doc_processor_rb renderer
-        generate_pdf(db_doc, pdf_path)
+          # 2. Generate PDF via doc_processor_rb renderer
+          generate_pdf(db_doc, pdf_path)
 
-        # 3. Convert PDF → JPG
-        convert_pdf_to_jpg(pdf_path, jpg_path)
+          # 3. Extract overlay data from block_overlays table
+          overlay_data = extract_overlay_data(db_doc)
 
-        # 4. Extract overlay data from block_overlays table
-        overlay_data = extract_overlay_data(db_doc)
-
-        # 5. Synthesize heading overlay for TOC (the renderer only emits toc_entry overlays)
-        if document_design.doc_type == "toc" && document_design.heading_height_in_lines.to_i > 0
-          overlay_data = synthesize_toc_heading_overlay + overlay_data
+          # 4. Synthesize heading overlay for TOC (the renderer only emits toc_entry overlays)
+          if document_design.doc_type == "toc" && document_design.heading_height_in_lines.to_i > 0
+            overlay_data = synthesize_toc_heading_overlay + overlay_data
+          end
+        ensure
+          db_doc&.close # release the connection before the next thread rebinds the models
+          db_doc = nil
         end
 
-        result = {
+        # 5. Convert PDF → JPG (libvips, no Sequel models — safe outside the lock)
+        convert_pdf_to_jpg(pdf_path, work_jpg)
+
+        # 6. Publish: rename the finished JPG into place (atomic, same FS), then the
+        # stamp that validates it. Concurrent runs produce equivalent output, so
+        # last-writer-wins is safe.
+        File.rename(work_jpg, jpg_path)
+        save_cache_stamp(overlay_data)
+
+        {
           success: true,
           jpg_path: jpg_path,
           overlay_data: overlay_data,
@@ -63,8 +90,6 @@ module Design
           page_height: paper_size.height_pt,
           error: nil
         }
-        save_cache_stamp(overlay_data)
-        result
       rescue => e
         Rails.logger.error "DesignPreviewService error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
         {
@@ -77,6 +102,7 @@ module Design
         }
       ensure
         db_doc&.close
+        FileUtils.rm_rf(work)
       end
     end
 
@@ -93,6 +119,13 @@ module Design
 
     def preview_dir
       Rails.root.join("tmp", "previews", "dd_#{document_design.id}")
+    end
+
+    # Private per-call working dir (unique per generation) so concurrent renders of
+    # the same document never share a SQLite DB. Under tmp/previews so the published
+    # JPG rename stays on a single filesystem (atomic).
+    def work_dir
+      Rails.root.join("tmp", "previews", ".work", "dd_#{document_design.id}_#{SecureRandom.hex(8)}")
     end
 
     def cache_fingerprint

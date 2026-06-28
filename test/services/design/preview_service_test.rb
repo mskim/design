@@ -26,4 +26,20 @@ class Design::PreviewServiceTest < ActiveSupport::TestCase
     Design::PreviewService.new(@dd, paper_size: @ps).generate   # fingerprint unchanged → cache hit
     assert_equal mtime, File.mtime(svc.jpg_path)
   end
+
+  test "concurrent generation for the same document does not corrupt each other" do
+    Design::PreviewService.new(@dd, paper_size: @ps).clear_cache
+    # Release all threads at once (cache is cold) so their generations overlap.
+    latch = Queue.new
+    threads = 5.times.map do
+      Thread.new do
+        latch.pop
+        Design::PreviewService.new(@dd, paper_size: @ps).generate
+      end
+    end
+    5.times { latch << :go }
+    results = threads.map(&:value)
+    failures = results.reject { |r| r[:success] }
+    assert_empty failures, "concurrent previews failed: #{failures.map { |r| r[:error] }.uniq.inspect}"
+  end
 end
