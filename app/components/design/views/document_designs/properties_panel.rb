@@ -2,6 +2,7 @@ module Design
   module Views
     module DocumentDesigns
       class PropertiesPanel < Design::Views::Base
+        include Design::Views::FieldGroups
         register_element :turbo_frame
 
         def initialize(theme:, paper_size:, document_design:, editable: true)
@@ -80,16 +81,18 @@ module Design
         # --------------- Layout Tab ---------------
 
         def render_layout_tab
-          div(class: "space-y-3 pt-2") do
-            div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-              number_field(I18n.t("design.properties_panel.heading_lines"), :heading_height_in_lines)
-              select_field(I18n.t("design.properties_panel.heading_v_align"), :heading_v_align, %w[center top bottom], i18n_scope: "v_align")
-              if @document_design.doc_type == "toc"
-                select_field(I18n.t("design.properties_panel.toc_v_align"), :toc_v_align, %w[bottom center top], i18n_scope: "v_align")
+          div(class: "pt-2") do
+            group_box("basic", I18n.t("design.properties_panel.layout")) do
+              rows do
+                number_field(I18n.t("design.properties_panel.heading_lines"), :heading_height_in_lines)
+                select_field(I18n.t("design.properties_panel.heading_v_align"), :heading_v_align, %w[center top bottom], i18n_scope: "v_align")
+                if @document_design.doc_type == "toc"
+                  select_field(I18n.t("design.properties_panel.toc_v_align"), :toc_v_align, %w[bottom center top], i18n_scope: "v_align")
+                end
+                number_field(I18n.t("design.properties_panel.body_line_count"), :body_line_count, placeholder: @paper_size.body_line_count)
+                number_field(I18n.t("design.properties_panel.columns"), :column_count)
+                number_field(I18n.t("design.properties_panel.gutter"), :gutter, step: "0.1")
               end
-              number_field(I18n.t("design.properties_panel.body_line_count"), :body_line_count, placeholder: @paper_size.body_line_count)
-              number_field(I18n.t("design.properties_panel.columns"), :column_count)
-              number_field(I18n.t("design.properties_panel.gutter"), :gutter, step: "0.1")
             end
             heading_elements_section
             heading_background_section
@@ -106,8 +109,7 @@ module Design
         }.freeze
 
         def render_text_box_section
-          div(class: "rounded border border-slate-200 p-3 space-y-3") do
-            h3(class: "text-sm font-semibold text-slate-900") { I18n.t("design.properties_panel.text_box_position") }
+          group_box("space", I18n.t("design.properties_panel.text_box_position")) do
             div do
               label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.anchor_position") }
               select(
@@ -121,7 +123,7 @@ module Design
                 end
               end
             end
-            div(class: "grid grid-cols-2 gap-2") do
+            div(class: "mt-2 grid grid-cols-2 gap-2") do
               div do
                 label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.grid_width") }
                 input(
@@ -129,7 +131,7 @@ module Design
                   name: "document_design[text_box_grid_width]",
                   value: field_value(@document_design.text_box_grid_width),
                   placeholder: "4", min: 1, max: 12,
-                  class: "w-full rounded border border-slate-300 px-2 py-1 text-sm",
+                  class: "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm",
                   **disabled_attr
                 )
               end
@@ -140,7 +142,7 @@ module Design
                   name: "document_design[text_box_grid_height]",
                   value: field_value(@document_design.text_box_grid_height),
                   placeholder: "6", min: 1, max: 12,
-                  class: "w-full rounded border border-slate-300 px-2 py-1 text-sm",
+                  class: "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm",
                   **disabled_attr
                 )
               end
@@ -149,8 +151,7 @@ module Design
         end
 
         def render_page_bg_section
-          div(class: "rounded border border-slate-200 p-3 space-y-3") do
-            h3(class: "text-sm font-semibold text-slate-900") { I18n.t("design.properties_panel.page_background") }
+          group_box("fill", I18n.t("design.properties_panel.page_background")) do
             div(data: { controller: "design--color-field" }) do
               label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.background_color") }
               div(class: "flex gap-2 items-center") do
@@ -166,7 +167,7 @@ module Design
                   name: "document_design[page_bg_color]",
                   value: @document_design.page_bg_color || "",
                   placeholder: "CMYK=0,0,0,20 or #cccccc",
-                  class: "flex-1 rounded border border-slate-300 px-2 py-1 text-sm",
+                  class: "flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm",
                   data: { "design--color-field-target": "text", action: "input->design--color-field#textChanged" },
                   **disabled_attr
                 )
@@ -177,34 +178,34 @@ module Design
         end
 
         def render_document_cover_section
-          div(class: "rounded border border-slate-200 p-3 space-y-3",
-              data: { controller: "design--toggle-visibility" }) do
-            h3(class: "text-sm font-semibold text-slate-900") { I18n.t("design.properties_panel.document_cover") }
-            label(class: "flex items-center gap-2 text-sm text-slate-700") do
-              input(type: "hidden", name: "document_design[has_document_cover]", value: "0")
-              input(
-                type: "checkbox",
-                name: "document_design[has_document_cover]",
-                value: "1",
-                checked: @document_design.has_document_cover?,
-                class: "rounded border-slate-300",
-                data: { action: "change->design--toggle-visibility#toggle" },
-                **disabled_attr
-              )
-              plain I18n.t("design.properties_panel.has_document_cover")
-            end
-            div(
-              class: @document_design.has_document_cover? ? "" : "hidden",
-              data: { "design--toggle-visibility-target": "content" }
-            ) do
-              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.cover_type") }
-              select(
-                name: "document_design[cover_type]",
-                class: "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm",
-                **disabled_attr
+          group_box("border", I18n.t("design.properties_panel.document_cover")) do
+            div(data: { controller: "design--toggle-visibility" }) do
+              label(class: "flex items-center gap-2 text-sm text-slate-700") do
+                input(type: "hidden", name: "document_design[has_document_cover]", value: "0")
+                input(
+                  type: "checkbox",
+                  name: "document_design[has_document_cover]",
+                  value: "1",
+                  checked: @document_design.has_document_cover?,
+                  class: "rounded border-slate-300",
+                  data: { action: "change->design--toggle-visibility#toggle" },
+                  **disabled_attr
+                )
+                plain I18n.t("design.properties_panel.has_document_cover")
+              end
+              div(
+                class: @document_design.has_document_cover? ? "mt-2" : "hidden",
+                data: { "design--toggle-visibility-target": "content" }
               ) do
-                Design::DocumentDesign::COVER_TYPES.each do |ct|
-                  option(value: ct, selected: @document_design.cover_type == ct) { ct.tr("_", " ").titleize }
+                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.cover_type") }
+                select(
+                  name: "document_design[cover_type]",
+                  class: "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm",
+                  **disabled_attr
+                ) do
+                  Design::DocumentDesign::COVER_TYPES.each do |ct|
+                    option(value: ct, selected: @document_design.cover_type == ct) { ct.tr("_", " ").titleize }
+                  end
                 end
               end
             end
@@ -292,7 +293,7 @@ module Design
         # --------------- Header/Footer Tab ---------------
 
         def render_header_footer_tab
-          div(class: "space-y-4 pt-2") do
+          div(class: "pt-2") do
             header_footer_section
           end
         end
@@ -300,9 +301,9 @@ module Design
         # --------------- Existing engine sections (ported from FormPanel) ---------------
 
         def heading_elements_section
-          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.properties_panel.heading_elements") }
-          div(class: "rounded border border-slate-200 p-3 flex flex-col gap-2",
-              data: { controller: "design--heading-elements" }) do
+          group_box("type_text", I18n.t("design.properties_panel.heading_elements")) do
+            div(class: "flex flex-col gap-2",
+                data: { controller: "design--heading-elements" }) do
             div(data: { "design--heading-elements-target": "list" }) do
               @document_design.heading_elements.to_a.each_with_index { |el, idx| heading_element_row(el, idx) }
             end
@@ -328,7 +329,8 @@ module Design
                 ) { I18n.t("design.properties_panel.add") }
               end
             end
-            div(hidden: true, data: { "design--heading-elements-target": "template" }) { heading_element_row(nil, "IDX") }
+              div(hidden: true, data: { "design--heading-elements-target": "template" }) { heading_element_row(nil, "IDX") }
+            end
           end
         end
 
@@ -366,10 +368,10 @@ module Design
         end
 
         def heading_background_section
-          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.properties_panel.heading_background") }
           current = @document_design.heading_bg_type || "color"
-          div(class: "rounded border border-slate-200 p-3 flex flex-col gap-3",
-              data: { controller: "design--heading-bg" }) do
+          group_box("bold", I18n.t("design.properties_panel.heading_background")) do
+            div(class: "flex flex-col gap-3",
+                data: { controller: "design--heading-bg" }) do
             div(class: "flex gap-3") do
               %w[color image gradient].each do |bg_type|
                 label(class: "flex items-center gap-1 text-xs cursor-pointer") do
@@ -444,49 +446,49 @@ module Design
                 input(type: "number", name: "document_design[heading_bg_gradient_angle]",
                       value: (@document_design.heading_bg_gradient_angle || 0).to_s,
                       min: 0, max: 360, step: 1,
-                      class: "w-full rounded border border-slate-300 px-2 py-1.5 text-sm",
+                      class: "w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm",
                       **disabled_attr)
               end
+            end
             end
           end
         end
 
+        # Toggles in their own box, then one box per header/footer slot.
         def header_footer_section
-          h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.properties_panel.header_footer") }
-          div(class: "flex flex-wrap gap-4") do
-            checkbox_field(I18n.t("design.properties_panel.header"), :has_header)
-            checkbox_field(I18n.t("design.properties_panel.footer"), :has_footer)
-            checkbox_field(I18n.t("design.properties_panel.show_on_first_page"), :show_header_footer_on_first_page)
+          group_box("basic", I18n.t("design.properties_panel.header_footer")) do
+            div(class: "flex flex-wrap gap-x-4 gap-y-2") do
+              checkbox_field(I18n.t("design.properties_panel.header"), :has_header)
+              checkbox_field(I18n.t("design.properties_panel.footer"), :has_footer)
+              checkbox_field(I18n.t("design.properties_panel.show_on_first_page"), :show_header_footer_on_first_page)
+            end
           end
-          div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
-            header_footer_slot(I18n.t("design.properties_panel.header_left"),  :header_left)
-            header_footer_slot(I18n.t("design.properties_panel.header_right"), :header_right)
-            header_footer_slot(I18n.t("design.properties_panel.footer_left"),  :footer_left)
-            header_footer_slot(I18n.t("design.properties_panel.footer_right"), :footer_right)
-          end
+          header_footer_slot(I18n.t("design.properties_panel.header_left"),  :header_left, "sky")
+          header_footer_slot(I18n.t("design.properties_panel.header_right"), :header_right, "teal")
+          header_footer_slot(I18n.t("design.properties_panel.footer_left"),  :footer_left, "indigo")
+          header_footer_slot(I18n.t("design.properties_panel.footer_right"), :footer_right, "rose")
         end
 
-        def header_footer_slot(label_text, slot_prefix)
-          div(class: "rounded border border-slate-200 p-3 space-y-1") do
-            h4(class: "text-xs font-semibold text-slate-600") { label_text }
-            number_field(I18n.t("design.properties_panel.y_offset"), :"#{slot_prefix}_y_offset", step: "0.1")
-            text_field(I18n.t("design.properties_panel.content"), :"#{slot_prefix}_content_string")
+        def header_footer_slot(label_text, slot_prefix, tint)
+          group_box(tint, label_text) do
+            rows do
+              number_field(I18n.t("design.properties_panel.y_offset"), :"#{slot_prefix}_y_offset", step: "0.1")
+              text_field(I18n.t("design.properties_panel.content"), :"#{slot_prefix}_content_string", span: true)
+            end
           end
         end
 
         # --------------- Field helpers (ported from FormPanel, extended with disabled support) ---------------
 
         def number_field(label_text, attr, step: nil, placeholder: nil)
-          field_row(label_text) do
-            # type=text (not number): the native spinner arrows ate the whole field
-            # in the narrow panel and hid the value. inputmode=decimal still gives a
-            # numeric keyboard on touch devices; Rails coerces the string on save.
+          # type=text (not number): the native spinner arrows ate the whole field and
+          # hid the value. inputmode=decimal still gives a numeric keyboard on touch.
+          field_row(label_text, narrow: true) do
             attrs = {
-              type: "text",
-              inputmode: "decimal",
+              type: "text", inputmode: "decimal",
               name: "document_design[#{attr}]",
               value: field_value(@document_design.public_send(attr)),
-              class: "border border-slate-300 rounded px-2 py-1 text-sm w-full"
+              class: NUMBER_CONTROL
             }
             attrs[:placeholder] = field_value(placeholder) if placeholder
             attrs.merge!(disabled_attr)
@@ -494,25 +496,16 @@ module Design
           end
         end
 
-        def text_field(label_text, attr)
-          field_row(label_text) do
-            input(
-              type: "text",
-              name: "document_design[#{attr}]",
-              value: field_value(@document_design.public_send(attr)),
-              class: "border border-slate-300 rounded px-2 py-1 text-sm w-full",
-              **disabled_attr
-            )
+        def text_field(label_text, attr, span: false)
+          field_row(label_text, span: span) do
+            input(type: "text", name: "document_design[#{attr}]",
+                  value: field_value(@document_design.public_send(attr)), class: CONTROL, **disabled_attr)
           end
         end
 
         def select_field(label_text, attr, options, i18n_scope: nil)
           field_row(label_text) do
-            select(
-              name: "document_design[#{attr}]",
-              class: "border border-slate-300 rounded px-2 py-1 text-sm w-full",
-              **disabled_attr
-            ) do
+            select(name: "document_design[#{attr}]", class: CONTROL, **disabled_attr) do
               current = @document_design.public_send(attr)
               options.each do |opt|
                 label = i18n_scope ? I18n.t("design.options.#{i18n_scope}.#{opt}") : opt
@@ -533,15 +526,6 @@ module Design
               **disabled_attr
             )
             plain label_text
-          end
-        end
-
-        def field_row(label_text, &block)
-          # Stack the label above the input: the properties panel is narrow (~28rem),
-          # so a side-by-side label left no room for the value (only the spinner showed).
-          div(class: "flex flex-col gap-1") do
-            label(class: "text-sm text-slate-600") { label_text }
-            yield
           end
         end
 
