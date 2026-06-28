@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/mskim/doc_processor_rb.git
-  revision: 770ac54a671fb3b08f0ddcbd207f57974d8bc74f
+  revision: 6920bce5f4c0d9799fb0f4464172f1117dd27123
   branch: main
   specs:
     doc_processor_rb (0.1.0)
@@ -17,6 +17,7 @@ PATH
   specs:
     design (0.1.0)
       doc_processor_rb
+      hexapdf
       phlex-rails
       rails (>= 8.1.2)
       sqlite3
