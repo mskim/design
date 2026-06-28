@@ -197,6 +197,9 @@ ko:
       new_style: "새 스타일"
       errors_heading: "다음 오류를 수정해 주세요:"
       revert: "기본값으로 되돌리기"
+      apply_to_all: "모든 문서 유형에 적용"
+      apply_to_all_hint: "기본값: 이 문서 유형에만 (모든 판형)"
+      apply_to_all_confirm: "개 문서 유형의 개별 설정이 초기화됩니다. 계속할까요?"
 
     paper_sizes:
       edit_title: "판형 편집"

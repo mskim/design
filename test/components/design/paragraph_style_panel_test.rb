@@ -130,17 +130,39 @@ class Design::ParagraphStylePanelTest < ActiveSupport::TestCase
     assert_includes html, %(value="patch")
   end
 
+  test "renders the apply-to-all checkbox with shadow count when document_design is supplied" do
+    theme = Design::Theme.create!(name: "PV #{SecureRandom.hex(3)}", locale: "ko")
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.create!(doc_type: "chapter")
+    style = theme.base_paragraph_styles.create!(name: "body")
+
+    html = render_panel(style, document_design: dd, save_scope_shadow_count: 2)
+
+    assert_includes html, %(name="apply_scope")
+    assert_includes html, %(value="all")
+    assert_includes html, "design--save-scope"
+    assert_includes html, %(data-design--save-scope-count-value="2")
+    assert_match %r{data-controller="design--panel-autosave design--save-scope"}, html
+  end
+
+  test "omits the checkbox when no document_design is supplied" do
+    style = Design::ParagraphStyle.new(name: "body")
+    html = render_panel(style)
+    refute_includes html, %(name="apply_scope")
+  end
+
   private
 
-  def render_panel(style, revert_url: nil, editable: true)
+  def render_panel(style, revert_url: nil, editable: true, document_design: nil, save_scope_shadow_count: 0)
     component = Design::Views::ParagraphStyles::Panel.new(
       paragraph_style: style,
       panel_update_url: "/test/panel_update",
       back_url: "/test/back",
       revert_url: revert_url,
-      editable: editable
+      editable: editable,
+      document_design: document_design,
+      save_scope_shadow_count: save_scope_shadow_count
     )
-    # Stub authenticity token — no request context in unit tests
     component.define_singleton_method(:helpers) do
       obj = Object.new
       def obj.form_authenticity_token = "test-token"

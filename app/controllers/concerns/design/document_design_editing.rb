@@ -103,7 +103,9 @@ module Design
         panel_update_url: panel_update_url,
         back_url: back_url,
         revert_url: revert_url,
-        editable: editable?
+        editable: editable?,
+        document_design: @document_design,
+        save_scope_shadow_count: @theme.shadow_override_doc_types(style.name).size
       ), status: status
     end
 

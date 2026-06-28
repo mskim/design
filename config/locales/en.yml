@@ -197,6 +197,9 @@ en:
       new_style: "New Style"
       errors_heading: "Please fix the following errors:"
       revert: "Revert to base"
+      apply_to_all: "Apply to all document types"
+      apply_to_all_hint: "Default: only this document type (all paper sizes)"
+      apply_to_all_confirm: " document type(s) will be reset. Continue?"
 
     paper_sizes:
       edit_title: "Edit Paper Size"

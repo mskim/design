@@ -4,12 +4,15 @@ module Design
       class Panel < Design::Views::Base
         register_element :turbo_frame
 
-        def initialize(paragraph_style:, panel_update_url:, back_url:, revert_url: nil, editable: true)
+        def initialize(paragraph_style:, panel_update_url:, back_url:, revert_url: nil, editable: true,
+                       document_design: nil, save_scope_shadow_count: 0)
           @paragraph_style = paragraph_style
           @panel_update_url = panel_update_url
           @back_url = back_url
           @revert_url = revert_url
           @editable = editable
+          @document_design = document_design
+          @save_scope_shadow_count = save_scope_shadow_count
         end
 
         def view_template
@@ -51,8 +54,10 @@ module Design
           # when several fields were edited at once). The Save button submits, which
           # the controller intercepts to update the preview in place.
           form(action: @panel_update_url, method: "post", class: "flex flex-col gap-5",
-               data: { controller: "design--panel-autosave",
-                       action: "submit->design--panel-autosave#save" }) do
+               data: { controller: "design--panel-autosave design--save-scope",
+                       action: "submit->design--save-scope#confirmScope submit->design--panel-autosave#save",
+                       "design--save-scope-count-value": @save_scope_shadow_count,
+                       "design--save-scope-message-value": I18n.t("design.panel.apply_to_all_confirm") }) do
             if @paragraph_style.persisted?
               input(type: "hidden", name: "_method", value: "patch")
             end
@@ -63,17 +68,32 @@ module Design
         end
 
         def render_actions
-          div(class: "flex items-center gap-3") do
-            if @editable
-              button(type: "submit", class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700") { I18n.t("design.shared.save") }
-              span(class: "text-xs text-slate-500 hidden", data: { "design--panel-autosave-target": "status" })
+          div(class: "flex flex-col gap-2") do
+            save_scope_field if @document_design && @editable
+            div(class: "flex items-center gap-3") do
+              if @editable
+                button(type: "submit", class: "inline-flex items-center rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700") { I18n.t("design.shared.save") }
+                span(class: "text-xs text-slate-500 hidden", data: { "design--panel-autosave-target": "status" })
+              end
+              if @revert_url && @editable
+                a(
+                  href: @revert_url,
+                  data: { turbo_method: :delete, turbo_frame: "properties_panel" },
+                  class: "text-sm text-red-600 hover:underline ml-auto"
+                ) { I18n.t("design.panel.revert") }
+              end
             end
-            if @revert_url && @editable
-              a(
-                href: @revert_url,
-                data: { turbo_method: :delete, turbo_frame: "properties_panel" },
-                class: "text-sm text-red-600 hover:underline ml-auto"
-              ) { I18n.t("design.panel.revert") }
+          end
+        end
+
+        def save_scope_field
+          label(class: "flex items-start gap-2 text-sm text-slate-700") do
+            input(type: "checkbox", name: "apply_scope", value: "all",
+                  class: "mt-0.5 rounded border-slate-300",
+                  data: { "design--save-scope-target": "checkbox" })
+            span do
+              span(class: "font-medium") { I18n.t("design.panel.apply_to_all") }
+              span(class: "block text-xs text-slate-500") { I18n.t("design.panel.apply_to_all_hint") }
             end
           end
         end
