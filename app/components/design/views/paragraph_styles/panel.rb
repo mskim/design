@@ -14,7 +14,7 @@ module Design
 
         def view_template
           turbo_frame(id: "properties_panel") do
-            div(class: "design-studio flex flex-col gap-3 p-4 max-h-[80vh] overflow-y-auto") do
+            div(class: "design-studio flex flex-col gap-3 p-4") do
               render_header
               render_errors if @paragraph_style.errors.any?
               render_form
