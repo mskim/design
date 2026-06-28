@@ -48,7 +48,7 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#preview_frame", count: 0
   end
 
-  test "panel_update saves the style at its level + replaces preview_frame" do
+  test "panel_update at level=theme redirects the edit to doc_type overrides and leaves the base untouched" do
     theme_style = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
     fake = Object.new
     def fake.generate = { success: true, jpg_path: "/tmp/x.jpg", overlay_data: [], page_width: 432.0, page_height: 648.0, error: nil }
@@ -63,7 +63,8 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.media_type, "turbo-stream"
     assert_includes response.body, "preview_frame"
-    assert_equal 18.0, theme_style.reload.font_size
+    assert_equal 10.0, theme_style.reload.font_size, "theme base not mutated; edit redirected to doc_type overrides"
+    assert_equal 18.0, @dd.paragraph_styles.find_by(name: "body").font_size, "current doc_type gets the override"
   end
 
   # ── Edit-in-place across ALL 3 levels (verification additions) ──
@@ -78,7 +79,7 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     Design::PreviewService.define_singleton_method(:new, original)
   end
 
-  test "panel_update at level=paper updates the paper-size style record" do
+  test "panel_update at level=paper redirects the edit to doc_type overrides and leaves the paper record untouched" do
     paper_style = @ps.paragraph_styles.create!(name: "caption", font_size: 9)
     stub_preview do
       patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "paper", style_id: paper_style.id),
@@ -86,7 +87,8 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     end
     assert_response :success
     assert_includes response.body, "preview_frame"
-    assert_equal 14.0, paper_style.reload.font_size
+    assert_equal 9.0, paper_style.reload.font_size, "paper-level record not mutated; redirected to doc_type overrides"
+    assert_equal 14.0, @dd.paragraph_styles.find_by(name: "caption").font_size, "current doc_type gets the override"
   end
 
   test "panel_update at level=document updates the document-design style record" do
