@@ -58,7 +58,14 @@ module Design
 
     def panel_update
       style = find_panel_style(params[:level], params[:style_id])
-      if style.update(paragraph_style_params)
+      style.assign_attributes(paragraph_style_params) # validate without persisting the clicked record
+      if style.valid?
+        name = style.name_was || style.name
+        if params[:apply_scope] == "all"
+          @theme.apply_paragraph_style_to_all!(name, paragraph_style_params)
+        else
+          @theme.apply_paragraph_style_to_doc_type!(@document_design.doc_type, name, paragraph_style_params)
+        end
         Design::ThemeDbExportService.new(@theme).export!
         result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
         preview = if result[:success]

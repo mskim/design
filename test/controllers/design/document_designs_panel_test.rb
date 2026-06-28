@@ -133,4 +133,32 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
           params: { paragraph_style: { font_size: 5 } }
     assert_response :forbidden
   end
+
+  test "panel_update without apply_scope fans out to same-doc_type designs and leaves base" do
+    s2 = @theme.paper_sizes.create!(size_name: "사륙판", width_mm: 128, height_mm: 188)
+    ch2 = s2.document_designs.create!(doc_type: "chapter")
+    base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+
+    patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: base.id),
+          params: { paragraph_style: { font_size: 13 } },
+          headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+    assert_response :success
+    assert_equal "13.0", @dd.paragraph_styles.find_by(name: "body").font_size.to_s
+    assert_equal "13.0", ch2.paragraph_styles.find_by(name: "body").font_size.to_s
+    assert_equal 10, base.reload.font_size, "base untouched on scoped save"
+  end
+
+  test "panel_update with apply_scope=all writes the base and clears overrides" do
+    base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    @dd.paragraph_styles.create!(name: "body", font_size: 8)
+
+    patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: base.id),
+          params: { paragraph_style: { font_size: 22 }, apply_scope: "all" },
+          headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+    assert_response :success
+    assert_equal 22, base.reload.font_size
+    assert_equal 0, @dd.paragraph_styles.where(name: "body").count, "shadow override cleared"
+  end
 end
