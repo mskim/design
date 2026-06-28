@@ -52,6 +52,38 @@ module Design
       paper_sizes.order(:id).first
     end
 
+    # Write `attrs` (a permitted paragraph-style params hash) as a document-level
+    # override of `name` onto every DocumentDesign of `doc_type` across this theme's
+    # paper sizes (the current document is one of them). The theme base is untouched;
+    # because all sizes share one base, identical override attrs resolve identically.
+    def apply_paragraph_style_to_doc_type!(doc_type, name, attrs)
+      document_designs.where(doc_type: doc_type).find_each do |dd|
+        dd.upsert_paragraph_style!(name, attrs)
+      end
+    end
+
+    # Write `attrs` to the theme base style `name` (creating the base row if a style
+    # of that name exists only as a document override), then destroy every same-name
+    # per-doc_type override across the theme so the base value shows everywhere.
+    def apply_paragraph_style_to_all!(name, attrs)
+      base = base_paragraph_styles.find_or_initialize_by(name: name)
+      base.update!(attrs.except(:name))
+      document_designs.find_each do |dd|
+        dd.paragraph_styles.where(name: name).destroy_all
+      end
+      base
+    end
+
+    # Distinct doc_types that currently have a same-name document override — i.e. the
+    # doc_types an "apply to all" save would reset. `.size` is the warning count.
+    def shadow_override_doc_types(name)
+      document_designs
+        .joins(:paragraph_styles)
+        .where(design_paragraph_styles: { name: name })
+        .distinct
+        .pluck(:doc_type)
+    end
+
     private
 
     def seed_default_styles
