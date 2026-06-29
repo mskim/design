@@ -54,6 +54,12 @@ module Design
           back_url: helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),
           revert_url: revert_url, editable: editable?)
       end
+    rescue ActiveRecord::RecordNotFound
+      # A valid-level style link can outlive its row (reverted to base, or cleared by
+      # an "apply to all" save) — degrade to the live document view instead of 500ing.
+      # An invalid/unknown level is a malformed request and still 404s.
+      raise unless KNOWN_STYLE_LEVELS.include?(params[:level])
+      fall_back_to_document_view
     end
 
     def panel_update
@@ -88,6 +94,20 @@ module Design
     end
 
     private
+
+    KNOWN_STYLE_LEVELS = %w[theme paper document].freeze
+
+    # Stale style link (reverted, or cleared by an "apply to all" save): show the
+    # live document view instead of raising. A turbo-frame request re-renders the
+    # properties panel in place; a full navigation redirects to the editor.
+    def fall_back_to_document_view
+      if turbo_frame_request?
+        render Design::Views::DocumentDesigns::PropertiesPanel.new(
+          theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: editable?)
+      else
+        redirect_to helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design)
+      end
+    end
 
     def editable?
       @theme.editable_by?(Design.current_user)

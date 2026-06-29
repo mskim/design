@@ -163,4 +163,38 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_equal 22, base.reload.font_size
     assert_equal 0, @dd.paragraph_styles.where(name: "body").count, "shadow override cleared"
   end
+
+  # A style link can outlive its override (Revert to base, or an "apply to all"
+  # save that clears overrides, leaves stale preview-overlay / browser-back links).
+  # Following such a link must degrade gracefully, not 500.
+  test "panel for a destroyed document override redirects to the editor (full navigation)" do
+    override = @dd.paragraph_styles.create!(name: "title", font_size: 20)
+    gone_id = override.id
+    override.destroy
+
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: gone_id)
+    assert_redirected_to design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+  end
+
+  test "panel for a destroyed document override re-renders the properties panel (turbo-frame)" do
+    override = @dd.paragraph_styles.create!(name: "title", font_size: 20)
+    gone_id = override.id
+    override.destroy
+
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: gone_id),
+        headers: { "Turbo-Frame" => "properties_panel" }
+    assert_response :success
+    assert_select "turbo-frame#properties_panel"
+  end
+
+  test "panel_update for a destroyed document override 404s (not a 500)" do
+    override = @dd.paragraph_styles.create!(name: "title", font_size: 20)
+    gone_id = override.id
+    override.destroy
+
+    patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: gone_id),
+          params: { paragraph_style: { font_size: 13 } },
+          headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    assert_response :not_found
+  end
 end
