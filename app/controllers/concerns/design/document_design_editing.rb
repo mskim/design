@@ -73,17 +73,13 @@ module Design
           @theme.apply_paragraph_style_to_doc_type!(@document_design.doc_type, name, paragraph_style_params)
         end
         Design::ThemeDbExportService.new(@theme).export!
-        result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
-        preview = if result[:success]
-          Design::Views::DocumentDesigns::Preview.new(
-            document_design: @document_design, paper_size: @paper_size,
-            jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, t: Time.now.to_i),
-            overlay_data: result[:overlay_data], page_width: result[:page_width], page_height: result[:page_height],
-            style_urls: build_style_urls)
-        else
-          Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
-        end
-        render turbo_stream: turbo_stream.replace("preview_frame", html: preview.call.html_safe)
+        # Refresh the preview AND the form: re-render the panel against where the
+        # value now lives — the document override after a default-scope save (so its
+        # revert link appears), or the theme base after "apply to all".
+        render turbo_stream: [
+          preview_frame_stream,
+          saved_panel_stream(name, params[:apply_scope])
+        ].compact
       else
         render_paragraph_style_panel(
           style,
@@ -111,6 +107,46 @@ module Design
 
     def editable?
       @theme.editable_by?(Design.current_user)
+    end
+
+    # Turbo-stream replacing the document preview with a freshly rendered one.
+    def preview_frame_stream
+      result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
+      component = if result[:success]
+        Design::Views::DocumentDesigns::Preview.new(
+          document_design: @document_design, paper_size: @paper_size,
+          jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, t: Time.now.to_i),
+          overlay_data: result[:overlay_data], page_width: result[:page_width], page_height: result[:page_height],
+          style_urls: build_style_urls)
+      else
+        Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
+      end
+      turbo_stream.replace("preview_frame", html: component.call.html_safe)
+    end
+
+    # Turbo-stream re-rendering the style panel after a save, pointed at where the
+    # value now lives: an "apply to all" save → the theme base (level "theme", no
+    # revert); otherwise → this document's override (level "document", revert shown).
+    # Returns nil (no panel refresh) if the expected record isn't present.
+    def saved_panel_stream(name, apply_scope)
+      if apply_scope == "all"
+        style = @theme.base_paragraph_styles.find_by(name: name)
+        level = "theme"
+      else
+        style = @document_design.paragraph_styles.find_by(name: name)
+        level = "document"
+      end
+      return nil unless style
+
+      html = render_to_string(Design::Views::ParagraphStyles::Panel.new(
+        paragraph_style: style,
+        panel_update_url: helpers.panel_update_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: level, style_id: style.id),
+        back_url: helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),
+        revert_url: document_style_revert_url(style, level),
+        editable: editable?,
+        document_design: @document_design,
+        save_scope_shadow_count: @theme.shadow_override_doc_types(name).size))
+      turbo_stream.replace("properties_panel", html: html)
     end
 
     def render_paragraph_style_panel(style, panel_update_url:, revert_url:, status: :ok)

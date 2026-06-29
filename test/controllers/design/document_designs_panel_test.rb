@@ -173,6 +173,36 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_equal 10, base.reload.font_size, "base untouched on scoped save"
   end
 
+  test "default-scope save refreshes the panel as the document override with a revert link" do
+    base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+
+    patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: base.id),
+          params: { paragraph_style: { name: "body", font_size: 13 } },
+          headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+    assert_response :success
+    assert_match %r{<turbo-stream action="replace" target="preview_frame">}, response.body
+    assert_match %r{<turbo-stream action="replace" target="properties_panel">}, response.body
+    override = @dd.paragraph_styles.find_by(name: "body")
+    # the refreshed panel now edits the override (level=document) and offers revert
+    assert_match %r{level=document&(amp;)?style_id=#{override.id}}, response.body
+    assert_match %r{paragraph_styles/#{override.id}/revert}, response.body
+  end
+
+  test "apply_scope=all save refreshes the panel as the base style (no revert)" do
+    base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    @dd.paragraph_styles.create!(name: "body", font_size: 8)
+
+    patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: @dd.paragraph_styles.find_by(name: "body").id),
+          params: { paragraph_style: { name: "body", font_size: 22 }, apply_scope: "all" },
+          headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+    assert_response :success
+    assert_match %r{<turbo-stream action="replace" target="properties_panel">}, response.body
+    assert_match %r{level=theme&(amp;)?style_id=#{base.id}}, response.body
+    refute_match %r{/revert}, response.body, "base style has no override to revert"
+  end
+
   test "panel_update with apply_scope=all writes the base and clears overrides" do
     base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
     @dd.paragraph_styles.create!(name: "body", font_size: 8)
