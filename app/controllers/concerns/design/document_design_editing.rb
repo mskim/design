@@ -129,11 +129,15 @@ module Design
       ), status: status
     end
 
-    # Returns the revert URL for document-level override styles only;
-    # theme- and paper-level styles are base records and cannot be reverted.
+    # Revert ("기본값으로 되돌리기") targets THIS document's override of the style. It's
+    # available whenever such an override exists — when editing the override directly
+    # (level "document"), and also when editing the inherited base style if a
+    # same-name override already exists on this document (e.g. one a default-scope
+    # save just created). Pure base styles with no override have nothing to revert.
     def document_style_revert_url(style, level)
-      return nil unless level == "document"
-      helpers.revert_theme_paper_size_document_design_paragraph_style_path(@theme, @paper_size, @document_design, style)
+      override = level == "document" ? style : @document_design.paragraph_styles.find_by(name: style.name)
+      return nil unless override
+      helpers.revert_theme_paper_size_document_design_paragraph_style_path(@theme, @paper_size, @document_design, override)
     end
 
     def find_panel_style(level, id)

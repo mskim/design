@@ -123,6 +123,28 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#properties_panel form[data-controller~='design--panel-autosave']"
   end
 
+  # Revert ("기본값으로 되돌리기") should appear whenever THIS document already has an
+  # override of the style being edited — even when the style was opened at the base
+  # (theme) level — so an override created by a default-scope save can be undone here.
+  test "panel shows revert for a base style that already has a document override" do
+    base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+    @dd.paragraph_styles.create!(name: "body", font_size: 12) # document override exists
+
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: base.id),
+        headers: { "Turbo-Frame" => "properties_panel" }
+    assert_response :success
+    assert_select "a[href*=?][data-turbo-method=delete]", "/revert", { count: 1 }, "revert link should be present"
+  end
+
+  test "panel hides revert for a base style with no document override" do
+    base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
+
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: base.id),
+        headers: { "Turbo-Frame" => "properties_panel" }
+    assert_response :success
+    assert_select "a[href*=?]", "/revert", { count: 0 }, "no revert when nothing is overridden"
+  end
+
   test "writer forbidden from panel" do
     sign_in :kevin
     get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: 1)
