@@ -40,15 +40,17 @@ Let a designer set, **per cover doc-type**, a background-image `image_opacity` a
 - `document_design_values(dd)` (~lines 177–194): the per-row value tuple (booleans → 0/1, floats via `f()`, timestamps → iso8601).
 - Baked DBs written under `Design.themes_dir` (system) or `.../user_<id>/` (user themes).
 
-**Migrations:** book_design `db/migrate/` (the gem's tables were adopted into the host app's schema, migration `20260621000001_adopt_design_gem_tables.rb`). Add-column pattern: `add_column :design_document_designs, :col, :type, default:` (e.g. `20260308114043_add_text_box_position_to_document_designs.rb`).
+**Migrations:** book_design `db/migrate/` (the gem's tables were adopted into the host app's schema, migration `20260621000001_adopt_design_gem_tables.rb`). Current add-column pattern (post-adoption, correct table name): `20260622000001_add_toc_v_align_to_design_document_designs.rb` → `add_column :design_document_designs, :toc_v_align, :string`. (Older migrations like `20260308114043_add_text_box_position_to_document_designs.rb` predate the rename and use the unnamespaced `:document_designs` — do NOT copy that name.)
+
+**Gem test schema:** the gem's tests do NOT run migrations — `test/test_helper.rb` `load`s `test/dummy/db/schema.rb` directly (a hand-maintained copy of the `design_*` tables). New columns must be hand-added there too (see C1).
 
 **Tests** (Minitest, in the gem `test/`): model `test/models/design/document_design_test.rb`; controller `test/controllers/design/document_designs_edit_test.rb`; export `test/services/design/theme_db_export_service_test.rb` (opens the baked SQLite and asserts row column values — the `cover_type`/`toc_v_align` pattern).
 
 ## Components
 
-### C1 — Migration (book_design)
+### C1 — Migration (book_design) + gem dummy schema
 
-New migration in `book_design/db/migrate/` (host app owns the gem's tables):
+New migration in `book_design/db/migrate/` (host app owns the gem's tables; follow the current pattern in `20260622000001_add_toc_v_align_to_design_document_designs.rb`, which uses the post-adoption table name `:design_document_designs`):
 ```ruby
 add_column :design_document_designs, :image_opacity, :integer, default: 100
 add_column :design_document_designs, :logo_width,    :decimal, precision: 6, scale: 2
@@ -56,7 +58,9 @@ add_column :design_document_designs, :logo_height,   :decimal, precision: 6, sca
 add_column :design_document_designs, :logo_position, :string
 add_column :design_document_designs, :logo_offset,   :decimal, precision: 6, scale: 2, default: 0
 ```
-Run `bin/rails db:migrate` in book_design; commit the updated `db/schema.rb`. (The gem's dummy test app must also pick up the columns — see Testing.)
+Run `bin/rails db:migrate` in book_design; commit the updated `book_design/db/schema.rb`.
+
+**CRITICAL — the gem's tests do NOT run migrations.** `design` gem `test/test_helper.rb` `load`s `test/dummy/db/schema.rb` directly (the dummy app has no migrations); that schema is a hand-maintained copy of the `design_*` tables (e.g. `toc_v_align` was hand-added there). So the book_design migration has **zero effect on gem tests**. This task MUST also **hand-edit `design` gem `test/dummy/db/schema.rb`** to add the 5 columns to the `design_document_designs` table block — otherwise every model/controller/export test fails with `no such column`. This is a mandatory, separate edit, not implied by the migration.
 
 ### C2 — `Design::DocumentDesign` (gem)
 
@@ -76,8 +80,9 @@ Run `bin/rails db:migrate` in book_design; commit the updated `db/schema.rb`. (T
 ### C4 — `ThemeDbExportService` (gem)
 
 - `create_tables`: add to the `document_designs` DDL: `image_opacity INTEGER DEFAULT 100, logo_width REAL, logo_height REAL, logo_position TEXT, logo_offset REAL DEFAULT 0`.
-- `insert_paper_sizes_and_designs`: add the 5 columns to the `INSERT` column list + `?` placeholders.
+- `insert_paper_sizes_and_designs`: add the 5 columns to the `INSERT INTO document_designs (...)` column list, AND update the placeholder literal — the INSERT uses `VALUES (#{Array.new(38, "?").join(", ")})`, so change **`38` → `43`** (it's a hardcoded count, not per-column `?`s — easy to miss).
 - `document_design_values`: append `dd.image_opacity, f(dd.logo_width), f(dd.logo_height), dd.logo_position, f(dd.logo_offset)` to the tuple (keep column↔value order aligned; book_write reads by name so downstream is order-independent).
+- **Four coupled sites** must stay in sync: (1) CREATE TABLE DDL, (2) INSERT column list, (3) the `Array.new(N, "?")` placeholder count, (4) the `document_design_values` tuple.
 
 ### C5 — Re-bake shipped themes
 
@@ -115,7 +120,8 @@ Designer → studio DocumentDesign edit (cover doc-type)
 ## Constraints
 
 - **Two repos:** the migration + `db/schema.rb` land in **book_design**; model/controller/component/export/i18n/tests land in the **`design` gem** (remote is SSH `git@github.com:mskim/design.git` — the PAT is read-only; push via SSH at release).
-- **book_design migration:** run `bin/rails db:migrate` in book_design (this is book_design's own DB, not book_write's — book_write dev-DB constraints don't apply here). The gem's dummy test app schema must also gain the columns so gem tests see them.
+- **book_design migration:** run `bin/rails db:migrate` in book_design (this is book_design's own DB, not book_write's — book_write dev-DB constraints don't apply here).
+- **Gem tests need the dummy schema edited (C1):** the migration does NOT feed the gem test suite — `test/dummy/db/schema.rb` must be hand-edited with the 5 columns or all gem tests fail with `no such column`. This is the single riskiest step.
 - **i18n:** ko + en only (design engine convention).
 - Stage explicit paths; never `git add -A` (the gem has an unrelated `Gemfile.lock` change — do not commit it).
 
