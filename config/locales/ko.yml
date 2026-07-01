@@ -35,6 +35,7 @@ ko:
       frontmatter: "전반부"
       bodymatter: "본문"
       rearmatter: "후반부"
+      cover: "표지"
       edit_theme_button: "테마 편집"
       size_label: "크기"
       read_only: "읽기 전용"

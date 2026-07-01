@@ -56,7 +56,9 @@ module Design
         frontmatter: ordered.select { |dd| FRONTMATTER.include?(dd.doc_type) },
         bodymatter:  ordered.select { |dd| BODYMATTER.include?(dd.doc_type) },
         rearmatter:  ordered.select { |dd| REARMATTER.include?(dd.doc_type) },
-        other:       ordered.reject { |dd| (FRONTMATTER + BODYMATTER + REARMATTER).include?(dd.doc_type) }
+        cover:       designs.select { |dd| COVER_PANEL_TYPES.include?(dd.doc_type) }
+                            .sort_by { |dd| COVER_PANEL_TYPES.index(dd.doc_type) },
+        other:       ordered.reject { |dd| (FRONTMATTER + BODYMATTER + REARMATTER + COVER_PANEL_TYPES).include?(dd.doc_type) }
       }
     end
 

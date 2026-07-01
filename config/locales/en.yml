@@ -35,6 +35,7 @@ en:
       frontmatter: "Front Matter"
       bodymatter: "Body Matter"
       rearmatter: "Rear Matter"
+      cover: "Book cover"
       edit_theme_button: "Edit Theme"
       size_label: "Size"
       read_only: "Read-only"

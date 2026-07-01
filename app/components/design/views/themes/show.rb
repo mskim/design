@@ -101,7 +101,8 @@ module Design
         MATTER_SECTIONS = [
           [ :frontmatter, "design.themes.frontmatter" ],
           [ :bodymatter,  "design.themes.bodymatter" ],
-          [ :rearmatter,  "design.themes.rearmatter" ]
+          [ :rearmatter,  "design.themes.rearmatter" ],
+          [ :cover,       "design.themes.cover" ]
         ].freeze
 
         def doc_grid

@@ -15,10 +15,12 @@ class Design::GroupedByMatterTest < ActiveSupport::TestCase
     assert_equal [], g[:other].map(&:doc_type)
   end
 
-  test "a doc_type in no matter group lands in other" do
+  test "cover-panel doc_types land in cover, ordered by COVER_PANEL_TYPES, not other" do
     # front_page is a cover-panel type, in none of the three matter groups
-    @ps.document_designs.create!(doc_type: "front_page")
+    %w[back_wing front_page seneca].each { |t| @ps.document_designs.create!(doc_type: t) }
     g = Design::DocumentDesign.grouped_by_matter(@ps.document_designs)
-    assert_equal %w[front_page], g[:other].map(&:doc_type)
+    assert_equal %w[front_page seneca back_wing], g[:cover].map(&:doc_type)
+    assert_not_includes g[:other].map(&:doc_type), "front_page"
+    assert_equal [], g[:other].map(&:doc_type)
   end
 end

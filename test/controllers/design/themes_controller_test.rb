@@ -167,7 +167,7 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
     assert_select "h2", text: I18n.t("design.themes.base_text_styles"), count: 0
   end
 
-  test "show grid excludes cover-panel doc types (they belong to the cover editor)" do
+  test "show grid includes cover-panel doc types in the book-cover section" do
     theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
     ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     chapter = ps.document_designs.create!(doc_type: "chapter")
@@ -177,8 +177,8 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, chapter)
-    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, seneca), count: 0
-    assert_select "[data-doc-grid] img", count: 1
+    assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, ps, seneca)
+    assert_select "[data-doc-grid] img", count: 2
   end
 
   test "show size selector switches which size's docs render" do

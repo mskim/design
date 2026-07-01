@@ -10,7 +10,7 @@ module Design
     def show
       @paper_sizes = @theme.paper_sizes.order(:id)
       @selected_paper_size = @paper_sizes.find_by(id: params[:paper_size_id]) || @theme.default_paper_size || @paper_sizes.first
-      @document_designs = @selected_paper_size ? interior_document_designs(@selected_paper_size) : []
+      @document_designs = @selected_paper_size ? @selected_paper_size.document_designs.to_a : []
       render Design::Views::Themes::Show.new(
         theme: @theme, paper_sizes: @paper_sizes,
         selected_paper_size: @selected_paper_size, document_designs: @document_designs
@@ -70,13 +70,6 @@ module Design
     end
 
     private
-
-    # The theme show page previews interior document pages only. Cover panels
-    # (front_page, seneca, …) belong to the cover editor and don't render as
-    # interior pages, so they're excluded from the grid.
-    def interior_document_designs(paper_size)
-      Design::DocumentDesign.interior_for(paper_size)
-    end
 
     def theme_params
       params.require(:theme).permit(:name, :description, :locale, :base_body_font, :base_body_font_size, :base_heading_font)
