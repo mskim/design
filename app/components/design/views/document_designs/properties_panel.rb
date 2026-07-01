@@ -99,6 +99,30 @@ module Design
             render_text_box_section
             render_page_bg_section
             render_document_cover_section
+            render_image_opacity_section if Design::DocumentDesign::COVER_PANEL_TYPES.include?(@document_design.doc_type)
+            render_logo_section if @document_design.doc_type == "front_page"
+          end
+        end
+
+        def render_image_opacity_section
+          group_box("fill", I18n.t("design.properties_panel.image_opacity")) do
+            rows do
+              number_field(I18n.t("design.properties_panel.image_opacity"), :image_opacity)
+            end
+          end
+        end
+
+        def render_logo_section
+          group_box("space", I18n.t("design.properties_panel.logo")) do
+            rows do
+              number_field(I18n.t("design.properties_panel.logo_width"), :logo_width, step: "0.1")
+              number_field(I18n.t("design.properties_panel.logo_height"), :logo_height, step: "0.1")
+            end
+            rows do
+              select_field(I18n.t("design.properties_panel.logo_position"), :logo_position,
+                           Design::DocumentDesign::LOGO_POSITIONS, i18n_scope: "logo_position")
+              number_field(I18n.t("design.properties_panel.logo_offset"), :logo_offset, step: "0.1")
+            end
           end
         end
 

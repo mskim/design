@@ -61,6 +61,10 @@ en:
         center: "Center"
         top: "Top"
         bottom: "Bottom"
+      logo_position:
+        left: "Left"
+        center: "Center"
+        right: "Right"
       bg_type:
         color: "Color"
         image: "Image"
@@ -118,6 +122,12 @@ en:
       document_cover: "Document Cover"
       has_document_cover: "Has Document Cover"
       cover_type: "Cover Type"
+      image_opacity: "Image Opacity"
+      logo: "Logo"
+      logo_width: "Width"
+      logo_height: "Height"
+      logo_position: "Position"
+      logo_offset: "Offset"
       header: "Header"
       footer: "Footer"
       content: "Content"

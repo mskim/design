@@ -97,6 +97,34 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     assert_equal "spread", @dd.cover_type
   end
 
+  test "update persists image_opacity + logo params for a front_page design" do
+    front_page = @ps.document_designs.create!(doc_type: "front_page")
+    patch design.theme_paper_size_document_design_path(@theme, @ps, front_page), params: { document_design: {
+      image_opacity: 40, logo_width: 25, logo_height: 10, logo_position: "left", logo_offset: 3
+    } }
+    assert_response :redirect
+    front_page.reload
+    assert_equal 40, front_page.image_opacity
+    assert_equal "left", front_page.logo_position
+    assert_in_delta 25.0, front_page.logo_width.to_f, 0.001
+    assert_in_delta 10.0, front_page.logo_height.to_f, 0.001
+    assert_in_delta 3.0, front_page.logo_offset.to_f, 0.001
+  end
+
+  test "edit shows image_opacity for a cover panel and logo only for front_page" do
+    front_page = @ps.document_designs.create!(doc_type: "front_page")
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, front_page)
+    assert_response :success
+    assert_select "[name='document_design[image_opacity]']"
+    assert_select "[name='document_design[logo_position]']"
+
+    # interior doc_type (@dd is a chapter): neither section renders
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    assert_response :success
+    assert_select "[name='document_design[image_opacity]']", count: 0
+    assert_select "[name='document_design[logo_position]']", count: 0
+  end
+
   test "edit renders the editor toolbar with clickable theme and paper-size links" do
     get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
     assert_response :success

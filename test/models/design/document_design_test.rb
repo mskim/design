@@ -61,4 +61,13 @@ class Design::DocumentDesignTest < ActiveSupport::TestCase
   test "LOGO_POSITIONS are the allowed logo_position values" do
     assert_equal %w[left center right], Design::DocumentDesign::LOGO_POSITIONS
   end
+
+  test "logo_position must be one of LOGO_POSITIONS (nil allowed)" do
+    @dd.logo_position = "diagonal"
+    assert_not @dd.valid?
+    @dd.logo_position = "center"
+    assert @dd.valid?
+    @dd.logo_position = nil
+    assert @dd.valid?
+  end
 end

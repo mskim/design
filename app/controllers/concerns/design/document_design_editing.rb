@@ -232,6 +232,7 @@ module Design
         :heading_bg_gradient_start, :heading_bg_gradient_end, :heading_bg_gradient_angle,
         :text_box_anchor_position, :text_box_grid_width, :text_box_grid_height,
         :page_bg_color, :has_document_cover, :cover_type,
+        :image_opacity, :logo_width, :logo_height, :logo_position, :logo_offset,
         heading_elements_attributes: [ :id, :element_type, :style_name, :position, :_destroy ]
       )
     end

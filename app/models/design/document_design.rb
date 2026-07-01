@@ -25,6 +25,7 @@ module Design
     ALL_DOC_TYPES = (SINGLE_PAGE_TYPES + MULTI_PAGE_TYPES + COVER_PANEL_TYPES).freeze
 
     LOGO_POSITIONS = %w[left center right].freeze
+    validates :logo_position, inclusion: { in: LOGO_POSITIONS }, allow_nil: true
 
     # Canonical reading order (frontmatter → bodymatter → rearmatter) for displaying
     # a paper size's document designs. doc_types not listed sort to the end.

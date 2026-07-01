@@ -61,6 +61,10 @@ ko:
         center: "가운데"
         top: "위"
         bottom: "아래"
+      logo_position:
+        left: "왼쪽"
+        center: "가운데"
+        right: "오른쪽"
       bg_type:
         color: "색상"
         image: "이미지"
@@ -118,6 +122,12 @@ ko:
       document_cover: "문서 표지"
       has_document_cover: "문서 표지 사용"
       cover_type: "표지 유형"
+      image_opacity: "이미지 투명도"
+      logo: "로고"
+      logo_width: "너비"
+      logo_height: "높이"
+      logo_position: "위치"
+      logo_offset: "오프셋"
       header: "머리말"
       footer: "꼬리말"
       content: "내용"
