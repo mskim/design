@@ -70,4 +70,15 @@ class Design::DocumentDesignTest < ActiveSupport::TestCase
     @dd.logo_position = nil
     assert @dd.valid?
   end
+
+  test "image_opacity must be an integer 0..100 (nil allowed)" do
+    @dd.image_opacity = 150
+    assert_not @dd.valid?
+    @dd.image_opacity = -1
+    assert_not @dd.valid?
+    @dd.image_opacity = 50
+    assert @dd.valid?
+    @dd.image_opacity = nil
+    assert @dd.valid?
+  end
 end

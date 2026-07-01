@@ -26,6 +26,7 @@ module Design
 
     LOGO_POSITIONS = %w[left center right].freeze
     validates :logo_position, inclusion: { in: LOGO_POSITIONS }, allow_nil: true
+    validates :image_opacity, numericality: { only_integer: true, in: 0..100 }, allow_nil: true
 
     # Canonical reading order (frontmatter → bodymatter → rearmatter) for displaying
     # a paper size's document designs. doc_types not listed sort to the end.

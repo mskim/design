@@ -118,6 +118,13 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     assert_select "[name='document_design[image_opacity]']"
     assert_select "[name='document_design[logo_position]']"
 
+    # non-front_page cover panel (back_page): image_opacity renders, logo does NOT
+    back_page = @ps.document_designs.create!(doc_type: "back_page")
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, back_page)
+    assert_response :success
+    assert_select "[name='document_design[image_opacity]']"
+    assert_select "[name='document_design[logo_position]']", count: 0
+
     # interior doc_type (@dd is a chapter): neither section renders
     get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
     assert_response :success
