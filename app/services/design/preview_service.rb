@@ -21,6 +21,39 @@ module Design
       Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
     TEXT
 
+    # Sample content for the wing panels so the studio preview shows what each wing
+    # actually renders (back_wing = promotional "other books", front_wing = author
+    # profile), keyed by theme locale (ko/en; others fall back to ko).
+    SAMPLE_BACK_WING = {
+      "ko" => {
+        heading: "다른 책들",
+        books: [
+          { title: "바람의 기록", description: "잊혀진 도시를 둘러싼 대서사시." },
+          { title: "고요한 아침", description: "일상 속에서 발견하는 작은 위로." },
+          { title: "별을 세는 밤", description: "우주와 인간을 잇는 사색의 여정." }
+        ]
+      },
+      "en" => {
+        heading: "Other Books",
+        books: [
+          { title: "Records of the Wind", description: "An epic around a forgotten city." },
+          { title: "A Quiet Morning", description: "Small comforts found in daily life." },
+          { title: "Counting the Stars", description: "A meditation linking cosmos and self." }
+        ]
+      }
+    }.freeze
+
+    SAMPLE_FRONT_WING = {
+      "ko" => { name: "홍길동",
+                bio: "소설가이자 번역가. 여러 편의 장편과 산문집을 펴냈으며, 일상의 결을 섬세하게 그려내는 작가로 알려져 있다." },
+      "en" => { name: "Jane Doe",
+                bio: "Novelist and translator. Author of several novels and essay collections, known for a delicate attention to the texture of everyday life." }
+    }.freeze
+
+    # Solid pastel fills for the generated sample book covers (RGB), cycled by index.
+    SAMPLE_COVER_COLORS = [ [ 236, 72, 153 ], [ 59, 130, 246 ], [ 16, 185, 129 ], [ 245, 158, 11 ], [ 139, 92, 246 ] ].freeze
+    SAMPLE_PHOTO_COLOR = [ 148, 163, 184 ].freeze
+
     attr_reader :document_design, :paper_size
 
     def initialize(document_design, paper_size: nil)
@@ -43,6 +76,7 @@ module Design
       # working dir sits under tmp/previews so the final rename stays on one FS.
       work = work_dir
       FileUtils.mkdir_p(work)
+      @work_dir = work # sample wing covers/photos are generated here, read back at render time
 
       db_path = File.join(work, "preview.db")
       pdf_path = File.join(work, "preview.pdf")
@@ -179,10 +213,17 @@ module Design
     def populate_database(db_doc)
       populate_document(db_doc)
       populate_master_page(db_doc)
-      populate_heading_items(db_doc)
-      populate_paragraph_styles(db_doc)
-      populate_toc_items(db_doc)
-      populate_sample_blocks(db_doc)
+      if wing?
+        # Wing panels read component-scoped blocks + bare-named styles, not the
+        # generic heading/body/toc sample content.
+        populate_wing_styles(db_doc)
+        populate_wing_blocks(db_doc)
+      else
+        populate_heading_items(db_doc)
+        populate_paragraph_styles(db_doc)
+        populate_toc_items(db_doc)
+        populate_sample_blocks(db_doc)
+      end
       populate_header_footer_slots(db_doc)
     end
 
@@ -483,12 +524,13 @@ module Design
 
     def generate_pdf(db_doc, pdf_path)
       doc_info = db_doc.document_info
-      component_class = doc_layout_class
-      component = component_class.new(
-        db_document: db_doc,
-        doc_info: doc_info,
-        svg: true
-      )
+      component = if wing?
+        # Wing renderers extend BaseRenderer (options: keyword), not the DocLayout
+        # components (**options), so they're instantiated separately.
+        wing_renderer_class.new(db_document: db_doc, doc_info: doc_info, options: { svg: true })
+      else
+        doc_layout_class.new(db_document: db_doc, doc_info: doc_info, svg: true)
+      end
 
       component.render_to_pdf(pdf_path)
 
@@ -817,6 +859,103 @@ module Design
     def body_paragraphs
       paragraphs = sample_content.body_paragraphs
       paragraphs.present? ? paragraphs : FALLBACK_BODY.strip.split("\n").reject(&:blank?)
+    end
+
+    # --- Wing panels (back_wing / front_wing) -------------------------------
+
+    def wing?
+      Design::DocumentDesign::WING_PANEL_TYPES.include?(document_design.doc_type)
+    end
+
+    def wing_renderer_class
+      case document_design.doc_type
+      when "back_wing"  then DocProcessorRb::DocumentTypes::BackWingRenderer
+      when "front_wing" then DocProcessorRb::DocumentTypes::FrontWingRenderer
+      end
+    end
+
+    def wing_locale
+      loc = theme.locale.to_s
+      SAMPLE_BACK_WING.key?(loc) ? loc : "ko"
+    end
+
+    def back_wing_sample
+      SAMPLE_BACK_WING[wing_locale]
+    end
+
+    def front_wing_sample
+      SAMPLE_FRONT_WING[wing_locale]
+    end
+
+    # Insert component-scoped sample blocks matching what book_write's cover
+    # pipeline builds, so the wing renderers lay out real-looking content.
+    def populate_wing_blocks(db_doc)
+      db = db_doc.instance_variable_get(:@db)
+      document_design.doc_type == "back_wing" ? populate_back_wing_blocks(db) : populate_front_wing_blocks(db)
+    end
+
+    def populate_back_wing_blocks(db)
+      sample = back_wing_sample
+      db[:paragraphs].insert(
+        document_id: 1, component: "back_wing", sequence: 0,
+        content: sample[:heading], block_type: "heading", markup: "back_wing.heading"
+      )
+      sample[:books].each_with_index do |book, idx|
+        db[:paragraphs].insert(
+          document_id: 1, component: "back_wing", sequence: idx + 1,
+          content: book[:title], block_type: "promoted_item", markup: "back_wing.item",
+          metadata: { description: book[:description], image_path: sample_cover_image(idx), from_book: true }.to_json
+        )
+      end
+    end
+
+    def populate_front_wing_blocks(db)
+      sample = front_wing_sample
+      db[:paragraphs].insert(
+        document_id: 1, component: "front_wing", sequence: 0,
+        content: sample[:name], block_type: "heading", markup: "front_wing.author_name",
+        metadata: { image_path: sample_photo_image }.to_json
+      )
+      db[:paragraphs].insert(
+        document_id: 1, component: "front_wing", sequence: 1,
+        content: sample[:bio], block_type: "body", markup: "front_wing.author_bio"
+      )
+    end
+
+    # Bare-named heading/title/body styles derived from the theme's wing styles so
+    # the preview reflects the theme's wing typography. Absent styles fall back to
+    # the renderers' own built-in defaults.
+    WING_STYLE_SOURCES = { "heading" => "wing_title", "title" => "wing_title", "body" => "wing_body" }.freeze
+
+    def populate_wing_styles(db_doc)
+      db = db_doc.instance_variable_get(:@db)
+      db[:paragraph_styles].delete
+      merged = document_design.merged_paragraph_styles.index_by(&:name)
+      WING_STYLE_SOURCES.each do |bare_name, theme_name|
+        style = merged[theme_name]
+        next unless style
+        DocProcessorRb::Database::Models::ParagraphStyle.create(
+          name: bare_name,
+          display_name: bare_name,
+          attributes: build_style_attrs(style).to_json
+        )
+      end
+    end
+
+    def sample_cover_image(index)
+      color = SAMPLE_COVER_COLORS[index % SAMPLE_COVER_COLORS.size]
+      write_solid_image("sample_cover_#{index}.jpg", 200, 280, color)
+    end
+
+    def sample_photo_image
+      write_solid_image("sample_author.jpg", 240, 240, SAMPLE_PHOTO_COLOR)
+    end
+
+    # Generate a solid-color placeholder image with Vips into the per-call work dir.
+    def write_solid_image(name, width, height, rgb)
+      path = File.join(@work_dir, name)
+      (Vips::Image.black(width, height, bands: 3) + rgb).cast("uchar").jpegsave(path, Q: 80)
+      path
     end
   end
 end
