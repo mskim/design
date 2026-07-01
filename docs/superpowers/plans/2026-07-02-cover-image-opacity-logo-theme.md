@@ -284,7 +284,7 @@ And define the methods (near the other `render_*_section` methods), using the ex
           end
         end
 ```
-> Verify `select_field`'s `i18n_scope:` behavior against an existing call (e.g. `v_align`) — it likely looks up `design.properties_panel.<i18n_scope>.<value>`. Provide those option labels in i18n (Step 5) or pass plain values if that's the file's convention for simple selects.
+> `select_field` resolves option labels via `design.options.<i18n_scope>.<value>` (i.e. `design.options.logo_position.left`) — provide those under `design.options` in Step 5, NOT under `properties_panel`.
 
 ### Step 5: i18n (ko + en) — TWO separate namespaces
 
