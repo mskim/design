@@ -132,8 +132,19 @@ module Design
           end
         end
 
+        # Wings (flaps) and the seneca (spine) are narrower than a full page, so preview
+        # their cards at a representative width rather than the page width (studio display
+        # only — the real widths come from the cover in book_write).
+        WING_PREVIEW_WIDTH_MM = 100
+        SENECA_PREVIEW_WIDTH_MM = 80
+
         def doc_card(dd, index)
-          ratio = "#{@selected_paper_size.width_mm} / #{@selected_paper_size.height_mm}"
+          card_width =
+            if dd.doc_type == "seneca" then SENECA_PREVIEW_WIDTH_MM
+            elsif Design::DocumentDesign::WING_PANEL_TYPES.include?(dd.doc_type) then WING_PREVIEW_WIDTH_MM
+            else @selected_paper_size.width_mm
+            end
+          ratio = "#{card_width} / #{@selected_paper_size.height_mm}"
           jpg_url = helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @selected_paper_size, dd)
           label = doc_type_label(dd.doc_type)
           div(class: "doc-card flex flex-col gap-1") do

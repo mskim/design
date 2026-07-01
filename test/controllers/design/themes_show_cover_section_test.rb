@@ -17,6 +17,19 @@ class Design::ThemesShowCoverSectionTest < ActionDispatch::IntegrationTest
     assert_includes response.body, I18n.t("design.themes.cover")
   end
 
+  test "wing cards preview at 100mm and seneca at 80mm, not the page width" do
+    t = Design::Theme.create!(name: "Wing #{SecureRandom.hex(3)}", locale: "ko", user: users(:david))
+    ps = t.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    %w[front_wing seneca].each { |d| ps.document_designs.create!(doc_type: d) }
+    stub_preview_service(success: false) do
+      get design.theme_path(t)
+    end
+    assert_response :success
+    assert_select "[style*='aspect-ratio: 100 / 225']"   # wing
+    assert_select "[style*='aspect-ratio: 80 / 225']"    # seneca (spine)
+    assert_select "[style*='aspect-ratio: 152 / 225']", count: 0   # never page width
+  end
+
   # factory-swap stub — copy the helper from themes_show_grouped_test.rb
   def stub_preview_service(success:)
     fake = Object.new

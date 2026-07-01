@@ -22,6 +22,11 @@ module Design
     SINGLE_PAGE_TYPES = %w[title_page blank_page copyright inside_cover part_cover document_cover thanks dedication].freeze
     MULTI_PAGE_TYPES = %w[foreword prologue toc chapter poem appendix epilogue help information].freeze
     COVER_PANEL_TYPES = %w[front_page back_page seneca front_wing back_wing].freeze
+    # Physical left→right order of the panels across the assembled book-cover spread
+    # (back wing | back page | spine | front page | front wing). Used to display the
+    # cover section in the same order the panels sit on the printed cover.
+    COVER_PANEL_ORDER = %w[back_wing back_page seneca front_page front_wing].freeze
+    WING_PANEL_TYPES = %w[front_wing back_wing].freeze
     ALL_DOC_TYPES = (SINGLE_PAGE_TYPES + MULTI_PAGE_TYPES + COVER_PANEL_TYPES).freeze
 
     LOGO_POSITIONS = %w[left center right].freeze
@@ -57,7 +62,7 @@ module Design
         bodymatter:  ordered.select { |dd| BODYMATTER.include?(dd.doc_type) },
         rearmatter:  ordered.select { |dd| REARMATTER.include?(dd.doc_type) },
         cover:       designs.select { |dd| COVER_PANEL_TYPES.include?(dd.doc_type) }
-                            .sort_by { |dd| COVER_PANEL_TYPES.index(dd.doc_type) },
+                            .sort_by { |dd| COVER_PANEL_ORDER.index(dd.doc_type) },
         other:       ordered.reject { |dd| (FRONTMATTER + BODYMATTER + REARMATTER + COVER_PANEL_TYPES).include?(dd.doc_type) }
       }
     end

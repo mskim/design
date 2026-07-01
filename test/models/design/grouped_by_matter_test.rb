@@ -15,12 +15,16 @@ class Design::GroupedByMatterTest < ActiveSupport::TestCase
     assert_equal [], g[:other].map(&:doc_type)
   end
 
-  test "cover-panel doc_types land in cover, ordered by COVER_PANEL_TYPES, not other" do
-    # front_page is a cover-panel type, in none of the three matter groups
+  test "cover-panel doc_types land in cover, in physical spread order (COVER_PANEL_ORDER), not other" do
+    # insert out of physical order; expect back_wing → seneca → front_page (spread order)
     %w[back_wing front_page seneca].each { |t| @ps.document_designs.create!(doc_type: t) }
     g = Design::DocumentDesign.grouped_by_matter(@ps.document_designs)
-    assert_equal %w[front_page seneca back_wing], g[:cover].map(&:doc_type)
+    assert_equal %w[back_wing seneca front_page], g[:cover].map(&:doc_type)
     assert_not_includes g[:other].map(&:doc_type), "front_page"
     assert_equal [], g[:other].map(&:doc_type)
+  end
+
+  test "COVER_PANEL_ORDER is the left-to-right spread order" do
+    assert_equal %w[back_wing back_page seneca front_page front_wing], Design::DocumentDesign::COVER_PANEL_ORDER
   end
 end
