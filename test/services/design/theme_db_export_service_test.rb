@@ -54,4 +54,21 @@ class Design::ThemeDbExportServiceTest < ActiveSupport::TestCase
   ensure
     File.delete(path) if path && File.exist?(path)
   end
+
+  test "exported document_designs includes image_opacity + logo fields" do
+    theme = Design::Theme.create!(name: "Exp #{SecureRandom.hex(3)}", locale: "ko")
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    ps.document_designs.create!(doc_type: "front_page", image_opacity: 55,
+      logo_width: 30.0, logo_height: 12.0, logo_position: "center", logo_offset: 2.5)
+    path = Design::ThemeDbExportService.new(theme).export!
+    db = SQLite3::Database.new(path); db.results_as_hash = true
+    row = db.execute("SELECT * FROM document_designs WHERE doc_type = 'front_page'").first
+    db.close
+    assert_equal 55, row["image_opacity"]
+    assert_equal "center", row["logo_position"]
+    assert_in_delta 30.0, row["logo_width"].to_f, 0.001
+    assert_in_delta 2.5, row["logo_offset"].to_f, 0.001
+  ensure
+    File.delete(path) if path && File.exist?(path)
+  end
 end

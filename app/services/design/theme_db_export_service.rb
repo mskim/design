@@ -76,6 +76,7 @@ module Design
           cover_type TEXT, footnote_char TEXT, footnote_range TEXT, footnote_type TEXT,
           has_document_cover BOOLEAN DEFAULT 0,
           heading_bg_gradient_angle REAL, heading_bg_gradient_start TEXT, heading_bg_gradient_end TEXT,
+          image_opacity INTEGER DEFAULT 100, logo_width REAL, logo_height REAL, logo_position TEXT, logo_offset REAL DEFAULT 0,
           page_type TEXT,
           created_at DATETIME, updated_at DATETIME
         );
@@ -156,9 +157,10 @@ module Design
               cover_type, footnote_char, footnote_range, footnote_type,
               has_document_cover,
               heading_bg_gradient_angle, heading_bg_gradient_start, heading_bg_gradient_end,
+              image_opacity, logo_width, logo_height, logo_position, logo_offset,
               page_type,
               created_at, updated_at
-            ) VALUES (#{Array.new(38, "?").join(", ")})
+            ) VALUES (#{Array.new(43, "?").join(", ")})
           SQL
 
           dd.paragraph_styles.each { |style| insert_style(db, style) }
@@ -190,6 +192,7 @@ module Design
         dd.cover_type, dd.footnote_char, dd.footnote_range, dd.footnote_type,
         dd.has_document_cover ? 1 : 0,
         f(dd.heading_bg_gradient_angle), dd.heading_bg_gradient_start, dd.heading_bg_gradient_end,
+        dd.image_opacity, f(dd.logo_width), f(dd.logo_height), dd.logo_position, f(dd.logo_offset),
         dd.page_type,
         dd.created_at&.iso8601, dd.updated_at&.iso8601 ]
     end
