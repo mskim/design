@@ -127,7 +127,7 @@ In `test/dummy/db/schema.rb`, inside `create_table "design_document_designs"`, a
     t.string "logo_position"
     t.decimal "logo_width", precision: 6, scale: 2
 ```
-(Place each in the correct alphabetical slot: `image_opacity` after `heading_v_align`/before `toc_v_align`-area, `logo_*` after `layout_class`/before `page_bg_color` — match the existing alphabetical run exactly.)
+(Ordering is **cosmetic** — `load`ing the schema creates all columns regardless of position. The block is "mostly alphabetical with hand-appended exceptions" (e.g. `toc_v_align`/`layout_class` sit out of order), so just insert the 5 lines anywhere sensible in the block. The `t.decimal ... default: "0.0"` string-default + `t.integer ... default: 100` forms match how Rails dumps them here — verified against `gutter`/`heading_bg_gradient_angle`.)
 
 ### Step 5: `LOGO_POSITIONS` constant (gem model)
 
@@ -220,11 +220,12 @@ git commit -m "feat(cover): bake image_opacity + logo columns into theme documen
 
 ### Step 1: Failing controller + render tests
 
-In `test/controllers/design/document_designs_edit_test.rb` (mirror its existing edit/update test setup — theme/paper_size/document_design + the `theme_paper_size_document_design_path` route):
+In `test/controllers/design/document_designs_edit_test.rb`. **Copy the file's exact `setup`** — it uses `sign_in :david` (an administrator with `can_design?`; `sign_in` helper in test_helper.rb) and the theme must be **owned by david** (`user_id: users(:david).id`) or the studio 403s on system themes. Route helpers are **engine-mounted → prefix every path with `design.`**.
 ```ruby
 test "update persists image_opacity + logo params for a front_page design" do
-  # ... build theme/ps/front_page dd, sign in as designer per existing tests ...
-  patch theme_paper_size_document_design_path(theme, ps, dd), params: { document_design: {
+  # setup: sign_in :david; theme = Design::Theme.create!(name: ..., locale: "ko", user_id: users(:david).id)
+  #        ps = theme.paper_sizes.create!(...); dd = ps.document_designs.create!(doc_type: "front_page")
+  patch design.theme_paper_size_document_design_path(theme, ps, dd), params: { document_design: {
     image_opacity: 40, logo_width: 25, logo_height: 10, logo_position: "left", logo_offset: 3
   } }
   dd.reload
@@ -233,17 +234,15 @@ test "update persists image_opacity + logo params for a front_page design" do
 end
 
 test "edit shows image_opacity for a cover panel and logo only for front_page" do
-  # front_page dd -> both sections present
-  get edit_theme_paper_size_document_design_path(theme, ps, front_page_dd)
+  get design.edit_theme_paper_size_document_design_path(theme, ps, front_page_dd)
   assert_select "[name='document_design[image_opacity]']"
   assert_select "[name='document_design[logo_position]']"
-  # an interior doc_type (e.g. chapter) -> neither
-  get edit_theme_paper_size_document_design_path(theme, ps, chapter_dd)
+  get design.edit_theme_paper_size_document_design_path(theme, ps, chapter_dd)  # interior doc_type
   assert_select "[name='document_design[image_opacity]']", count: 0
   assert_select "[name='document_design[logo_position]']", count: 0
 end
 ```
-(Adjust route helpers + auth to match the file's existing tests exactly.)
+(Copy the exact `setup`/sign-in/owned-theme block from the existing tests; the `design.` route prefix is mandatory for the mounted engine.)
 
 ### Step 2: Run — fails (params not permitted; sections absent).
 
@@ -287,13 +286,32 @@ And define the methods (near the other `render_*_section` methods), using the ex
 ```
 > Verify `select_field`'s `i18n_scope:` behavior against an existing call (e.g. `v_align`) — it likely looks up `design.properties_panel.<i18n_scope>.<value>`. Provide those option labels in i18n (Step 5) or pass plain values if that's the file's convention for simple selects.
 
-### Step 5: i18n (ko + en)
+### Step 5: i18n (ko + en) — TWO separate namespaces
 
-Add to the design engine's `config/locales/ko.yml` and `en.yml` under `design.properties_panel`:
-- `image_opacity`, `logo`, `logo_width`, `logo_height`, `logo_position`, `logo_offset`
-- if `select_field` uses `i18n_scope: "logo_position"`: `logo_position.left/center/right`
+`select_field(..., i18n_scope: "logo_position")` resolves option labels via **`design.options.logo_position.<value>`** (NOT `properties_panel`) — verified against the existing `v_align` select, whose options live under `design.options.v_align.*`. So add keys in **two** places in each of `config/locales/ko.yml` and `en.yml`:
 
-ko example: `image_opacity: "이미지 투명도"`, `logo: "로고"`, `logo_width: "너비"`, `logo_height: "높이"`, `logo_position: "위치"`, `logo_offset: "오프셋"`, `logo_position: { left: "왼쪽", center: "가운데", right: "오른쪽" }`. en mirrors in English.
+1. **Field labels** under `design.properties_panel`: `image_opacity`, `logo`, `logo_width`, `logo_height`, `logo_position` (the label), `logo_offset`.
+2. **Option labels** under `design.options.logo_position`: `left`, `center`, `right`.
+
+(No YAML collision — the `logo_position` *label* is under `properties_panel`; the `logo_position` *options map* is under `options`; different top-level maps.)
+
+ko example:
+```yaml
+design:
+  properties_panel:
+    image_opacity: "이미지 투명도"
+    logo: "로고"
+    logo_width: "너비"
+    logo_height: "높이"
+    logo_position: "위치"
+    logo_offset: "오프셋"
+  options:
+    logo_position:
+      left: "왼쪽"
+      center: "가운데"
+      right: "오른쪽"
+```
+en mirrors in English ("Image opacity", "Logo", "Width", "Height", "Position", "Offset"; left/center/right → "Left"/"Center"/"Right"). Merge into the existing `design.properties_panel` / `design.options` maps (don't create duplicate top-level keys).
 
 ### Step 6: Run green
 
