@@ -143,24 +143,29 @@ module Design
             if dd.doc_type == "seneca" then SENECA_PREVIEW_WIDTH_MM
             elsif Design::DocumentDesign::WING_PANEL_TYPES.include?(dd.doc_type) then WING_PREVIEW_WIDTH_MM
             else @selected_paper_size.width_mm
-            end
-          ratio = "#{card_width} / #{@selected_paper_size.height_mm}"
+            end.to_i
+          page_h = @selected_paper_size.height_mm.to_i
+          page_w = @selected_paper_size.width_mm.to_i
           jpg_url = helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @selected_paper_size, dd)
           label = doc_type_label(dd.doc_type)
           div(class: "doc-card flex flex-col gap-1") do
-            button(
-              type: "button",
-              class: "doc-card__open block w-full bg-white border border-slate-200 shadow-sm overflow-hidden",
-              style: "aspect-ratio: #{ratio};",
-              data: {
-                "design--preview-gallery-target": "item",
-                action: "design--preview-gallery#open",
-                index: index, url: jpg_url, label: label
-              }
-            ) do
-              design_preview_img(@theme, @selected_paper_size, dd, img_class: "w-full h-full object-contain") do
-                div(class: "flex h-full w-full items-center justify-center text-xs text-slate-400") do
-                  I18n.t("design.themes.no_preview")
+            # Page-shaped row keeps every cover card the SAME height (the page height);
+            # the preview button inside is the panel's true width (spine/wings narrower).
+            div(class: "w-full flex justify-center", style: "aspect-ratio: #{page_w} / #{page_h};") do
+              button(
+                type: "button",
+                class: "doc-card__open block h-full max-w-full bg-white border border-slate-200 shadow-sm overflow-hidden",
+                style: "aspect-ratio: #{card_width} / #{page_h};",
+                data: {
+                  "design--preview-gallery-target": "item",
+                  action: "design--preview-gallery#open",
+                  index: index, url: jpg_url, label: label
+                }
+              ) do
+                design_preview_img(@theme, @selected_paper_size, dd, img_class: "w-full h-full object-contain") do
+                  div(class: "flex h-full w-full items-center justify-center text-xs text-slate-400") do
+                    I18n.t("design.themes.no_preview")
+                  end
                 end
               end
             end

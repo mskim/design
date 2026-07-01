@@ -25,9 +25,11 @@ class Design::ThemesShowCoverSectionTest < ActionDispatch::IntegrationTest
       get design.theme_path(t)
     end
     assert_response :success
+    # every card sits in a page-shaped row (152x225) so all cover parts are the SAME height
+    assert_select "[style*='aspect-ratio: 152 / 225']"
+    # the preview inside is the panel's true width: wing 100mm, seneca (spine) 80mm
     assert_select "[style*='aspect-ratio: 100 / 225']"   # wing
-    assert_select "[style*='aspect-ratio: 80 / 225']"    # seneca (spine)
-    assert_select "[style*='aspect-ratio: 152 / 225']", count: 0   # never page width
+    assert_select "[style*='aspect-ratio: 80 / 225']"    # seneca
   end
 
   # factory-swap stub — copy the helper from themes_show_grouped_test.rb
