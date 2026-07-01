@@ -17,7 +17,7 @@ class Design::ThemesShowCoverSectionTest < ActionDispatch::IntegrationTest
     assert_includes response.body, I18n.t("design.themes.cover")
   end
 
-  test "wing cards preview at 100mm and seneca at 80mm, not the page width" do
+  test "wing cards preview at 100mm and seneca at 10mm, not the page width" do
     t = Design::Theme.create!(name: "Wing #{SecureRandom.hex(3)}", locale: "ko", user: users(:david))
     ps = t.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     %w[front_wing seneca].each { |d| ps.document_designs.create!(doc_type: d) }
@@ -27,9 +27,9 @@ class Design::ThemesShowCoverSectionTest < ActionDispatch::IntegrationTest
     assert_response :success
     # every card sits in a page-shaped row (152x225) so all cover parts are the SAME height
     assert_select "[style*='aspect-ratio: 152 / 225']"
-    # the preview inside is the panel's true width: wing 100mm, seneca (spine) 80mm
+    # the preview inside is the panel's true width: wing 100mm, seneca (spine) 10mm
     assert_select "[style*='aspect-ratio: 100 / 225']"   # wing
-    assert_select "[style*='aspect-ratio: 80 / 225']"    # seneca
+    assert_select "[style*='aspect-ratio: 10 / 225']"    # seneca
   end
 
   # factory-swap stub — copy the helper from themes_show_grouped_test.rb

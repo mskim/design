@@ -136,7 +136,7 @@ module Design
         # their cards at a representative width rather than the page width (studio display
         # only — the real widths come from the cover in book_write).
         WING_PREVIEW_WIDTH_MM = 100
-        SENECA_PREVIEW_WIDTH_MM = 80
+        SENECA_PREVIEW_WIDTH_MM = 10
 
         def doc_card(dd, index)
           card_width =
