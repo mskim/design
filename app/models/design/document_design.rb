@@ -24,6 +24,8 @@ module Design
     COVER_PANEL_TYPES = %w[front_page back_page seneca front_wing back_wing].freeze
     ALL_DOC_TYPES = (SINGLE_PAGE_TYPES + MULTI_PAGE_TYPES + COVER_PANEL_TYPES).freeze
 
+    LOGO_POSITIONS = %w[left center right].freeze
+
     # Canonical reading order (frontmatter → bodymatter → rearmatter) for displaying
     # a paper size's document designs. doc_types not listed sort to the end.
     DOC_TYPE_ORDER = %w[

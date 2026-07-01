@@ -45,4 +45,20 @@ class Design::DocumentDesignTest < ActiveSupport::TestCase
     cover.populate_default_heading_elements
     assert_equal %w[title subtitle author publisher], cover.heading_elements.order(:position).pluck(:element_type)
   end
+
+  test "image_opacity defaults to 100 and logo fields persist" do
+    theme = Design::Theme.create!(name: "Op #{SecureRandom.hex(3)}", locale: "ko")
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.create!(doc_type: "front_page")
+    assert_equal 100, dd.image_opacity
+    dd.update!(image_opacity: 60, logo_width: 30.0, logo_height: 12.0, logo_position: "center", logo_offset: 2.5)
+    dd.reload
+    assert_equal 60, dd.image_opacity
+    assert_equal "center", dd.logo_position
+    assert_in_delta 30.0, dd.logo_width.to_f, 0.001
+  end
+
+  test "LOGO_POSITIONS are the allowed logo_position values" do
+    assert_equal %w[left center right], Design::DocumentDesign::LOGO_POSITIONS
+  end
 end
