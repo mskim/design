@@ -28,9 +28,11 @@ cover: designs.select { |dd| COVER_PANEL_TYPES.include?(dd.doc_type) }
 ```
 and update `other:` to ALSO exclude cover types (so a cover dd never lands in both `cover` and `other`): `reject { |dd| (FRONTMATTER + BODYMATTER + REARMATTER + COVER_PANEL_TYPES).include?(dd.doc_type) }`. Cover ordering is by `COVER_PANEL_TYPES` index (NOT `by_reading_order`, which doesn't know cover types).
 
+**MUST UPDATE the existing test:** `test/models/design/grouped_by_matter_test.rb` has a test ("a doc_type in no matter group lands in other") asserting a `front_page` dd lands in `[:other]` (~line 22). C1 changes that — front_page now lands in `[:cover]`. Update that assertion to expect `front_page` in `[:cover]` and absent from `[:other]` (this IS the new-coverage assertion). Leaving it will turn the suite red.
+
 ### C2 — `themes#show` passes all document_designs (controller)
 
-`app/controllers/design/themes_controller.rb#show`: change `@document_designs` to include cover types. Simplest: pass all of the paper size's document_designs (e.g. `@selected_paper_size.document_designs.to_a`) — `grouped_by_matter` partitions them, and the existing frontmatter/bodymatter/rearmatter sections filter by their own type lists so they're unaffected. Keep `interior_for`/`interior_document_designs` if used elsewhere; only the `show` assignment changes. Verify `@document_designs` has no other consumer in the Show component that assumes interior-only.
+`app/controllers/design/themes_controller.rb#show`: change `@document_designs` to include cover types — pass all of the paper size's document_designs (`@selected_paper_size.document_designs.to_a`). `grouped_by_matter` partitions them; the existing frontmatter/bodymatter/rearmatter sections filter by their own type lists so they're unaffected. **Verified safe:** `@document_designs`'s ONLY consumer in `Themes::Show` is `doc_grid → grouped_by_matter` (the preview-gallery index is computed inside `doc_grid`, self-adjusting; the doc-type switcher lives in `editor_toolbar.rb` and calls `interior_for` directly, not `@document_designs`). **KEEP** the model method `interior_for` (used by `editor_toolbar.rb:41` for the switcher). **DELETE** the now-dead private controller method `interior_document_designs` (its only caller was `show`, which no longer uses it).
 
 ### C3 — `Themes::Show` renders the cover section last (component)
 
@@ -48,8 +50,8 @@ and update `other:` to ALSO exclude cover types (so a cover dd never lands in bo
 
 ## Testing (design gem, Minitest)
 
-- **Model** (`document_design_test.rb`): `grouped_by_matter([...cover + interior...])[:cover]` returns the cover dds ordered by `COVER_PANEL_TYPES` (front_page first, back_wing last); a cover dd is NOT in `[:other]`.
-- **Controller/render** (`themes_*` test — mirror the existing theme-show test's setup: `sign_in :david`, owned theme, `design.` route prefix): `get design.theme_path(theme)` (or the show route) → response includes a "표지"/cover section AND an Edit link to a cover doc-type (`assert_select "a[href=?]", design.edit_theme_paper_size_document_design_path(theme, ps, front_page_dd)`).
+- **Model** (`test/models/design/grouped_by_matter_test.rb` — the SAME file with the existing `[:other]` test to update): `grouped_by_matter([...cover + interior...])[:cover]` returns the cover dds ordered by `COVER_PANEL_TYPES` (front_page first, back_wing last); a cover dd is in `[:cover]` and NOT in `[:other]` (replaces the old front_page→`[:other]` assertion).
+- **Controller/render** (mirror `test/controllers/design/themes_show_grouped_test.rb`'s setup EXACTLY: `sign_in :david`, owned theme `user: users(:david)`, `design.` route prefix, AND the `stub_preview_service(success: false)` helper — cover cards shell out for previews otherwise). The show route is the plain `design.theme_path(theme)` (paper_size via query param), NOT a paper-size-nested show. Assert the response includes a "표지"/cover section AND an Edit link to a cover doc-type: `assert_select "a[href=?]", design.edit_theme_paper_size_document_design_path(theme, ps, front_page_dd)`.
 
 ## Constraints
 
