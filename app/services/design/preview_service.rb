@@ -45,7 +45,7 @@ module Design
 
     SAMPLE_FRONT_WING = {
       "ko" => { name: "홍길동",
-                bio: "여기는 저자의 대한 소개 부분입니다. " * 10 },
+                bio: Array.new(5) { "여기는 저자의 대한 소개 부분입니다. " * 10 }.join("\n") },
       "en" => { name: "Jane Doe",
                 bio: "Novelist and translator. Author of several novels and essay collections, known for a delicate attention to the texture of everyday life." }
     }.freeze
