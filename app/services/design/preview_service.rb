@@ -45,7 +45,7 @@ module Design
 
     SAMPLE_FRONT_WING = {
       "ko" => { name: "홍길동",
-                bio: "소설가이자 번역가. 여러 편의 장편과 산문집을 펴냈으며, 일상의 결을 섬세하게 그려내는 작가로 알려져 있다." },
+                bio: "여기는 저자의 대한 소개 부분입니다. " * 10 },
       "en" => { name: "Jane Doe",
                 bio: "Novelist and translator. Author of several novels and essay collections, known for a delicate attention to the texture of everyday life." }
     }.freeze
