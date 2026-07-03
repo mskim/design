@@ -52,7 +52,6 @@ module Design
 
     # Solid pastel fills for the generated sample book covers (RGB), cycled by index.
     SAMPLE_COVER_COLORS = [ [ 236, 72, 153 ], [ 59, 130, 246 ], [ 16, 185, 129 ], [ 245, 158, 11 ], [ 139, 92, 246 ] ].freeze
-    SAMPLE_PHOTO_COLOR = [ 148, 163, 184 ].freeze
 
     attr_reader :document_design, :paper_size
 
@@ -971,8 +970,12 @@ module Design
       write_solid_image("sample_cover_#{index}.jpg", 200, 280, color)
     end
 
+    # A real placeholder portrait (bundled with the gem) so the front-wing preview
+    # shows a photo the crop/fit/border settings read against — not a flat block.
+    SAMPLE_AUTHOR_PHOTO = Design::Engine.root.join("db", "sample_content", "sample_author.jpg").freeze
+
     def sample_photo_image
-      write_solid_image("sample_author.jpg", 240, 240, SAMPLE_PHOTO_COLOR)
+      SAMPLE_AUTHOR_PHOTO.to_s
     end
 
     # Generate a solid-color placeholder image with Vips into the per-call work dir.
