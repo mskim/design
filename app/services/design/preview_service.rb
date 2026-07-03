@@ -53,6 +53,10 @@ module Design
     # Solid pastel fills for the generated sample book covers (RGB), cycled by index.
     SAMPLE_COVER_COLORS = [ [ 236, 72, 153 ], [ 59, 130, 246 ], [ 16, 185, 129 ], [ 245, 158, 11 ], [ 139, 92, 246 ] ].freeze
 
+    # 날개 (cover flaps) are a fixed-width strip folded behind the cover — not the full
+    # book page. Preview them at this flap width (full book height), not the book width.
+    WING_FLAP_WIDTH_MM = 100
+
     attr_reader :document_design, :paper_size
 
     def initialize(document_design, paper_size: nil)
@@ -119,7 +123,7 @@ module Design
           success: true,
           jpg_path: jpg_path,
           overlay_data: overlay_data,
-          page_width: paper_size.width_pt,
+          page_width: preview_page_width_pt,
           page_height: paper_size.height_pt,
           error: nil
         }
@@ -129,7 +133,7 @@ module Design
           success: false,
           jpg_path: nil,
           overlay_data: [],
-          page_width: paper_size.width_pt,
+          page_width: preview_page_width_pt,
           page_height: paper_size.height_pt,
           error: e.message
         }
@@ -189,7 +193,7 @@ module Design
         success: true,
         jpg_path: jpg,
         overlay_data: stamp["overlay_data"].map(&:symbolize_keys),
-        page_width: paper_size.width_pt,
+        page_width: preview_page_width_pt,
         page_height: paper_size.height_pt,
         error: nil
       }
@@ -252,7 +256,7 @@ module Design
       doc = db_doc.document_info
       doc.update(
         doc_type: dd.doc_type,
-        page_width: ps.width_pt,
+        page_width: preview_page_width_pt,
         page_height: ps.height_pt,
         margin_top: ps.top_margin_pt,
         margin_bottom: ps.bottom_margin_pt,
@@ -285,7 +289,7 @@ module Design
 
       mp = db_doc.master_page
       mp.update(
-        width: ps.width_pt,
+        width: preview_page_width_pt,
         height: ps.height_pt,
         left_margin: ps.left_margin_pt,
         top_margin: ps.top_margin_pt,
@@ -864,6 +868,12 @@ module Design
 
     def wing?
       Design::DocumentDesign::WING_PANEL_TYPES.include?(document_design.doc_type)
+    end
+
+    # Page width used for layout, the master page, and the overlay/aspect. Wings
+    # render at the fixed flap width; every other doc_type uses the book page width.
+    def preview_page_width_pt
+      wing? ? WING_FLAP_WIDTH_MM * Design::PaperSize::MM2PT : paper_size.width_pt
     end
 
     def wing_renderer_class

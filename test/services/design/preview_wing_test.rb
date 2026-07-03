@@ -82,4 +82,19 @@ class Design::PreviewWingTest < ActiveSupport::TestCase
   ensure
     svc&.clear_cache
   end
+
+  test "wings preview at a 10cm flap width, not the book page width" do
+    book = @theme.paper_sizes.create!(size_name: "book", width_mm: 152, height_mm: 225)
+    flap_pt = 100 * Design::PaperSize::MM2PT
+    %w[front_wing back_wing].each do |dt|
+      dd = book.document_designs.create!(doc_type: dt)
+      svc = Design::PreviewService.new(dd, paper_size: book)
+      result = svc.generate
+      assert result[:success], "#{dt} failed: #{result[:error]}"
+      assert_in_delta flap_pt, result[:page_width], 0.5, "#{dt} width should be the 10cm flap, not the 152mm book width"
+      assert_in_delta book.height_pt, result[:page_height], 0.5, "#{dt} height should stay the book height"
+    ensure
+      svc&.clear_cache
+    end
+  end
 end
