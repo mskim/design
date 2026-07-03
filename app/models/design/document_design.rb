@@ -33,6 +33,13 @@ module Design
     validates :logo_position, inclusion: { in: LOGO_POSITIONS }, allow_nil: true
     validates :image_opacity, numericality: { only_integer: true, in: 0..100 }, allow_nil: true
 
+    PHOTO_FITS = %w[cover contain].freeze
+    validates :photo_fit, inclusion: { in: PHOTO_FITS }, allow_blank: true
+    validates :photo_grid_width,  numericality: { only_integer: true, in: 1..6 },  allow_nil: true
+    validates :photo_grid_height, numericality: { only_integer: true, in: 1..12 }, allow_nil: true
+    validates :photo_anchor,      numericality: { only_integer: true, in: 1..9 },  allow_nil: true
+    validates :photo_border_width, numericality: { greater_than_or_equal_to: 0 },  allow_nil: true
+
     # Canonical reading order (frontmatter → bodymatter → rearmatter) for displaying
     # a paper size's document designs. doc_types not listed sort to the end.
     DOC_TYPE_ORDER = %w[
@@ -88,7 +95,6 @@ module Design
     STYLE_FAMILIES = {
       cover:   %w[cover_title cover_subtitle cover_author cover_publisher cover_body],
       seneca:  %w[seneca_title seneca_author seneca_publisher],
-      wing:    %w[wing_title wing_body],
       heading: %w[title subtitle author h2 h3 h4 h5 h6],
       body:    %w[body blockquote quote footnote caption caption_title image_caption ol ul source],
       running: %w[header_left header_right footer_left footer_right],
@@ -102,8 +108,8 @@ module Design
       "front_page"     => %i[cover],
       "back_page"      => %i[cover],
       "seneca"         => %i[seneca],
-      "front_wing"     => %i[wing],
-      "back_wing"      => %i[wing],
+      "front_wing"     => %w[title body],  # wings reuse the plain title/body styles
+      "back_wing"      => %w[title body],
       "toc"            => %w[title h2 h3 h4],  # heading (title) + per-level entry styles
       "title_page"     => %i[heading body],
       "dedication"     => %i[heading body],

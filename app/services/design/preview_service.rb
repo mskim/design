@@ -911,10 +911,17 @@ module Design
 
     def populate_front_wing_blocks(db)
       sample = front_wing_sample
+      dd = document_design
       db[:paragraphs].insert(
         document_id: 1, component: "front_wing", sequence: 0,
         content: sample[:name], block_type: "heading", markup: "front_wing.author_name",
-        metadata: { image_path: sample_photo_image }.to_json
+        metadata: {
+          image_path: sample_photo_image,
+          photo_grid_w: dd.photo_grid_width, photo_grid_h: dd.photo_grid_height,
+          photo_anchor: dd.photo_anchor, photo_fit: dd.photo_fit,
+          photo_border_width: dd.photo_border_width,
+          photo_border_color: photo_border_hex(dd.photo_border_color)
+        }.compact.to_json
       )
       db[:paragraphs].insert(
         document_id: 1, component: "front_wing", sequence: 1,
@@ -922,10 +929,27 @@ module Design
       )
     end
 
-    # Bare-named heading/title/body styles derived from the theme's wing styles so
-    # the preview reflects the theme's wing typography. Absent styles fall back to
-    # the renderers' own built-in defaults.
-    WING_STYLE_SOURCES = { "heading" => "wing_title", "title" => "wing_title", "body" => "wing_body" }.freeze
+    # Border color as a "#rrggbb" hex the renderer can stroke (it doesn't parse
+    # CMYK). nil/blank → nil so the metadata key is dropped and no border draws.
+    def photo_border_hex(color)
+      c = color.to_s.strip
+      return nil if c.empty?
+      return c if c.start_with?("#")
+      if c.start_with?("CMYK=") && (parts = c.sub("CMYK=", "").split(",").map(&:to_f)).length == 4
+        cc, m, y, k = parts.map { |v| v / 100.0 }
+        return "#%02x%02x%02x" % [
+          ((1 - cc) * (1 - k) * 255).round.clamp(0, 255),
+          ((1 - m) * (1 - k) * 255).round.clamp(0, 255),
+          ((1 - y) * (1 - k) * 255).round.clamp(0, 255)
+        ]
+      end
+      nil
+    end
+
+    # Bare-named heading/title/body styles the wing renderer expects, fed from the
+    # theme's plain title/body styles (wings reuse those, not wing-specific ones).
+    # Absent styles fall back to the renderers' own built-in defaults.
+    WING_STYLE_SOURCES = { "heading" => "title", "title" => "title", "body" => "body" }.freeze
 
     def populate_wing_styles(db_doc)
       db = db_doc.instance_variable_get(:@db)

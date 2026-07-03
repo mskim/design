@@ -19,17 +19,16 @@ module Design
 
     COVER   = %w[cover_title cover_subtitle cover_author cover_publisher cover_body].freeze
     SENECA  = %w[seneca_title seneca_author seneca_publisher].freeze
-    WING    = %w[wing_title wing_body].freeze
     HEADING = %w[title subtitle author h2 h3 h4 h5 h6].freeze
     BODY    = %w[body blockquote quote footnote caption caption_title image_caption ol ul source].freeze
     RUNNING = %w[header_left header_right footer_left footer_right].freeze
     TABLE   = %w[table_heading_cell table_body_cell].freeze
-    FAMILY_NAMES = (COVER + SENECA + WING + HEADING + BODY + RUNNING + TABLE).uniq.freeze
+    FAMILY_NAMES = (COVER + SENECA + HEADING + BODY + RUNNING + TABLE).uniq.freeze
 
     HEADING_SCALED_STYLES = %w[
       title subtitle author quote
       cover_title cover_subtitle cover_author cover_publisher
-      seneca_title seneca_author seneca_publisher wing_title
+      seneca_title seneca_author seneca_publisher
     ].freeze
 
     DOC_TYPE_STYLES = {
@@ -53,8 +52,8 @@ module Design
       "front_page"     => COVER,
       "back_page"      => COVER,
       "seneca"         => SENECA,
-      "front_wing"     => WING,
-      "back_wing"      => WING
+      "front_wing"     => %w[title body],  # wings reuse the plain title/body styles
+      "back_wing"      => %w[title body]
     }.transform_values(&:freeze).freeze
 
     def t_h(height_mm) = (height_mm.to_f - SIN_H) / H_SPAN

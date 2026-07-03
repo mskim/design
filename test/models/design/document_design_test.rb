@@ -81,4 +81,14 @@ class Design::DocumentDesignTest < ActiveSupport::TestCase
     @dd.image_opacity = nil
     assert @dd.valid?
   end
+
+  test "wing doc_types list plain title/body styles, not wing_*" do
+    fw = @ps.document_designs.create!(doc_type: "front_wing")
+    bw = @ps.document_designs.create!(doc_type: "back_wing")
+
+    assert_equal %w[body title], fw.relevant_style_names.sort
+    assert_equal %w[body title], bw.relevant_style_names.sort
+    refute_includes fw.relevant_style_names, "wing_title"
+    refute_includes bw.relevant_style_names, "wing_body"
+  end
 end
