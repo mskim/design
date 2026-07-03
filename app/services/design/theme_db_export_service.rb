@@ -77,6 +77,8 @@ module Design
           has_document_cover BOOLEAN DEFAULT 0,
           heading_bg_gradient_angle REAL, heading_bg_gradient_start TEXT, heading_bg_gradient_end TEXT,
           image_opacity INTEGER DEFAULT 100, logo_width REAL, logo_height REAL, logo_position TEXT, logo_offset REAL DEFAULT 0,
+          photo_grid_width INTEGER DEFAULT 3, photo_grid_height INTEGER DEFAULT 3, photo_anchor INTEGER DEFAULT 8,
+          photo_fit TEXT DEFAULT 'cover', photo_border_width REAL DEFAULT 0, photo_border_color TEXT DEFAULT '#000000',
           page_type TEXT,
           created_at DATETIME, updated_at DATETIME
         );
@@ -158,9 +160,10 @@ module Design
               has_document_cover,
               heading_bg_gradient_angle, heading_bg_gradient_start, heading_bg_gradient_end,
               image_opacity, logo_width, logo_height, logo_position, logo_offset,
+              photo_grid_width, photo_grid_height, photo_anchor, photo_fit, photo_border_width, photo_border_color,
               page_type,
               created_at, updated_at
-            ) VALUES (#{Array.new(43, "?").join(", ")})
+            ) VALUES (#{Array.new(49, "?").join(", ")})
           SQL
 
           dd.paragraph_styles.each { |style| insert_style(db, style) }
@@ -193,6 +196,7 @@ module Design
         dd.has_document_cover ? 1 : 0,
         f(dd.heading_bg_gradient_angle), dd.heading_bg_gradient_start, dd.heading_bg_gradient_end,
         dd.image_opacity, f(dd.logo_width), f(dd.logo_height), dd.logo_position, f(dd.logo_offset),
+        dd.photo_grid_width, dd.photo_grid_height, dd.photo_anchor, dd.photo_fit, f(dd.photo_border_width), dd.photo_border_color,
         dd.page_type,
         dd.created_at&.iso8601, dd.updated_at&.iso8601 ]
     end
