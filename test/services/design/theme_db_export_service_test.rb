@@ -71,4 +71,24 @@ class Design::ThemeDbExportServiceTest < ActiveSupport::TestCase
   ensure
     File.delete(path) if path && File.exist?(path)
   end
+
+  test "exported document_designs includes front-wing photo layout fields" do
+    theme = Design::Theme.create!(name: "Exp #{SecureRandom.hex(3)}", locale: "ko")
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    ps.document_designs.create!(doc_type: "front_wing",
+      photo_grid_width: 3, photo_grid_height: 3, photo_anchor: 5, photo_fit: "contain",
+      photo_border_width: 4.5, photo_border_color: "#c0392b")
+    path = Design::ThemeDbExportService.new(theme).export!
+    db = SQLite3::Database.new(path); db.results_as_hash = true
+    row = db.execute("SELECT * FROM document_designs WHERE doc_type = 'front_wing'").first
+    db.close
+    assert_equal 3, row["photo_grid_width"]
+    assert_equal 3, row["photo_grid_height"]
+    assert_equal 5, row["photo_anchor"]
+    assert_equal "contain", row["photo_fit"]
+    assert_in_delta 4.5, row["photo_border_width"].to_f, 0.001
+    assert_equal "#c0392b", row["photo_border_color"]
+  ensure
+    File.delete(path) if path && File.exist?(path)
+  end
 end

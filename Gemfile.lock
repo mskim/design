@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/mskim/doc_processor_rb.git
-  revision: 6920bce5f4c0d9799fb0f4464172f1117dd27123
+  revision: 03759bff205da9e7cbea8a26ea2e7fc7754f6982
   branch: main
   specs:
     doc_processor_rb (0.1.0)

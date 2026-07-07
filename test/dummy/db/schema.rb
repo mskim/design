@@ -91,6 +91,12 @@ ActiveRecord::Schema[8.1].define(version: 2) do
     t.decimal "logo_offset", precision: 6, scale: 2, default: "0.0"
     t.string "logo_position"
     t.decimal "logo_width", precision: 6, scale: 2
+    t.integer "photo_grid_width", default: 3
+    t.integer "photo_grid_height", default: 2
+    t.integer "photo_anchor", default: 8
+    t.string "photo_fit", default: "cover"
+    t.decimal "photo_border_width", precision: 6, scale: 2, default: "0.3"
+    t.string "photo_border_color", default: "#000000"
     t.string "toc_v_align"
     t.string "layout_class", default: "RLayout::RDocument"
     t.string "page_bg_color"

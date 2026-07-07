@@ -101,6 +101,65 @@ module Design
             render_document_cover_section
             render_image_opacity_section if Design::DocumentDesign::COVER_PANEL_TYPES.include?(@document_design.doc_type)
             render_logo_section if @document_design.doc_type == "front_page"
+            render_photo_section if @document_design.doc_type == "front_wing"
+          end
+        end
+
+        # Author-photo layout for the front wing: cell size (6x12 grid units),
+        # crop anchor, fit, and a frame (border). Mirrors render_text_box_section.
+        def render_photo_section
+          group_box("space", I18n.t("design.properties_panel.photo_layout")) do
+            div(class: "grid grid-cols-2 gap-2") do
+              div do
+                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_grid_width") }
+                input(type: "number", name: "document_design[photo_grid_width]",
+                      value: field_value(@document_design.photo_grid_width),
+                      placeholder: "3", min: 1, max: 6, class: NUMBER_CONTROL, **disabled_attr)
+              end
+              div do
+                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_grid_height") }
+                input(type: "number", name: "document_design[photo_grid_height]",
+                      value: field_value(@document_design.photo_grid_height),
+                      placeholder: "2", min: 1, max: 12, class: NUMBER_CONTROL, **disabled_attr)
+              end
+            end
+            div(class: "mt-2") do
+              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_anchor") }
+              select(name: "document_design[photo_anchor]", class: CONTROL, **disabled_attr) do
+                ANCHOR_LABELS.each do |val, label_text|
+                  option(value: val.to_s, selected: @document_design.photo_anchor == val) { label_text }
+                end
+              end
+            end
+            div(class: "mt-2") do
+              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_fit") }
+              select(name: "document_design[photo_fit]", class: CONTROL, **disabled_attr) do
+                %w[cover contain].each do |opt|
+                  option(value: opt, selected: @document_design.photo_fit == opt) { I18n.t("design.options.photo_fit.#{opt}") }
+                end
+              end
+            end
+            div(class: "mt-2 grid grid-cols-2 gap-2") do
+              div do
+                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_border_width") }
+                input(type: "number", name: "document_design[photo_border_width]",
+                      value: field_value(@document_design.photo_border_width),
+                      placeholder: "0", min: 0, step: "0.5", class: NUMBER_CONTROL, **disabled_attr)
+              end
+              div(data: { controller: "design--color-field" }) do
+                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_border_color") }
+                div(class: "flex gap-2 items-center") do
+                  input(type: "color", value: normalize_color(@document_design.photo_border_color || "#000000"),
+                        class: "h-7 w-7 rounded border cursor-pointer p-0",
+                        data: { "design--color-field-target": "picker", action: "input->design--color-field#pickerChanged" }, **disabled_attr)
+                  input(type: "text", name: "document_design[photo_border_color]",
+                        value: @document_design.photo_border_color || "",
+                        placeholder: "#000000 or CMYK=0,0,0,80",
+                        class: "flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm",
+                        data: { "design--color-field-target": "text", action: "input->design--color-field#textChanged" }, **disabled_attr)
+                end
+              end
+            end
           end
         end
 

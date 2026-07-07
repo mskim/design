@@ -66,6 +66,9 @@ ko:
         left: "왼쪽"
         center: "가운데"
         right: "오른쪽"
+      photo_fit:
+        cover: "채우기 (잘라서 채움)"
+        contain: "맞추기 (전체 표시)"
       bg_type:
         color: "색상"
         image: "이미지"
@@ -129,6 +132,13 @@ ko:
       logo_height: "높이"
       logo_position: "위치"
       logo_offset: "오프셋"
+      photo_layout: "저자 사진"
+      photo_grid_width: "가로 칸"
+      photo_grid_height: "세로 칸"
+      photo_anchor: "자르기 기준"
+      photo_fit: "맞춤"
+      photo_border_width: "테두리 두께"
+      photo_border_color: "테두리 색"
       header: "머리말"
       footer: "꼬리말"
       content: "내용"

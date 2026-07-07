@@ -66,6 +66,9 @@ en:
         left: "Left"
         center: "Center"
         right: "Right"
+      photo_fit:
+        cover: "Cover (crop to fill)"
+        contain: "Contain (fit whole)"
       bg_type:
         color: "Color"
         image: "Image"
@@ -129,6 +132,13 @@ en:
       logo_height: "Height"
       logo_position: "Position"
       logo_offset: "Offset"
+      photo_layout: "Author Photo"
+      photo_grid_width: "Grid Width"
+      photo_grid_height: "Grid Height"
+      photo_anchor: "Crop Anchor"
+      photo_fit: "Fit"
+      photo_border_width: "Border Width"
+      photo_border_color: "Border Color"
       header: "Header"
       footer: "Footer"
       content: "Content"
