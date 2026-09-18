@@ -129,4 +129,9 @@ class Design::NumberFieldTest < ActiveSupport::TestCase
     assert_includes doc.at_css("[data-controller='design--scrub-input']")["data-action"],
                     "turbo:morph-element->design--scrub-input#resync"
   end
+
+  test "form: associates the input with another form (the Page section's)" do
+    assert_equal "page-section-form", render_field(name: "page[top_margin_mm]", form: "page-section-form").at_css("input")["form"]
+    refute render_field(name: "x").at_css("input").key?("form")
+  end
 end

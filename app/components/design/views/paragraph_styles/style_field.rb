@@ -12,8 +12,10 @@ module Design
         STATES = %i[inherited changed generated].freeze
         DOT = { changed: "bg-blue-600", generated: "bg-blue-300", inherited: "bg-transparent" }.freeze
 
-        # label: the field's label, named in ×'s aria-label.
-        def initialize(field:, state:, label: nil, source: nil, parent_text: nil, error: nil, editable: true, span: false)
+        # label: the field's label, named in ×'s aria-label. revert_label: a
+        # different aria-label for × (the Page section's "규칙 값으로 되돌리기").
+        def initialize(field:, state:, label: nil, source: nil, parent_text: nil, error: nil, editable: true, span: false,
+                       revert_label: nil)
           raise ArgumentError, "unknown state #{state.inspect}" unless STATES.include?(state)
           @field = field
           @label = label || field
@@ -23,6 +25,7 @@ module Design
           @error = error
           @editable = editable
           @span = span
+          @revert_label = revert_label
         end
 
         def view_template
@@ -54,7 +57,7 @@ module Design
           active = @editable && @state != :inherited
           button(type: "button", disabled: (true unless active), tabindex: (active ? nil : "-1"),
                  class: "h-5 w-5 shrink-0 rounded text-sm leading-none text-slate-400 hover:bg-slate-200 hover:text-slate-700#{' invisible' unless active}",
-                 aria: { label: I18n.t("design.style_panel.revert_field", field: @label) },
+                 aria: { label: @revert_label || I18n.t("design.style_panel.revert_field", field: @label) },
                  data: { action: "design--style-autosave#revert", field: @field }) { "×" }
         end
       end

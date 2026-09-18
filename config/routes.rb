@@ -33,6 +33,12 @@ Design::Engine.routes.draw do
             post :push
           end
         end
+        # The design editor's Page section (D3): one field per request. Margins
+        # land on the paper size, body lines / columns / gutter on this design.
+        resource :page, only: [], controller: "document_design_pages", format: false do
+          patch :field, action: :update_field
+          delete :field, action: :revert_field, as: :revert_field
+        end
       end
     end
   end

@@ -12,7 +12,10 @@ export default class extends Controller {
     clearTimeout(this._timeout)
   }
 
-  scheduleUpdate() {
+  // The Page section (inside this form, but form="page-section-form") saves
+  // its own fields; its input/change events still bubble here — ignore them.
+  scheduleUpdate(event) {
+    if (event?.target?.closest?.("[data-page-section]")) return
     clearTimeout(this._timeout)
     this._timeout = setTimeout(() => this._fetchPreview(), 800)
   }

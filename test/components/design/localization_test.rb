@@ -14,6 +14,7 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     c.define_singleton_method(:csrf_token) { "test-token" }
     c.define_singleton_method(:typography_style_url) { |n| "/x/styles/#{n}" }
     c.define_singleton_method(:typography_new_style_url) { "/x/new" }
+    c.define_singleton_method(:page_urls) { { field: "/x/page/field", preview: "/x/preview", paper_size: "/x/ps/edit" } }
     c.call
   end
 

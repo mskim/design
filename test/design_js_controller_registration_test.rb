@@ -178,4 +178,9 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
       refute_includes src, "window."
     end
   end
+
+  test "live_preview ignores the Page section's events (they bubble through the tabs form)" do
+    assert_includes File.read(ENGINE_JS.join("design-controllers/design/live_preview_controller.js")),
+                    %(closest?.("[data-page-section]"))
+  end
 end

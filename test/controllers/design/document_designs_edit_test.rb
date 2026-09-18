@@ -74,10 +74,15 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
 
   # ── update ──
 
-  test "update persists and redirects" do
-    patch design.theme_paper_size_document_design_path(@theme, @ps, @dd), params: { document_design: { column_count: 2 } }
+  test "update persists and redirects; the Page section's fields are no longer accepted here" do
+    patch design.theme_paper_size_document_design_path(@theme, @ps, @dd),
+          params: { document_design: { heading_height_in_lines: 4, column_count: 3, gutter: 20, body_line_count: 12 } }
     assert_response :redirect
-    assert_equal 2, @dd.reload.column_count
+    @dd.reload
+    assert_equal 4, @dd.heading_height_in_lines
+    assert_equal 1, @dd.column_count
+    assert_equal 10, @dd.gutter.to_i
+    assert_nil @dd[:body_line_count]
   end
 
   test "update persists the newly-ported text_box / page_bg / document_cover fields" do

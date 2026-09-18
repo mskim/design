@@ -5,6 +5,8 @@ module Design
       # drag the label to scrub, arrows to step, typed maths and units. The input keeps
       # the form's original `name`, so params are unchanged; `name: nil` is for popover
       # sub-fields that must not submit. The component owns its label (the scrub handle).
+      # `form:` ties the input to another `<form>` (the Page section's), so the
+      # enclosing form never submits it.
       class NumberField < Design::Views::Base
         UNITS = %i[pt mm lines percent none].freeze
         LAYOUTS = %i[inline stacked compact].freeze
@@ -14,7 +16,7 @@ module Design
                          "lostpointercapture->design--scrub-input#scrubEnd click->design--scrub-input#handleClick".freeze
 
         def initialize(value:, label:, name: nil, unit: :pt, step: 0.1, min: nil, max: nil,
-                       layout: :inline, placeholder: nil, disabled: false, span: false, id: nil, input_data: {})
+                       layout: :inline, placeholder: nil, disabled: false, span: false, id: nil, input_data: {}, form: nil)
           raise ArgumentError, "unknown unit #{unit.inspect}" unless UNITS.include?(unit)
           raise ArgumentError, "unknown layout #{layout.inspect}" unless LAYOUTS.include?(layout)
           raise ArgumentError, "step must be a positive number, got #{step.inspect}" unless step.is_a?(Numeric) && step.positive?
@@ -31,6 +33,7 @@ module Design
           @span = span
           @id = id || (name.present? ? "nf-#{self.class.dom_key(name)}" : "nf-#{SecureRandom.hex(4)}")
           @input_data = input_data
+          @form = form
         end
 
         # A stable id fragment for a field name ("paragraph_style[font_size]" →
@@ -65,7 +68,7 @@ module Design
               # /name="…"[^>]*disabled/ and the class string contains "disabled:" variants.
               input(class: input_class, data: input_data,
                     id: @id, type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: "false",
-                    name: @name, value: @value, placeholder: @placeholder, disabled: (@disabled || nil),
+                    name: @name, form: @form, value: @value, placeholder: @placeholder, disabled: (@disabled || nil),
                     "aria-describedby": (suffix_id if suffix))
               span(id: suffix_id, class: suffix_class, data: { unit_suffix: true }) { suffix } if suffix
             end

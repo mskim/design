@@ -14,6 +14,7 @@ class Design::PropertiesPanelTocVAlignTest < ActiveSupport::TestCase
     component.define_singleton_method(:csrf_token) { "test-token" }
     component.define_singleton_method(:typography_style_url) { |name| "/test/styles/#{name}" }
     component.define_singleton_method(:typography_new_style_url) { "/test/new_style" }
+    component.define_singleton_method(:page_urls) { { field: "/x/page/field", preview: "/x/preview", paper_size: "/x/ps/edit" } }
     component.call
   end
 

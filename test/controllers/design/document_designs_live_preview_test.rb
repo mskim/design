@@ -5,7 +5,7 @@ class Design::DocumentDesignsLivePreviewTest < ActionDispatch::IntegrationTest
     sign_in :david
     @theme = Design::Theme.create!(name: "LP #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     @ps = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    @dd = @ps.document_designs.create!(doc_type: "chapter", column_count: 1)
+    @dd = @ps.document_designs.create!(doc_type: "chapter")
   end
 
   test "POST preview replaces preview_frame and does NOT persist" do
@@ -16,7 +16,7 @@ class Design::DocumentDesignsLivePreviewTest < ActionDispatch::IntegrationTest
     Design::PreviewService.define_singleton_method(:new) { |dd, **| captured = dd; fake }
     begin
       post design.preview_theme_paper_size_document_design_path(@theme, @ps, @dd),
-           params: { document_design: { column_count: 3 } },
+           params: { document_design: { heading_height_in_lines: 4 } },
            headers: { "Accept" => "text/vnd.turbo-stream.html" }
     ensure
       Design::PreviewService.define_singleton_method(:new, original)
@@ -24,8 +24,8 @@ class Design::DocumentDesignsLivePreviewTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.media_type, "turbo-stream"
     assert_includes response.body, "preview_frame"
-    assert_equal 3, captured.column_count        # preview used the UNSAVED value
-    assert_equal 1, @dd.reload.column_count       # NOT persisted
+    assert_equal 4, captured.heading_height_in_lines # preview used the UNSAVED value
+    assert_equal 6, @dd.reload.heading_height_in_lines # NOT persisted
   end
 
   test "writer forbidden from POST preview" do
