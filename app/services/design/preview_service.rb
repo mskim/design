@@ -9,7 +9,7 @@ module Design
 
     PREVIEW_DPI = 150
     MAX_PREVIEW_PAGES = 4
-    CACHE_VERSION = "v3" # bump when the stamp/JPG layout changes; old stamps become misses
+    CACHE_VERSION = "v4" # bump when the stamp/JPG layout changes; old stamps become misses
     FALLBACK_HEADING = {
       "title" => "첫번째 이야기",
       "subtitle" => "부제목은 여기에",
