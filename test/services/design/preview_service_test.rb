@@ -44,6 +44,45 @@ class Design::PreviewServiceTest < ActiveSupport::TestCase
     assert_empty failures, "concurrent previews failed: #{failures.map { |r| r[:error] }.uniq.inspect}"
   end
 
+  test "concurrent generations tolerate each other deleting the same stale pages" do
+    svc = Design::PreviewService.new(@dd, paper_size: @ps)
+    svc.clear_cache
+    preview_dir = svc.send(:preview_dir)
+    FileUtils.mkdir_p(preview_dir)
+    # Pre-seed stale pages above any count the chapter can render, so every thread's
+    # publish_pages finds the same files to delete; the losers must not raise ENOENT.
+    stale = [ 5, 6 ].map { |n| File.join(preview_dir, "preview_#{n}.jpg") }
+    stale.each { |f| File.binwrite(f, "stale") }
+
+    # GENERATION_LOCK staggers the threads, so left alone they would reach publish_pages
+    # one at a time and never race. Rendezvous after rasterizing so all 5 publish at once.
+    n = 5
+    barrier = Queue.new
+    services = n.times.map do
+      svc = Design::PreviewService.new(@dd, paper_size: @ps)
+      svc.define_singleton_method(:convert_pdf_to_jpgs) do |pdf, dir|
+        count = Design::PdfToJpg.convert_pages(pdf, dir, max_pages: Design::PreviewService::MAX_PREVIEW_PAGES, dpi: 72)
+        barrier << :arrived
+        Thread.pass until barrier.size >= n # every thread holds until the last one arrives
+        count
+      end
+      svc
+    end
+
+    latch = Queue.new
+    threads = services.map do |svc|
+      Thread.new do
+        latch.pop
+        svc.generate
+      end
+    end
+    n.times { latch << :go }
+    results = threads.map(&:value)
+    failures = results.reject { |r| r[:success] }
+    assert_empty failures, "concurrent previews failed: #{failures.map { |r| r[:error] }.uniq.inspect}"
+    stale.each { |f| refute File.exist?(f), "stale #{File.basename(f)} should have been removed" }
+  end
+
   test "a chapter renders more than one page, capped at MAX_PREVIEW_PAGES, with per-page overlays" do
     result = Design::PreviewService.new(@dd, paper_size: @ps).generate
     assert result[:success], result[:error]
@@ -86,7 +125,7 @@ class Design::PreviewServiceTest < ActiveSupport::TestCase
     svc = Design::PreviewService.new(@dd, paper_size: @ps)
     svc.clear_cache
     # generate removes its work dir in `ensure`, so capture the finished PDF's bytes
-    # from inside the rasterize step (minitest/mock is not available here — no `stub`).
+    # from inside the rasterize step (a singleton override is more explicit than minitest/mock's stub here).
     captured = nil
     svc.define_singleton_method(:convert_pdf_to_jpgs) do |pdf, dir|
       captured = File.binread(pdf)

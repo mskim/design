@@ -66,8 +66,9 @@ module Design
       @paper_size = paper_size || document_design.paper_size
     end
 
-    # Generate preview: PDF → JPG + overlay data
-    # Returns { success:, jpg_path:, overlay_data:, page_width:, page_height:, error: }
+    # Generate preview: PDF → up to MAX_PREVIEW_PAGES JPGs + per-page overlay data
+    # Returns { success:, page_count:, pages: [{ jpg_path:, overlay_data: }], page_width:, page_height:, error: }
+    # jpg_path/overlay_data are also present as page-1 aliases for callers that only show the first page.
     def generate
       cached = load_cached_preview
       return cached if cached
@@ -105,6 +106,8 @@ module Design
         # Rasterize (libvips, no Sequel models — safe outside the lock) into the work dir,
         # then publish page by page + the stamp that validates them.
         rendered = convert_pdf_to_jpgs(pdf_path, work)
+        raise "no pages rasterized from #{pdf_path}" if rendered.zero?
+        # DB page rows and the PDF can disagree (wings never save_page); trust what was actually rasterized.
         pages = pages.first(rendered)
         publish_pages(work, pages.size)
         save_cache_stamp(pages)
@@ -166,10 +169,10 @@ module Design
       return nil unless count.positive? && (1..count).all? { |n| File.exist?(page_jpg_path(n)) }
 
       pages = stamp["pages"].each_with_index.map do |pg, i|
-        { jpg_path: page_jpg_path(i + 1), overlay_data: pg["overlay_data"].map(&:symbolize_keys) }
+        { jpg_path: page_jpg_path(i + 1), overlay_data: Array(pg["overlay_data"]).map(&:symbolize_keys) }
       end
       result_hash(pages)
-    rescue JSON::ParserError
+    rescue JSON::ParserError, NoMethodError, TypeError
       nil
     end
 
@@ -195,12 +198,14 @@ module Design
     end
 
     # Move preview_1..N.jpg from the work dir into preview_dir (atomic per file, same FS)
-    # and drop any stale higher-numbered pages from a previous, longer render.
+    # and drop any stale higher-numbered pages from a previous, longer render. Overlapping
+    # generations of the same document glob the same stale files, so rm_f (not delete):
+    # the loser must not fail the whole preview over a file the winner already removed.
     def publish_pages(work, count)
       (1..count).each { |n| File.rename(File.join(work, "preview_#{n}.jpg"), page_jpg_path(n)) }
       Dir[File.join(preview_dir, "preview_*.jpg")].each do |f|
         n = f[/preview_(\d+)\.jpg\z/, 1].to_i
-        File.delete(f) if n > count
+        FileUtils.rm_f(f) if n > count
       end
     end
 
