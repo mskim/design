@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { flagParts, toggleFlag } from "design-controllers/design/edge_flags"
 
 export default class extends Controller {
   static targets = ["input", "box"]
@@ -10,10 +11,8 @@ export default class extends Controller {
 
   toggle(event) {
     const side = event.currentTarget.dataset.side
-    const parts = this.parts()
     const index = { top: 0, right: 1, bottom: 2, left: 3 }[side]
-    parts[index] = parts[index] === "1" ? "0" : "1"
-    this.inputTarget.value = parts.join(",")
+    this.inputTarget.value = toggleFlag(this.inputTarget.value, this.parentValue, index)
     this.updateVisual()
     // The style panel's autosave listens for change on its form (hidden inputs
     // emit none by themselves).
@@ -21,10 +20,7 @@ export default class extends Controller {
   }
 
   // An inherited (empty) value shows — and starts toggling from — the parent's sides.
-  parts() {
-    const val = this.inputTarget.value || this.parentValue || "0,0,0,0"
-    return val.split(",").map(s => s.trim())
-  }
+  parts() { return flagParts(this.inputTarget.value, this.parentValue) }
 
   get inherited() { return this.inputTarget.value === "" && this.parentValue !== "" }
 

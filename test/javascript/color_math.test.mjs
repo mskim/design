@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { parseColor, cmykToHex, hexToCmyk, formatCmyk, summaryText, swatchHex, isHex } from "../../app/javascript/design-controllers/design/color_math.js"
+import { parseColor, cmykToHex, hexToCmyk, formatCmyk, summaryText, swatchHex, isHex, sameColor } from "../../app/javascript/design-controllers/design/color_math.js"
 
 test("parseColor recognises CMYK, hex, names and blank", () => {
   assert.deepEqual(parseColor("CMYK=0,0,0,100"), { format: "cmyk", c: 0, m: 0, y: 0, k: 100 })
@@ -38,4 +38,15 @@ test("swatchHex and isHex", () => {
   assert.ok(isHex("#a1b2c3"))
   assert.ok(!isHex("#abc"))
   assert.ok(!isHex("a1b2c3"))
+})
+
+test("sameColor: same stored colour, whatever the spelling", () => {
+  assert.ok(sameColor("CMYK=0,0,0,100", "CMYK=0.0,0,0,100.0"))
+  assert.ok(sameColor("CMYK=0,10,0,43", " CMYK=0,10,0,43 "))
+  assert.ok(!sameColor("CMYK=0,10,0,43", "CMYK=0,11,0,43"))
+  assert.ok(sameColor("#FFFFFF", "white"))
+  assert.ok(sameColor("#3b82f6", "#3B82F6"))
+  assert.ok(!sameColor("CMYK=0,0,0,100", "#000000"), "CMYK and RGB are different stored colours")
+  assert.ok(sameColor("", " "))
+  assert.ok(!sameColor("", "CMYK=0,0,0,0"))
 })

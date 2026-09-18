@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { flagParts, toggleFlag } from "design-controllers/design/edge_flags"
 
 export default class extends Controller {
   static targets = ["input", "box", "tl", "tr", "br", "bl"]
@@ -10,10 +11,8 @@ export default class extends Controller {
 
   toggle(event) {
     const corner = event.currentTarget.dataset.corner
-    const parts = this.parts()
     const index = { tl: 0, tr: 1, br: 2, bl: 3 }[corner]
-    parts[index] = parts[index] === "1" ? "0" : "1"
-    this.inputTarget.value = parts.join(",")
+    this.inputTarget.value = toggleFlag(this.inputTarget.value, this.parentValue, index)
     this.updateVisual()
     // The style panel's autosave listens for change on its form (hidden inputs
     // emit none by themselves).
@@ -21,10 +20,7 @@ export default class extends Controller {
   }
 
   // An inherited (empty) value shows — and starts toggling from — the parent's corners.
-  parts() {
-    const val = this.inputTarget.value || this.parentValue || "0,0,0,0"
-    return val.split(",").map(s => s.trim())
-  }
+  parts() { return flagParts(this.inputTarget.value, this.parentValue) }
 
   get inherited() { return this.inputTarget.value === "" && this.parentValue !== "" }
 
@@ -39,11 +35,11 @@ export default class extends Controller {
       const el = this[`${c}Target`]
       if (p[i] === "1") {
         el.style.background = set
-        el.textContent = "✓"
+        el.textContent = "\u2713"
         radius.push("8px")
       } else {
         el.style.background = "#d1d5db"
-        el.textContent = "✗"
+        el.textContent = "\u2717"
         radius.push("0")
       }
     })

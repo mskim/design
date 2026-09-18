@@ -73,8 +73,12 @@ export default class extends Controller {
 
   commit() {
     const text = this.inputTarget.value.trim()
-    if (text === this.lastGood) { this.inputTarget.value = text; return } // untouched: keep server text such as "10.0"
+    // Untouched: keep server text such as "10.0". Writes only when trimming
+    // changed it: assigning .value marks the input dirty, and a dirty input
+    // ignores later value attributes (a morph's server value).
+    if (text === this.lastGood) { this.setText(text); return }
     if (text === "") { // blank = inherit
+      this.setText("")
       this.lastGood = ""
       this.emit("change")
       return
@@ -156,6 +160,8 @@ export default class extends Controller {
     this.inputTarget.value = formatted
     this.emit(eventType)
   }
+
+  setText(text) { if (this.inputTarget.value !== text) this.inputTarget.value = text }
 
   emit(type) { this.inputTarget.dispatchEvent(new Event(type, { bubbles: true })) }
 

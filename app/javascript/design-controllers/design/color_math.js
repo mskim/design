@@ -57,3 +57,16 @@ export function swatchHex(str) {
   if (!p) return null
   return p.format === "cmyk" ? cmykToHex(p) : p.hex
 }
+
+// The same stored colour: CMYK channels equal at one decimal, or the same hex
+// (a hex and a legacy name can match); CMYK never equals a hex. Unparseable
+// text compares as trimmed text ("" = inherit).
+export function sameColor(a, b) {
+  const pa = parseColor(a)
+  const pb = parseColor(b)
+  if (!pa || !pb) return !pa && !pb && String(a ?? "").trim() === String(b ?? "").trim()
+  if (pa.format === "cmyk" || pb.format === "cmyk") {
+    return pa.format === pb.format && formatCmyk(pa) === formatCmyk(pb)
+  }
+  return pa.hex === pb.hex
+}

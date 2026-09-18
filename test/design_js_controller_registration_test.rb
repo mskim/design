@@ -122,6 +122,8 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
       src = File.read(ENGINE_JS.join("design-controllers/design/#{c}_controller.js"))
       assert_includes src, %(dispatchEvent(new Event("change", { bubbles: true }))), c
       assert_includes src, "parent: String", c
+      assert_includes src, %("design-controllers/design/edge_flags"), c
+      assert_includes src, "toggleFlag(", c
     end
   end
 
@@ -129,9 +131,10 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
     assert_includes src, %(import { Controller } from "@hotwired/stimulus")
     assert_includes src, %("design-controllers/design/style_save_queue")
-    %w[fieldChanged( revert( revertStyle( pushStyle( ignoreSubmit( keepLocalState( keepOpenPopover( send( reloadPreview( closeMenu(].each { |m| assert_includes src, m }
+    assert_includes src, %("design-controllers/design/style_panel_morph")
+    %w[fieldChanged( revert( revertStyle( pushStyle( ignoreSubmit( keepLocalState( keepOpenPopover( send( reloadPreview( closeMenu( disconnect(].each { |m| assert_includes src, m }
     assert_includes src, "previewUrl: String"
-    assert_includes src, "renderStreamMessage"
+    assert_includes src, "window.Turbo.renderStreamMessage"
     refute_match(/from\s+["']\.\.?\//, src, "no relative imports (importmap)")
   end
 
@@ -143,10 +146,22 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_match(/attributeName === "class" && el\.matches\(MENU\)/, src)
   end
 
-  test "style_save_queue is a pure module" do
-    src = File.read(ENGINE_JS.join("design-controllers/design/style_save_queue.js"))
-    refute_match(/^import /, src)
-    refute_includes src, "document."
-    refute_includes src, "window."
+  # The morph decision is taken once per element, before Idiomorph touches its
+  # attributes (it asks about `value` twice); the listener is added in connect(),
+  # so the form's data-action needs no entry for it.
+  test "style_autosave decides a control's local value on turbo:before-morph-element" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, 'addEventListener("turbo:before-morph-element"'
+    assert_includes src, 'removeEventListener("turbo:before-morph-element"'
+    assert_includes src, "LocalValueKeeper"
+  end
+
+  %w[style_save_queue style_panel_morph edge_flags].each do |mod|
+    test "#{mod} is a pure module" do
+      src = File.read(ENGINE_JS.join("design-controllers/design/#{mod}.js"))
+      refute_match(/^import /, src)
+      refute_includes src, "document."
+      refute_includes src, "window."
+    end
   end
 end
