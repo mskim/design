@@ -7,8 +7,8 @@ module Design
     module FieldGroups
       # One neutral look for every group box — per-group pastel colours were
       # distracting. The key still names the box (data-group) for tests/hooks.
-      GROUP_BOX_CLASS = "bg-slate-50 border-slate-200".freeze
-      GROUP_LEGEND_CLASS = "bg-slate-100 text-slate-700".freeze
+      GROUP_BOX_CLASS = "bg-slate-100 border-slate-300".freeze
+      GROUP_LEGEND_CLASS = "bg-slate-200 text-slate-800".freeze
 
       CONTROL = "min-w-0 flex-1 h-8 rounded border border-slate-300 bg-white px-2 text-sm text-slate-900".freeze
       # Numbers are short — a narrow fixed input frees the label column.
