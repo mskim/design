@@ -186,9 +186,125 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
   test "preview fingerprint changes after revert_style! deletes rows" do
     @foreword.set_style_field!("zz_body", "font_size", 11)
     before = fingerprint(@foreword)
-    travel 1.second
     @foreword.revert_style!("zz_body")
     refute_equal before, fingerprint(@foreword)
+  end
+
+  test "preview fingerprint differs between two edits within the same second" do
+    @foreword.set_style_field!("zz_body", "font_size", 11)
+    first = fingerprint(@foreword)
+    @foreword.set_style_field!("zz_body", "font_size", 12)
+    refute_equal first, fingerprint(@foreword)
+  end
+
+  # ── proportional editing across paper sizes ─────────────────────────────
+
+  test "a scaled field changes other sizes proportionally" do
+    @theme.base_paragraph_styles.create!(name: "zz_title", font_size: 16)
+    @chapters[0].paragraph_styles.create!(name: "zz_title", font_size: 18) # generator-style
+    @chapters[1].paragraph_styles.create!(name: "zz_title", font_size: 24)
+
+    @chapters[0].set_style_field!("zz_title", "font_size", 20)
+
+    a, b = @chapters.map { |dd| row_of(dd, "zz_title") }
+    assert_equal BigDecimal("20"), a.font_size
+    assert_equal BigDecimal("26.67"), b.font_size
+    [ a, b ].each { |row| assert_includes row.overridden_fields, "font_size" }
+  end
+
+  test "setting a size back to its inherited value reverts the field on every size" do
+    @chapters[1].paragraph_styles.create!(name: "zz_body", font_size: 12)
+    @forewords[0].set_style_field!("zz_body", "font_size", 11)
+    assert_equal BigDecimal("13.2"), row_of(@forewords[1], "zz_body").font_size
+
+    @forewords[0].set_style_field!("zz_body", "font_size", "10 ")
+
+    @forewords.each { |dd| assert_nil row_of(dd, "zz_body") }
+    state = @forewords[1].style_state("zz_body")
+    assert_empty state[:changed_fields]
+    assert_empty state[:user_fields]
+  end
+
+  test "non-scaled fields get the same value on every size" do
+    @chapters[1].paragraph_styles.create!(name: "zz_body", font_size: 12, tracking: 2)
+    @forewords[0].set_style_field!("zz_body", "text_color", "CMYK=0,100,0,0")
+    @forewords[0].set_style_field!("zz_body", "tracking", 1)
+
+    @forewords.each do |dd|
+      row = row_of(dd, "zz_body")
+      assert_equal "CMYK=0,100,0,0", row.text_color
+      assert_equal BigDecimal("1"), row.tracking
+      assert_equal %w[text_color tracking].sort, row.overridden_fields.sort
+    end
+  end
+
+  test "a size with no resolved value for a scaled field gets the raw value" do
+    @chapters[0].paragraph_styles.create!(name: "zz_body", left_indent: 4)
+
+    @chapters[0].set_style_field!("zz_body", "left_indent", 6)
+
+    assert_equal BigDecimal("6"), row_of(@chapters[0], "zz_body").left_indent
+    assert_equal BigDecimal("6"), row_of(@chapters[1], "zz_body").left_indent
+  end
+
+  test "each size compares against its own parent" do
+    @chapters[0].paragraph_styles.create!(name: "zz_body", font_size: 11)
+    # chapter on size B has no zz_body row: foreword on B inherits 10 from the base
+
+    @forewords[0].set_style_field!("zz_body", "font_size", 11)
+    @forewords.each { |dd| assert_nil row_of(dd, "zz_body"), "equals A's parent → cleared everywhere" }
+
+    @forewords[0].set_style_field!("zz_body", "font_size", 12)
+    assert_equal BigDecimal("12"), row_of(@forewords[0], "zz_body").font_size
+    assert_equal (BigDecimal("12") * 10 / 11).round(2), row_of(@forewords[1], "zz_body").font_size
+  end
+
+  test "a proportional target equal to that size's parent is cleared there, not stored" do
+    @chapters[0].paragraph_styles.create!(name: "zz_body", font_size: 20)
+    @chapters[1].paragraph_styles.create!(name: "zz_body", font_size: 10)
+    @forewords[1].paragraph_styles.create!(name: "zz_body", font_size: 5, overridden_fields: [ "font_size" ])
+
+    # A: 20 → 40 (×2); B: 5 → 10, which equals B's parent (chapter 10)
+    @forewords[0].set_style_field!("zz_body", "font_size", 40)
+
+    assert_equal BigDecimal("40"), row_of(@forewords[0], "zz_body").font_size
+    assert_nil row_of(@forewords[1], "zz_body")
+  end
+
+  test "push_style! from a doc type scales chapter on the other sizes" do
+    @chapters[1].paragraph_styles.create!(name: "zz_body", font_size: 15)
+    @forewords[0].set_style_field!("zz_body", "font_size", 12)
+
+    @forewords[0].push_style!("zz_body")
+
+    assert_equal BigDecimal("12"), row_of(@chapters[0], "zz_body").font_size
+    assert_equal BigDecimal("18"), row_of(@chapters[1], "zz_body").font_size
+    @forewords.each { |dd| assert_nil row_of(dd, "zz_body") }
+  end
+
+  test "push_style! from a doc type raises when a size lacks a chapter design" do
+    ps3 = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    design_for(ps3, "foreword")
+    ps3.document_designs.where(doc_type: "chapter").destroy_all
+    @foreword.set_style_field!("zz_body", "font_size", 12)
+
+    assert_raises(Design::DocumentDesign::MissingChapterError) { @foreword.push_style!("zz_body") }
+    @chapters.each { |dd| assert_nil row_of(dd, "zz_body"), "nothing is written before the check" }
+  end
+
+  test "push_preview from chapter counts every other doc type keeping its own value" do
+    prologue = design_for(@ps1, "prologue")
+    prologue.paragraph_styles.create!(name: "zz_body", font_size: 13)
+    @forewords[1].paragraph_styles.create!(name: "zz_body", font_size: 14)
+    @chapter.set_style_field!("zz_body", "font_size", 12)
+
+    assert_equal({ "font_size" => 2 }, @chapter.push_preview("zz_body"))
+  end
+
+  test "operations reset this design's cached style associations" do
+    assert_empty @foreword.paragraph_styles.to_a.select { |r| r.name == "zz_body" }
+    @foreword.set_style_field!("zz_body", "font_size", 11)
+    assert @foreword.paragraph_styles.to_a.any? { |r| r.name == "zz_body" }, "association must not be stale"
   end
 
   test "preview fingerprint tracks the chapter layer" do

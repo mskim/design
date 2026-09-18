@@ -20,6 +20,13 @@ module Design
     # override); vertical_align is table-cell only and theme-level (no doc-type consumer).
     STYLE_FIELDS = (Design::DocumentDesign::MERGEABLE_ATTRS - %w[korean_name]).freeze
 
+    # pt-valued, paper-size-dependent fields: an edit on one size changes the
+    # other sizes proportionally (see DocumentDesign#set_style_field!).
+    SCALED_FIELDS = %w[
+      font_size text_line_spacing space_before space_after first_line_indent
+      left_indent right_indent padding_top padding_bottom
+    ].freeze
+
     before_validation :normalize_doc_type_blanks, if: :doc_type_row?
     after_initialize :clear_doc_type_defaults, if: -> { new_record? && doc_type_row? }
 

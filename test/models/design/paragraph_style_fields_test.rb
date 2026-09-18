@@ -30,6 +30,20 @@ class Design::ParagraphStyleFieldsTest < ActiveSupport::TestCase
     assert_nil row.text_color, "DB default text_color must not be stored on doc-type rows"
   end
 
+  test "a persisted doc-type row's dup keeps its stored scale and text_color" do
+    row = @dd.paragraph_styles.create!(name: "zz_dup", scale: 90, text_color: "CMYK=0,100,0,0")
+    copy = Design::ParagraphStyle.find(row.id).dup
+    assert_equal 90, copy.scale.to_i
+    assert_equal "CMYK=0,100,0,0", copy.text_color
+  end
+
+  test "SCALED_FIELDS are pt-valued style fields only" do
+    f = Design::ParagraphStyle::SCALED_FIELDS
+    assert (f - Design::ParagraphStyle::STYLE_FIELDS).empty?
+    assert_includes f, "font_size"
+    %w[tracking scale space_before_in_lines border_thickness corner_radius].each { |x| refute_includes f, x }
+  end
+
   test "theme base rows keep their defaults and blanks untouched" do
     base = @theme.base_paragraph_styles.create!(name: "zz_base")
     assert_equal 100, base.reload.scale.to_i

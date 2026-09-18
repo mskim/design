@@ -9,7 +9,7 @@ module Design
 
     PREVIEW_DPI = 150
     MAX_PREVIEW_PAGES = 4
-    CACHE_VERSION = "v2" # bump when the stamp/JPG layout changes; old stamps become misses
+    CACHE_VERSION = "v3" # bump when the stamp/JPG layout changes; old stamps become misses
     FALLBACK_HEADING = {
       "title" => "첫번째 이야기",
       "subtitle" => "부제목은 여기에",
@@ -160,7 +160,9 @@ module Design
         document_design.paragraph_styles.count,
         chapter&.paragraph_styles&.count
       ].compact
-      "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((timestamps.map(&:to_s) + [ sample_content.fingerprint ]).join("-"))
+      # Sub-second precision: two edits within the same second must not collide.
+      parts = timestamps.map { |t| t.respond_to?(:iso8601) ? t.iso8601(6) : t.to_s }
+      "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((parts + [ sample_content.fingerprint ]).join("-"))
     end
 
     def cache_stamp_path

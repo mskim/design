@@ -272,19 +272,33 @@ module Design
         has_parent: parent.values.any? { |v| !v.nil? } }
     end
 
-    # Set `field` of style `name` on every size. A blank value or one equal to the
-    # parent clears the field (inherit) and is never marked as a user override.
+    class MissingChapterError < StandardError; end
+
+    # Set `field` of style `name` (edited on this size) on every size.
+    # A blank value or one equal to THIS size's parent reverts the field
+    # everywhere. Otherwise this size gets `value` exactly; other sizes get a
+    # proportional value for SCALED_FIELDS (their current × value / this size's
+    # current) and the same value for every other field. Wherever the target
+    # equals that size's own parent the field is cleared (inherit), never marked.
     def set_style_field!(name, field, value)
       assert_style_field!(field)
       field = field.to_s
+      value = value.strip if value.is_a?(String)
+      parent = parent_values(name)
+      if value.nil? || value == "" || ParagraphStyle.same_value?(field, value, parent[field])
+        return revert_style_field!(name, field)
+      end
+
+      ref = resolved_field(name, field, parent)
       transaction do
         same_doc_type_designs.find_each do |dd|
-          parent = dd.parent_values(name)[field]
-          if value.nil? || (value.is_a?(String) && value.strip.empty?) || ParagraphStyle.same_value?(field, value, parent)
-            dd.clear_style_field(name, field)
+          dd_parent = dd.id == id ? parent : dd.parent_values(name)
+          target = dd.id == id ? value : cross_size_value(field, value, ref, dd.resolved_field(name, field, dd_parent))
+          if ParagraphStyle.same_value?(field, target, dd_parent[field])
+            dd.clear_style_field(name, field, has_parent: dd_parent.values.any? { |v| !v.nil? })
           else
             row = dd.paragraph_styles.find_or_initialize_by(name: name)
-            row[field] = value
+            row[field] = target
             row.overridden_fields = (Array(row.overridden_fields) | [ field ])
             row.save!
           end
@@ -329,18 +343,21 @@ module Design
 
     # Move the user-changed fields one layer up (chapter → theme base; other doc
     # types → chapter on every size) and clear them here. Generator-only values
-    # (stored but not in overridden_fields) stay put.
+    # (stored but not in overridden_fields) stay put. A push from a doc type edits
+    # chapter on this size (proportionally on the others), so every size that has
+    # this doc type must also have a chapter design.
     def push_style!(name)
       own = paragraph_styles.find_by(name: name) or return
       fields = style_state(name)[:user_fields]
       return if fields.empty?
+      assert_chapters_for_push! unless doc_type == "chapter"
       transaction do
         if doc_type == "chapter"
           base = theme.base_paragraph_styles.find_or_initialize_by(name: name)
           fields.each { |f| base[f] = own[f] }
           base.save!
         else
-          ch = chapter_design or raise "no chapter design on #{paper_size.display_name}"
+          ch = chapter_design
           fields.each { |f| ch.set_style_field!(name, f, own[f]) }
         end
         fields.each { |f| revert_style_field!(name, f) }
@@ -351,11 +368,19 @@ module Design
 
     protected
 
-    def clear_style_field(name, field)
+    # This design's current value for `field`: its own row's value, else the
+    # inherited one (`parent` = parent_values(name), passed to avoid re-querying).
+    def resolved_field(name, field, parent = parent_values(name))
+      own = paragraph_styles.find_by(name: name)&.[](field)
+      own.nil? ? parent[field] : own
+    end
+
+    def clear_style_field(name, field, has_parent: nil)
       row = paragraph_styles.find_by(name: name) or return
       row[field] = nil
       row.overridden_fields = Array(row.overridden_fields) - [ field ]
-      if style_has_parent?(name) && ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }
+      has_parent = style_has_parent?(name) if has_parent.nil?
+      if has_parent && ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }
         row.destroy!
       else
         row.save!
@@ -370,13 +395,34 @@ module Design
       scope.update_all(updated_at: now)
       self.updated_at = now # the controller renders the preview from this instance
       clear_attribute_changes([ :updated_at ]) # already persisted by update_all
+      # Rows were written/deleted through other instances; drop stale caches.
+      paragraph_styles.reset
+      theme.base_paragraph_styles.reset
     end
 
     def assert_style_field!(field)
       raise ArgumentError, "not a style field: #{field}" unless ParagraphStyle::STYLE_FIELDS.include?(field.to_s)
     end
 
+    def assert_chapters_for_push!
+      sizes = same_doc_type_designs.pluck(:paper_size_id)
+      with_chapter = theme.document_designs.where(doc_type: "chapter").pluck(:paper_size_id)
+      missing = sizes - with_chapter
+      return if missing.empty?
+      names = Design::PaperSize.where(id: missing).map(&:display_name).join(", ")
+      raise MissingChapterError, "no chapter design on #{names}"
+    end
+
     private
+
+    # The value another size gets when this size's field goes ref → value.
+    def cross_size_value(field, value, ref, current)
+      return value unless ParagraphStyle::SCALED_FIELDS.include?(field)
+      num = ->(v) { v.is_a?(Numeric) ? v.to_d : (v.is_a?(String) ? BigDecimal(v.strip, exception: false) : nil) }
+      new_v, ref_v, cur_v = num.(value), num.(ref), num.(current)
+      return value if new_v.nil? || ref_v.nil? || ref_v.zero? || cur_v.nil?
+      (cur_v * new_v / ref_v).round(2)
+    end
 
     def ensure_heading_style_exists(style_name)
       defaults = DEFAULT_HEADING_STYLES[style_name]
