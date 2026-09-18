@@ -40,10 +40,16 @@ module Design
 
         def disabled = (true if @disabled)
 
+        # aria-pressed: the shown flag (own value, else the parent's) at render;
+        # the editor's JS keeps it in step on toggle and after a morph.
         def side(name, pad)
+          label = I18n.t("design.shared.#{name}")
           button(type: "button", class: "#{pad} #{BUTTON}", disabled: disabled,
-                 data: { action: "click->design--border-side-editor#toggle", side: name }) { I18n.t("design.shared.#{name}") }
+                 aria: { pressed: on?(name).to_s, label: label },
+                 data: { action: "click->design--border-side-editor#toggle", side: name }) { label }
         end
+
+        def on?(name) = (@value || @inherited).to_s.split(",").map(&:strip)[SIDES.index(name)] == "1"
       end
     end
   end

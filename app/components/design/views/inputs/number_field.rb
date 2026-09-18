@@ -29,14 +29,23 @@ module Design
           @placeholder = placeholder
           @disabled = disabled
           @span = span
-          @id = id || (name ? "nf-#{self.class.dom_key(name)}" : "nf-#{SecureRandom.hex(4)}")
+          @id = id || (name.present? ? "nf-#{self.class.dom_key(name)}" : "nf-#{SecureRandom.hex(4)}")
           @input_data = input_data
         end
 
         # A stable id fragment for a field name ("paragraph_style[font_size]" →
         # "paragraph_style-font_size"): a Turbo morph reuses (and keeps focus on)
-        # a control only when its id is the same across renders.
-        def self.dom_key(name) = name.to_s.gsub(/[^A-Za-z0-9_-]+/, "-").gsub(/\A-+|-+\z/, "")
+        # a control only when its id is the same across renders. A name that
+        # isn't plain `word[word]…` (or maps to nothing) gets "-" + 6 hex of its
+        # MD5, so "a.b" and "a-b" stay distinct.
+        PLAIN_NAME = /\A\w+(\[\w+\])*\z/
+
+        def self.dom_key(name)
+          name = name.to_s
+          key = name.gsub(/[^A-Za-z0-9_-]+/, "-").gsub(/\A-+|-+\z/, "")
+          return key if !key.empty? && name.match?(PLAIN_NAME)
+          "#{key}-#{Digest::MD5.hexdigest(name)[0, 6]}"
+        end
 
         # The unit shown after a value (nil for :none).
         def self.suffix_for(unit)

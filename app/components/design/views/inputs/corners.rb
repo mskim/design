@@ -43,8 +43,13 @@ module Design
 
         def disabled = (true if @disabled)
 
+        def on?(name) = (@value || @inherited).to_s.split(",").map(&:strip)[CORNERS.index(name)] == "1"
+
+        # aria-pressed: the shown flag (own value, else the parent's) at render;
+        # the editor's JS keeps it in step on toggle and after a morph.
         def corner(name)
           button(type: "button", class: "#{BUTTON} #{ROUNDED.fetch(name)}", disabled: disabled,
+                 aria: { pressed: on?(name).to_s, label: I18n.t("design.inputs.corners.#{name}") },
                  data: { action: "click->design--corner-editor#toggle", corner: name, "design--corner-editor-target": name })
         end
       end

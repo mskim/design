@@ -17,7 +17,7 @@ module Design
           @span = span
           @inherited_value = inherited_value.to_s.strip
           # Stable when named (a morph must keep the row, its popover and focus).
-          @uid = name ? "cf-#{NumberField.dom_key(name)}" : "cf-#{SecureRandom.hex(4)}"
+          @uid = name.present? ? "cf-#{NumberField.dom_key(name)}" : "cf-#{SecureRandom.hex(4)}"
         end
 
         def view_template

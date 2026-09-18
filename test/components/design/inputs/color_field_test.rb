@@ -55,11 +55,13 @@ class Design::ColorFieldTest < ActiveSupport::TestCase
   end
 
   test "nameless rows get distinct ids" do
-    ids = 2.times.map do
-      Nokogiri::HTML.fragment(Design::Views::Inputs::ColorField.new(name: nil, value: "", label: "색").call)
-                .at_css("[data-design--color-row-target='popover']")["id"]
+    [ nil, "" ].each do |name|
+      ids = 2.times.map do
+        Nokogiri::HTML.fragment(Design::Views::Inputs::ColorField.new(name: name, value: "", label: "색").call)
+                  .at_css("[data-design--color-row-target='popover']")["id"]
+      end
+      refute_equal ids.first, ids.last, name.inspect
     end
-    refute_equal ids.first, ids.last
   end
 
   test "cmyk panel remembers the stored value on focus and reverts it on a channel revert" do
