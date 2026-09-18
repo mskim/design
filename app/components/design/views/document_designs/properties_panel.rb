@@ -7,16 +7,13 @@ module Design
 
         TABS = %w[layout typography header_footer].freeze
 
-        # error: a message shown under the header (e.g. a style Save that hit a
-        # row that no longer exists).
         # tab: the tab open on render (Back from a style panel → "typography");
         # anything unknown opens 레이아웃.
-        def initialize(theme:, paper_size:, document_design:, editable: true, error: nil, tab: nil)
+        def initialize(theme:, paper_size:, document_design:, editable: true, tab: nil)
           @theme = theme
           @paper_size = paper_size
           @document_design = document_design
           @editable = editable
-          @error = error
           @tab = TABS.include?(tab) ? tab : "layout"
         end
 
@@ -24,7 +21,6 @@ module Design
           turbo_frame(id: "properties_panel") do
             div(class: "w-full border-l flex flex-col max-h-screen") do
               render_header
-              render_error_message if @error
               render_form_body
             end
           end
@@ -36,12 +32,6 @@ module Design
           div(class: "shrink-0 flex items-center gap-2 px-4 py-2.5 border-b bg-slate-50") do
             h2(class: "text-sm font-semibold") { @document_design.doc_type.tr("_", " ").titleize }
             span(class: "text-xs text-muted-foreground") { I18n.t("design.properties_panel.design_properties") }
-          end
-        end
-
-        def render_error_message
-          div(class: "shrink-0 border-b border-red-300 bg-red-50 px-4 py-2.5", role: "alert") do
-            p(class: "text-sm font-medium text-red-800") { @error }
           end
         end
 

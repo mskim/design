@@ -32,7 +32,7 @@ module Design
           group_box("basic", I18n.t("design.fields.identity")) do
             rows do
               text_field(I18n.t("design.fields.name"), :name)
-              text_field(I18n.t("design.fields.korean_name"), :korean_name, theme_only: true)
+              text_field(I18n.t("design.fields.korean_name"), :korean_name)
             end
           end
         end
@@ -59,8 +59,7 @@ module Design
           group_box("table", I18n.t("design.fields.table_cell")) do
             rows do
               select_field(I18n.t("design.fields.vertical_align"), :vertical_align,
-                           Design::ParagraphStyle::VERTICAL_ALIGNS, include_blank: "— inherit —", span: true,
-                           theme_only: true)
+                           Design::ParagraphStyle::VERTICAL_ALIGNS, include_blank: "— inherit —", span: true)
             end
           end
         end
@@ -125,15 +124,10 @@ module Design
 
         # ── Field helpers (box/row/control helpers come from FieldGroups) ──
 
-        # theme_only: a base-row field (korean_name, vertical_align) — shown
-        # read-only on a doc-type row whose style has a theme base row (see
-        # theme_only?), and (being disabled) not submitted, so it can't look
-        # saved while being dropped.
-        def text_field(label_text, attr, span: false, theme_only: false)
+        def text_field(label_text, attr, span: false)
           field_row(label_text, span: span) do
             input(type: "text", name: "paragraph_style[#{attr}]", value: field_value(@paragraph_style.public_send(attr)),
-                  class: CONTROL, **disabled_attr(theme_only: theme_only))
-            theme_only_hint if theme_only
+                  class: CONTROL, **disabled_attr)
           end
         end
 
@@ -148,9 +142,9 @@ module Design
         # A nil value selects the blank option (so an inherited field posts "" and
         # stays inherited); a current value missing from `options` is added as an
         # extra option so it round-trips unchanged.
-        def select_field(label_text, attr, options, include_blank: nil, i18n_scope: nil, span: false, theme_only: false)
+        def select_field(label_text, attr, options, include_blank: nil, i18n_scope: nil, span: false)
           field_row(label_text, span: span) do
-            select(name: "paragraph_style[#{attr}]", class: CONTROL, **disabled_attr(theme_only: theme_only)) do
+            select(name: "paragraph_style[#{attr}]", class: CONTROL, **disabled_attr) do
               current = @paragraph_style.public_send(attr)
               option(value: "") { include_blank } if include_blank
               select_options(options, current).each do |opt|
@@ -158,27 +152,11 @@ module Design
                 option(value: opt, selected: opt == current) { label }
               end
             end
-            theme_only_hint if theme_only
           end
         end
 
         def select_options(options, current)
           current.present? && !options.include?(current) ? options + [ current ] : options
-        end
-
-        # A saved doc-type row of a style the theme has a base row for: the base
-        # row owns korean_name/vertical_align. A new style, or one with no base
-        # row, keeps them on its own rows (editable here).
-        def theme_only?
-          return @theme_only if defined?(@theme_only)
-          ps = @paragraph_style
-          @theme_only = ps.doc_type_row? && ps.persisted? &&
-                        ps.styleable.theme.base_paragraph_styles.exists?(name: ps.name_was || ps.name)
-        end
-
-        def theme_only_hint
-          return unless theme_only?
-          span(class: "shrink-0 text-xs text-slate-500") { I18n.t("design.fields.theme_only_hint") }
         end
 
         # Font names are long → full row.
@@ -220,8 +198,8 @@ module Design
           end
         end
 
-        def disabled_attr(theme_only: false)
-          @editable && !(theme_only && theme_only?) ? {} : { disabled: true }
+        def disabled_attr
+          @editable ? {} : { disabled: true }
         end
 
         def field_value(value)

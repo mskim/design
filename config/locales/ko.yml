@@ -200,7 +200,6 @@ ko:
       padding_bottom: "아래쪽 여백 (pt)"
       table_cell: "표 셀"
       vertical_align: "세로 정렬"
-      theme_only_hint: "테마에서 편집"
 
     doc_types:
       title_page: "표제지"
@@ -224,12 +223,6 @@ ko:
     panel:
       back: "← 뒤로"
       new_style: "새 스타일"
-      errors_heading: "다음 오류를 수정해 주세요:"
-      revert: "기본값으로 되돌리기"
-      apply_to_all: "모든 문서 유형에 적용"
-      apply_to_all_hint: "기본값: 이 문서 유형에만 (모든 판형)"
-      apply_to_all_confirm: "변경한 항목만 테마에 적용되고, %{count}개 문서 유형에서 그 항목의 개별 설정이 초기화됩니다. 계속할까요?"
-      stale_save: "이 스타일이 다른 곳에서 변경되었습니다. 다시 입력해 주세요."
 
     style_panel:
       all_sizes: "모든 판형"

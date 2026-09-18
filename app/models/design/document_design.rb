@@ -242,11 +242,6 @@ module Design
       end
     end
 
-    # Returns (creating if needed) this design's sparse row for a style: every
-    # field nil, so it inherits until a field is set. Kept for callers not yet
-    # migrated to the field-level operations.
-    def override_for(base_name) = paragraph_styles.find_or_create_by!(name: base_name)
-
     # Create or update a document-level paragraph style by name. Used by importers
     # and generators so authoritative values win over any already-present override
     # (e.g. a generator default) without tripping the (styleable, name) uniqueness.
@@ -405,6 +400,8 @@ module Design
 
     def style_has_parent?(name) = parent_values(name).values.any? { |v| !v.nil? }
 
+    protected
+
     # Clear `fields` on this design's row `name` (nil, unmarked); delete the row
     # if that leaves it empty and the style has a parent. This design only.
     def clear_style_fields!(name, fields, has_parent: nil)
@@ -423,24 +420,12 @@ module Design
     # Chapter rows under a changed theme base: clear each of `fields` on this
     # design's row `name` only where it now equals the base (`base`, the saved
     # base row); keep the other per-size (e.g. proportionally scaled) values.
-    # Used by push-to-theme and by the theme's "apply to all".
+    # Used by push-to-theme.
     def clear_fields_matching_base!(name, fields, base)
       row = paragraph_styles.find_by(name: name) or return
       same = fields.map(&:to_s).select { |f| !row[f].nil? && ParagraphStyle.inherits_value?(f, row[f], base[f]) }
       clear_style_fields!(name, same, has_parent: true) if same.any?
     end
-
-    # korean_name / vertical_align of a style that has no theme base row: they
-    # live on this doc type's own rows, so write them on every size's existing
-    # row (labels, not scaled and not marked as overrides).
-    def set_base_only_fields!(name, attrs)
-      transaction do
-        same_doc_type_designs.find_each { |dd| dd.paragraph_styles.find_by(name: name)&.update!(attrs) }
-        touch_inheritors!
-      end
-    end
-
-    protected
 
     # This design's current value for `field`: its own row's value, else the
     # inherited one (`parent` = parent_values(name), passed to avoid re-querying).

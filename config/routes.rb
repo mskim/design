@@ -22,7 +22,6 @@ Design::Engine.routes.draw do
           get :preview_jpg
           get :properties_panel
           get :panel
-          patch :panel_update
         end
         # A doc type's paragraph style, keyed by name (D2b): the panel, field
         # saves, revert and push. "new" is reserved (styles/new is the form).
@@ -32,16 +31,6 @@ Design::Engine.routes.draw do
             patch :field, action: :update_field
             delete :field, action: :revert_field, as: :revert_field
             post :push
-          end
-        end
-        # Doc-type styles are edited through panel/panel_update (field-level, every
-        # paper size); the override/revert/new/create flow lives alongside them.
-        resources :paragraph_styles, only: [:new, :create], controller: "document_designs" do
-          collection do
-            post :override
-          end
-          member do
-            delete :revert
           end
         end
       end

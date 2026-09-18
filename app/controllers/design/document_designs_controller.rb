@@ -1,7 +1,6 @@
 module Design
   class DocumentDesignsController < Design::ApplicationController
     include Design::DocumentDesignEditing
-    include Design::ParagraphStyleActions
 
     before_action :set_theme
     before_action :set_paper_size

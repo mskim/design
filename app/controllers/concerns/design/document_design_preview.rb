@@ -7,8 +7,8 @@ module Design
 
     private
 
-    # Stale style link (reverted, or cleared by an "apply to all" save): show the
-    # live document view instead of raising. A turbo-frame request re-renders the
+    # Stale style link (a reverted style, or an old level/style_id link whose row
+    # is gone): show the live document view instead of raising. A turbo-frame request re-renders the
     # properties panel in place, on the 단락정의 tab the style link came from; a
     # full navigation redirects to the editor.
     def fall_back_to_document_view
@@ -26,12 +26,12 @@ module Design
     end
 
     # "single" (style edit pages) or nil → :scroll (the design editor). Carried on the
-    # preview frame src and as a hidden field in the style Panel form.
+    # preview frame src and as the style panel form's preview-mode value.
     def preview_mode
       params[:preview_mode] == "single" ? :single : :scroll
     end
 
-    # What the style Panel form should post back: "single" or nil (nothing for scroll).
+    # What the style panel should send back: "single" or nil (nothing for scroll).
     def panel_preview_mode
       preview_mode == :single ? "single" : nil
     end

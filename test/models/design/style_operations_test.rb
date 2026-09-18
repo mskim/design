@@ -70,7 +70,7 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
 
   test "clear_style_fields! rejects non-style fields" do
     @foreword.paragraph_styles.create!(name: "zz_body", korean_name: "본문", font_size: 12)
-    assert_raises(ArgumentError) { @foreword.clear_style_fields!("zz_body", %w[font_size korean_name]) }
+    assert_raises(ArgumentError) { @foreword.send(:clear_style_fields!, "zz_body", %w[font_size korean_name]) }
     assert_equal 12, row_of(@foreword, "zz_body").font_size.to_i, "nothing cleared"
   end
 

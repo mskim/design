@@ -45,6 +45,13 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     end
   end
 
+  # The Save/scope panel's controllers were replaced by design--style-autosave (D2b).
+  test "the old panel save controllers are gone" do
+    %w[panel_autosave_controller.js panel_save_response.js save_scope_controller.js].each do |f|
+      refute File.exist?(ENGINE_JS.join("design-controllers/design", f)), "#{f} should have been removed"
+    end
+  end
+
   # toggle-visibility controller (written from scratch) — registers as design--toggle-visibility
   test "design/toggle_visibility_controller.js exists in design-controllers" do
     controller_path = ENGINE_JS.join("design-controllers/design/toggle_visibility_controller.js")
