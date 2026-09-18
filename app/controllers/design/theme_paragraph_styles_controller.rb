@@ -24,6 +24,7 @@ module Design
     def form_component
       Design::Views::ParagraphStyles::Form.new(
         paragraph_style: @paragraph_style,
+        theme: @theme,
         form_url: helpers.theme_theme_paragraph_style_path(@theme, @paragraph_style),
         cancel_url: helpers.theme_path(@theme),
         crumbs: [

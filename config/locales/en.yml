@@ -37,7 +37,6 @@ en:
       rearmatter: "Rear Matter"
       cover: "Book cover"
       edit_theme_button: "Edit Theme"
-      size_label: "Size"
       read_only: "Read-only"
       clone_to_my_theme: "Clone this theme"
       gallery_close: "Close"
@@ -56,6 +55,14 @@ en:
       update_button: "Update Theme"
       create_button: "Create Theme"
       created_notice: "Theme created: %{name}"
+
+    sidebar:
+      theme: "Theme"
+      size: "Size"
+      new_size: "＋ New size"
+      size_settings: "Size settings"
+      table_styles: "Table styles"
+      other: "Other"
 
     options:
       v_align:

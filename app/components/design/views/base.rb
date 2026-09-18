@@ -51,6 +51,30 @@ module Design
       # consumed via yield inside Shell#view_template — a block stored at .new and
       # invoked later renders nothing in Phlex 2.4.1.
       def shell(**opts, &block) = render(Design::Views::Shell.new(**opts), &block)
+
+      # The studio's left rail (see Design::Views::Sidebar). Pass the result as
+      # shell(sidebar: ...). size_url builds the same-page-other-size URL.
+      def theme_sidebar(theme, paper_size, current: nil, size_url: nil)
+        Design::Views::Sidebar.new(theme:, paper_size:, current:, size_url:)
+      end
+
+      # size_url for pages scoped to one document design: the same doc_type's editor
+      # on the other size when it exists, else that size's theme overview.
+      def design_size_url(theme, document_design)
+        lambda do |ps|
+          other = ps.document_designs.find_by(doc_type: document_design.doc_type)
+          other ? helpers.edit_theme_paper_size_document_design_path(theme, ps, other)
+                : helpers.theme_path(theme, paper_size_id: ps.id)
+        end
+      end
+
+      # Rail for pages scoped to one document design: that design highlighted, and
+      # size switching via design_size_url.
+      def design_sidebar(theme, paper_size, document_design)
+        theme_sidebar(theme, paper_size,
+                      current: { kind: :document_design, id: document_design.id },
+                      size_url: design_size_url(theme, document_design))
+      end
     end
   end
 end

@@ -37,7 +37,6 @@ ko:
       rearmatter: "후반부"
       cover: "표지"
       edit_theme_button: "테마 편집"
-      size_label: "크기"
       read_only: "읽기 전용"
       clone_to_my_theme: "이 테마로 복제하기"
       gallery_close: "닫기"
@@ -56,6 +55,14 @@ ko:
       update_button: "테마 수정"
       create_button: "테마 만들기"
       created_notice: "테마가 생성되었습니다: %{name}"
+
+    sidebar:
+      theme: "테마"
+      size: "판형"
+      new_size: "＋ 새 판형"
+      size_settings: "판형 설정"
+      table_styles: "표 스타일"
+      other: "기타"
 
     options:
       v_align:

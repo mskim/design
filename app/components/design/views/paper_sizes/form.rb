@@ -10,7 +10,7 @@ module Design
 
         def view_template
           title = @paper_size.persisted? ? @paper_size.display_name : I18n.t("design.paper_sizes.new_title")
-          shell(title: title, action_slot: nil, sidebar: nil) do
+          shell(title: title, action_slot: nil, sidebar: sidebar) do
             div(class: "mx-auto max-w-4xl px-6 py-10 flex flex-col gap-8") do
               render Design::Views::Breadcrumb.new(crumbs: [
                 [ @theme.name, helpers.theme_path(@theme) ],
@@ -25,6 +25,17 @@ module Design
         end
 
         private
+
+        # Editing: highlight "size settings" and switch to the other size's edit page.
+        # New: no size yet — show the rail at the theme's default size, nothing highlighted.
+        def sidebar
+          if @paper_size.persisted?
+            theme_sidebar(@theme, @paper_size, current: { kind: :paper_size },
+                          size_url: ->(ps) { helpers.edit_theme_paper_size_path(@theme, ps) })
+          else
+            theme_sidebar(@theme, @theme.default_paper_size)
+          end
+        end
 
         def edit_form
           url    = @paper_size.persisted? ? helpers.theme_paper_size_path(@theme, @paper_size) : helpers.theme_paper_sizes_path(@theme)

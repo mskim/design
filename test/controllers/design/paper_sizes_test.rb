@@ -81,11 +81,11 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_equal 0, Design::DocumentDesign.where(id: dd_ids).count, "dependent: :destroy should cascade"
   end
 
-  test "show links to add a new paper size and edit the active one" do
+  test "show links (in the sidebar rail) to add a new paper size and edit the active one" do
     get design.theme_path(@theme, paper_size_id: @ps.id)
     assert_response :success
-    assert_select "a[href=?]", design.new_theme_paper_size_path(@theme)
-    assert_select "a[href=?]", design.edit_theme_paper_size_path(@theme, @ps)
+    assert_select "aside a[href=?]", design.new_theme_paper_size_path(@theme)
+    assert_select "aside a[href=?]", design.edit_theme_paper_size_path(@theme, @ps)
   end
 
   test "regenerate re-derives non-overridden defaults but preserves an overridden field" do
@@ -109,13 +109,14 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
-  test "deleting the last size leaves theme show renderable with no size selector" do
+  test "deleting the last size leaves theme show renderable; the rail still offers a new-size link" do
     # Destroy the only size, then render theme show: view_template falls to the
-    # empty-state branch (no size_selector / Edit link), not a broken edit URL.
+    # empty-state branch (no doc grid / Edit link), not a broken edit URL. The
+    # sidebar rail still renders "＋ new size" so the designer can recover.
     delete design.theme_paper_size_path(@theme, @ps)
     assert_equal 0, @theme.reload.paper_sizes.count
     get design.theme_path(@theme)
     assert_response :success
-    assert_select "a[href=?]", design.new_theme_paper_size_path(@theme), count: 0
+    assert_select "aside a[href=?]", design.new_theme_paper_size_path(@theme), count: 1
   end
 end

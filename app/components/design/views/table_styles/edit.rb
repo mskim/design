@@ -8,7 +8,8 @@ module Design
         end
 
         def view_template
-          shell(title: "#{@table_style.name.capitalize} #{I18n.t("design.table_styles.edit_suffix")}", action_slot: nil, sidebar: nil) do
+          shell(title: "#{@table_style.name.capitalize} #{I18n.t("design.table_styles.edit_suffix")}", action_slot: nil,
+                sidebar: theme_sidebar(@theme, rail_paper_size, current: { kind: :table_style, id: @table_style.id })) do
             div(class: "flex flex-col lg:flex-row gap-6 px-6 py-8") do
               preview_pane
               form_pane
@@ -17,6 +18,8 @@ module Design
         end
 
         private
+
+        def rail_paper_size = @theme.default_paper_size # paper_sizes.order(:id).first; nil when the theme has none
 
         def preview_pane
           div(class: "flex-1 min-w-0 flex items-start justify-center rounded-lg border border-slate-200 bg-slate-50 p-4") do

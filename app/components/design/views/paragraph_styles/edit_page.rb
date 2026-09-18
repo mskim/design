@@ -20,7 +20,8 @@ module Design
         end
 
         def view_template
-          shell(title: @paragraph_style.name, action_slot: nil, sidebar: nil) do
+          shell(title: @paragraph_style.name, action_slot: nil,
+                sidebar: design_sidebar(@theme, @paper_size, @document_design)) do
             div(class: "mx-auto max-w-6xl px-6 py-10") do
               div(class: "flex flex-col lg:flex-row lg:items-start gap-6") do
                 # Sticky so the preview stays in view while the (tall) form scrolls the page.
