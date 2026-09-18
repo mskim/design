@@ -87,7 +87,7 @@ class Design::SampleContentsTest < ActionDispatch::IntegrationTest
     get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
     assert_select "a[href=?]", design.edit_theme_sample_content_path(@theme, "chapter", return_to: @dd.id)
     style = @dd.paragraph_styles.create!(name: "body")
-    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: style.id)
+    get design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, style.name)
     assert_select "a[href=?]", design.edit_theme_sample_content_path(@theme, "chapter", return_to: @dd.id)
   end
 end

@@ -32,7 +32,7 @@ module Design
           group_box("basic", I18n.t("design.fields.identity")) do
             rows do
               text_field(I18n.t("design.fields.name"), :name)
-              text_field(I18n.t("design.fields.korean_name"), :korean_name, theme_only: true)
+              text_field(I18n.t("design.fields.korean_name"), :korean_name)
             end
           end
         end
@@ -59,8 +59,7 @@ module Design
           group_box("table", I18n.t("design.fields.table_cell")) do
             rows do
               select_field(I18n.t("design.fields.vertical_align"), :vertical_align,
-                           Design::ParagraphStyle::VERTICAL_ALIGNS, include_blank: "— inherit —", span: true,
-                           theme_only: true)
+                           Design::ParagraphStyle::VERTICAL_ALIGNS, include_blank: "— inherit —", span: true)
             end
           end
         end
@@ -125,15 +124,10 @@ module Design
 
         # ── Field helpers (box/row/control helpers come from FieldGroups) ──
 
-        # theme_only: a base-row field (korean_name, vertical_align) — shown
-        # read-only on a doc-type row whose style has a theme base row (see
-        # theme_only?), and (being disabled) not submitted, so it can't look
-        # saved while being dropped.
-        def text_field(label_text, attr, span: false, theme_only: false)
+        def text_field(label_text, attr, span: false)
           field_row(label_text, span: span) do
             input(type: "text", name: "paragraph_style[#{attr}]", value: field_value(@paragraph_style.public_send(attr)),
-                  class: CONTROL, **disabled_attr(theme_only: theme_only))
-            theme_only_hint if theme_only
+                  class: CONTROL, **disabled_attr)
           end
         end
 
@@ -148,9 +142,9 @@ module Design
         # A nil value selects the blank option (so an inherited field posts "" and
         # stays inherited); a current value missing from `options` is added as an
         # extra option so it round-trips unchanged.
-        def select_field(label_text, attr, options, include_blank: nil, i18n_scope: nil, span: false, theme_only: false)
+        def select_field(label_text, attr, options, include_blank: nil, i18n_scope: nil, span: false)
           field_row(label_text, span: span) do
-            select(name: "paragraph_style[#{attr}]", class: CONTROL, **disabled_attr(theme_only: theme_only)) do
+            select(name: "paragraph_style[#{attr}]", class: CONTROL, **disabled_attr) do
               current = @paragraph_style.public_send(attr)
               option(value: "") { include_blank } if include_blank
               select_options(options, current).each do |opt|
@@ -158,27 +152,11 @@ module Design
                 option(value: opt, selected: opt == current) { label }
               end
             end
-            theme_only_hint if theme_only
           end
         end
 
         def select_options(options, current)
           current.present? && !options.include?(current) ? options + [ current ] : options
-        end
-
-        # A saved doc-type row of a style the theme has a base row for: the base
-        # row owns korean_name/vertical_align. A new style, or one with no base
-        # row, keeps them on its own rows (editable here).
-        def theme_only?
-          return @theme_only if defined?(@theme_only)
-          ps = @paragraph_style
-          @theme_only = ps.doc_type_row? && ps.persisted? &&
-                        ps.styleable.theme.base_paragraph_styles.exists?(name: ps.name_was || ps.name)
-        end
-
-        def theme_only_hint
-          return unless theme_only?
-          span(class: "shrink-0 text-xs text-slate-500") { I18n.t("design.fields.theme_only_hint") }
         end
 
         # Font names are long → full row.
@@ -192,51 +170,19 @@ module Design
             label: label_text, span: span, disabled: disabled_attr[:disabled] == true)
         end
 
-        # ── Border side / corner editors (compact; behaviour unchanged) ──
+        # ── Border side / corner editors (Inputs::BorderSides / Inputs::Corners) ──
 
         def border_side_editor
-          div do
-            label(class: "text-xs text-slate-600") { I18n.t("design.fields.border_sides") }
-            div(class: "mt-0.5", data: { controller: "design--border-side-editor" }) do
-              input(type: "hidden", name: "paragraph_style[border_side]", value: field_value(@paragraph_style.border_side), data: { "design--border-side-editor-target": "input" }, **disabled_attr)
-              div(class: "flex flex-col items-center gap-0.5") do
-                button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "top" },
-                  class: "px-3 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-white", **disabled_attr) { I18n.t("design.shared.top") }
-                div(class: "flex items-center gap-0.5") do
-                  button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "left" },
-                    class: "px-0.5 py-1.5 text-xs cursor-pointer border border-slate-300 rounded bg-white", **disabled_attr) { I18n.t("design.shared.left") }
-                  div(class: "w-14 h-10 bg-white border border-dashed border-slate-300", data: { "design--border-side-editor-target": "box" })
-                  button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "right" },
-                    class: "px-0.5 py-1.5 text-xs cursor-pointer border border-slate-300 rounded bg-white", **disabled_attr) { I18n.t("design.shared.right") }
-                end
-                button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "bottom" },
-                  class: "px-2 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-white", **disabled_attr) { I18n.t("design.shared.bottom") }
-              end
-            end
-          end
+          render Design::Views::Inputs::BorderSides.new(
+            name: "paragraph_style[border_side]", value: field_value(@paragraph_style.border_side),
+            disabled: disabled_attr[:disabled] == true)
         end
 
         def corner_editor
           div do
-            label(class: "text-xs text-slate-600") { I18n.t("design.fields.rounded_corners") }
-            div(class: "mt-0.5", data: { controller: "design--corner-editor" }) do
-              input(type: "hidden", name: "paragraph_style[rounded_corners]", value: field_value(@paragraph_style.rounded_corners), data: { "design--corner-editor-target": "input" }, **disabled_attr)
-              div(class: "flex flex-col items-center gap-0.5") do
-                div(class: "flex gap-8") do
-                  button(type: "button", data: { action: "click->design--corner-editor#toggle", corner: "tl", "design--corner-editor-target": "tl" },
-                    class: "w-6 h-6 text-xs cursor-pointer border border-slate-300 rounded-tl-md flex items-center justify-center bg-white", **disabled_attr)
-                  button(type: "button", data: { action: "click->design--corner-editor#toggle", corner: "tr", "design--corner-editor-target": "tr" },
-                    class: "w-6 h-6 text-xs cursor-pointer border border-slate-300 rounded-tr-md flex items-center justify-center bg-white", **disabled_attr)
-                end
-                div(class: "w-14 h-8 bg-white border border-slate-300", data: { "design--corner-editor-target": "box" })
-                div(class: "flex gap-8") do
-                  button(type: "button", data: { action: "click->design--corner-editor#toggle", corner: "bl", "design--corner-editor-target": "bl" },
-                    class: "w-6 h-6 text-xs cursor-pointer border border-slate-300 rounded-bl-md flex items-center justify-center bg-white", **disabled_attr)
-                  button(type: "button", data: { action: "click->design--corner-editor#toggle", corner: "br", "design--corner-editor-target": "br" },
-                    class: "w-6 h-6 text-xs cursor-pointer border border-slate-300 rounded-br-md flex items-center justify-center bg-white", **disabled_attr)
-                end
-              end
-            end
+            render Design::Views::Inputs::Corners.new(
+              name: "paragraph_style[rounded_corners]", value: field_value(@paragraph_style.rounded_corners),
+              disabled: disabled_attr[:disabled] == true)
             div(class: "mt-1 flex items-center gap-1.5") do
               label(class: "shrink-0 text-sm text-slate-600") { I18n.t("design.fields.corner_radius") }
               select(name: "paragraph_style[corner_radius]", class: "h-8 min-w-0 flex-1 rounded border border-slate-300 px-2 text-sm", **disabled_attr) do
@@ -252,8 +198,8 @@ module Design
           end
         end
 
-        def disabled_attr(theme_only: false)
-          @editable && !(theme_only && theme_only?) ? {} : { disabled: true }
+        def disabled_attr
+          @editable ? {} : { disabled: true }
         end
 
         def field_value(value)

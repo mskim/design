@@ -200,7 +200,6 @@ ko:
       padding_bottom: "아래쪽 여백 (pt)"
       table_cell: "표 셀"
       vertical_align: "세로 정렬"
-      theme_only_hint: "테마에서 편집"
 
     doc_types:
       title_page: "표제지"
@@ -224,13 +223,48 @@ ko:
     panel:
       back: "← 뒤로"
       new_style: "새 스타일"
-      errors_heading: "다음 오류를 수정해 주세요:"
-      revert: "기본값으로 되돌리기"
-      apply_to_all: "모든 문서 유형에 적용"
-      apply_to_all_hint: "기본값: 이 문서 유형에만 (모든 판형)"
-      apply_to_all_confirm: "변경한 항목만 테마에 적용되고, %{count}개 문서 유형에서 그 항목의 개별 설정이 초기화됩니다. 계속할까요?"
-      stale_save: "이 스타일이 다른 곳에서 변경되었습니다. 다시 입력해 주세요."
 
+    style_panel:
+      all_sizes: "모든 판형"
+      has_changes: "이 문서 유형에서 바꾼 항목이 있음"
+      menu: "스타일 메뉴"
+      revert_all: "되돌리기 (%{count})"
+      push_to_theme: "테마에 반영…"
+      push_to_chapter: "장에 반영…"
+      all_options: "모든 옵션 편집…"
+      from_theme: "테마에서"
+      from_chapter: "장에서"
+      generated: "자동 크기 조정"
+      revert_field: "%{field} — 상속으로 되돌리기"
+      revert_confirm: "모든 판형에서 이 스타일의 변경 %{count}개를 되돌립니다. 계속할까요?"
+      create: "만들기"
+      korean_name_optional: "한글 이름 (선택)"
+      status:
+        saving: "저장 중…"
+        saved: "저장됨"
+        error: "오류"
+      sections:
+        type_text: "글꼴 · 텍스트"
+        bold: "굵게 · 강조"
+        space: "들여쓰기 · 간격"
+        fill: "채우기"
+        border: "테두리"
+        pad: "안쪽 여백"
+      push_confirm:
+        theme: "이 스타일에서 바꾼 %{count}개 항목을 테마에 반영합니다."
+        chapter: "이 문서 유형에서 바꾼 %{count}개 항목을 장에 반영하고, 여기서는 장의 값을 따릅니다."
+        kept: "%{field}: 자체 값이 있는 다른 문서 유형 %{count}개는 그 값을 유지합니다."
+      errors:
+        not_a_number: "숫자를 입력해 주세요"
+        negative: "0 이상이어야 합니다"
+        positive: "0보다 커야 합니다"
+        too_large: "-%{max}에서 %{max} 사이여야 합니다"
+        invalid_option: "목록에 있는 값을 골라 주세요"
+        invalid_flags: "네 칸 모두 0 또는 1이어야 합니다 (예: 1,0,1,0)"
+        invalid_color: "CMYK=c,m,y,k 또는 #rrggbb 형식이어야 합니다"
+        missing_chapter: "장 디자인이 없는 판형이 있어 반영할 수 없습니다: %{sizes}"
+        name_blank: "이름을 입력해 주세요"
+        name_invalid: "이 이름은 쓸 수 없습니다"
     paper_sizes:
       edit_title: "판형 편집"
       margins: "여백 (mm)"
@@ -388,7 +422,14 @@ ko:
     inputs:
       lines: "줄"
       inherit: "상속"
+      inherit_with_value: "상속 (%{value})"
+      none: "없음"
       clear: "지우기"
       picker: "선택…"
       cmyk: "CMYK"
       hex: "Hex"
+      corners:
+        tl: "왼쪽 위"
+        tr: "오른쪽 위"
+        br: "오른쪽 아래"
+        bl: "왼쪽 아래"

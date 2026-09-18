@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { parseColor, hexToCmyk, formatCmyk, summaryText, swatchHex, isHex } from "design-controllers/design/color_math"
+import { parseColor, hexToCmyk, formatCmyk, summaryText, swatchHex, isHex, sameColor } from "design-controllers/design/color_math"
 
 // ColorField behaviour. The hidden `value` input holds the stored text ("CMYK=…" or
 // "#rrggbb"); every edit rewrites it and dispatches bubbling input (while editing) and
@@ -13,7 +13,7 @@ const GAP = 4
 export default class extends Controller {
   static targets = ["value", "trigger", "swatch", "summary", "popover", "modeButton",
                     "cmykPanel", "hexPanel", "kSlider", "hexInput", "picker"]
-  static values = { formats: String, inherit: String }
+  static values = { formats: String, inherit: String, parent: String }
 
   connect() {
     this.outside = (e) => { if (!this.element.contains(e.target)) this.close() }
@@ -28,8 +28,11 @@ export default class extends Controller {
 
   toggle() { this.popoverTarget.hidden ? this.open() : this.close() }
 
+  // The colour the popover shows: the stored text, or — inherited (blank) — the parent's.
+  get shownValue() { return this.valueTarget.value.trim() || this.parentValue }
+
   open() {
-    const parsed = parseColor(this.valueTarget.value)
+    const parsed = parseColor(this.shownValue)
     const mode = parsed && this.formats.includes(parsed.format) ? parsed.format : this.formats[0]
     this.showMode(mode)
     this.startValue = this.valueTarget.value
@@ -62,8 +65,22 @@ export default class extends Controller {
     this.popoverTarget.hidden = true
     this.triggerTarget.setAttribute("aria-expanded", "false")
     this.unlisten()
-    if (this.valueTarget.value !== this.startValue) this.emit("change")
+    if (this.unchanged) this.restoreStart()
+    else this.emit("change")
     if (refocus) this.triggerTarget.focus({ preventScroll: true })
+  }
+
+  // Edits that end where they started — the same colour, or on an inherited
+  // row the parent's colour (a channel nudged and back) — are no change.
+  get unchanged() {
+    const v = this.valueTarget.value
+    return sameColor(v, this.startValue) || (this.startValue.trim() === "" && sameColor(v, this.parentValue))
+  }
+
+  restoreStart() {
+    if (this.valueTarget.value === this.startValue) return
+    this.valueTarget.value = this.startValue
+    this.render()
   }
 
   unlisten() {
@@ -94,14 +111,16 @@ export default class extends Controller {
     if (this.hasCmykPanelTarget) this.cmykPanelTarget.hidden = mode !== "cmyk"
     if (this.hasHexPanelTarget) this.hexPanelTarget.hidden = mode !== "hex"
     if (mode === "cmyk") this.fillChannels(this.cmykFromValue())
-    else this.hexInputTarget.value = swatchHex(this.valueTarget.value) ?? ""
+    else this.hexInputTarget.value = swatchHex(this.shownValue) ?? ""
   }
 
-  // Stored text as CMYK for display; an empty/unknown value shows zeros.
+  // Stored text as CMYK for display; an inherited (empty) value starts from the
+  // parent's colour; nothing at all shows zeros.
   cmykFromValue() {
-    const p = parseColor(this.valueTarget.value)
+    const v = this.shownValue
+    const p = parseColor(v)
     if (p?.format === "cmyk") return p
-    const hex = swatchHex(this.valueTarget.value)
+    const hex = swatchHex(v)
     return hex ? hexToCmyk(hex) : { c: 0, m: 0, y: 0, k: 0 }
   }
 
@@ -156,7 +175,7 @@ export default class extends Controller {
   hexKeydown(event) { if (event.key === "Enter") { event.preventDefault(); this.fromHex() } }
 
   openPicker() {
-    this.pickerTarget.value = swatchHex(this.valueTarget.value) ?? "#000000"
+    this.pickerTarget.value = swatchHex(this.shownValue) ?? "#000000"
     // showPicker() is the reliable way to open a visually hidden colour input (Safari);
     // it throws when not allowed (no user activation, cross-origin frame), so fall back.
     try {
@@ -185,9 +204,11 @@ export default class extends Controller {
 
   render() {
     const v = this.valueTarget.value
-    const hex = swatchHex(v)
-    this.swatchTarget.style.background = hex ?? CHECKERBOARD
-    this.summaryTarget.textContent = v.trim() === "" ? this.inheritValue : summaryText(v)
+    const inherited = v.trim() === ""
+    const shown = inherited ? this.parentValue : v
+    this.swatchTarget.style.background = swatchHex(shown) ?? CHECKERBOARD
+    this.summaryTarget.textContent = inherited ? (shown ? summaryText(shown) : this.inheritValue) : summaryText(v)
+    this.summaryTarget.toggleAttribute("data-inherited", inherited && shown !== "")
   }
 
   emit(type) { this.valueTarget.dispatchEvent(new Event(type, { bubbles: true })) }

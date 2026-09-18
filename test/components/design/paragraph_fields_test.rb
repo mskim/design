@@ -61,6 +61,10 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
     assert_includes html, %(click->design--border-side-editor#toggle)
     # The hidden accumulator input must be present
     assert_includes html, %(name="paragraph_style[border_side]")
+    doc = Nokogiri::HTML.fragment(html)
+    refute doc.at_css("[data-controller='design--border-side-editor']").key?("data-design--border-side-editor-parent-value"),
+           "the theme/paper form has no parent to inherit from"
+    refute doc.at_css("[data-controller='design--corner-editor']").key?("data-design--corner-editor-parent-value")
   end
 
   test "border section renders interactive corner-editor (not plain text input)" do

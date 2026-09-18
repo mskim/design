@@ -242,11 +242,6 @@ module Design
       end
     end
 
-    # Returns (creating if needed) this design's sparse row for a style: every
-    # field nil, so it inherits until a field is set. Kept for callers not yet
-    # migrated to the field-level operations.
-    def override_for(base_name) = paragraph_styles.find_or_create_by!(name: base_name)
-
     # Create or update a document-level paragraph style by name. Used by importers
     # and generators so authoritative values win over any already-present override
     # (e.g. a generator default) without tripping the (styleable, name) uniqueness.
@@ -272,7 +267,30 @@ module Design
         has_parent: parent.values.any? { |v| !v.nil? } }
     end
 
-    class MissingChapterError < StandardError; end
+    # Fields of style `name` stored on ANY size of this doc type: what
+    # revert_style! clears (the style panel's 되돌리기 count).
+    def style_changed_fields_on_all_sizes(name)
+      rows = ParagraphStyle.where(styleable: same_doc_type_designs, name: name).to_a
+      ParagraphStyle::STYLE_FIELDS.select { |f| rows.any? { |r| !r[f].nil? } }
+    end
+
+    # Raised by push_style! (before any write) when some size with this doc
+    # type has no chapter design; `sizes` are those sizes' display names.
+    class MissingChapterError < StandardError
+      attr_reader :sizes
+
+      def initialize(sizes = [])
+        @sizes = Array(sizes)
+        super("no chapter design on #{@sizes.join(', ')}")
+      end
+    end
+
+    # Some layer defines a row for `name`: the theme base, chapter on this
+    # size, or this design.
+    def style_exists?(name)
+      theme.base_paragraph_styles.exists?(name: name) || paragraph_styles.exists?(name: name) ||
+        chapter_design&.paragraph_styles&.exists?(name: name) || false
+    end
 
     # Set `field` of style `name` (edited on this size) on every size.
     # A blank value reverts the field everywhere; so does, for doc types other
@@ -337,6 +355,17 @@ module Design
       end
     end
 
+    # 새 스타일: a style with no parent — an empty row on every size of this
+    # doc type (never auto-deleted: it has no parent to fall back to).
+    def create_style!(name, korean_name: nil)
+      transaction do
+        same_doc_type_designs.find_each do |dd|
+          dd.paragraph_styles.find_or_create_by!(name: name) { |row| row.korean_name = korean_name }
+        end
+        touch_inheritors!
+      end
+    end
+
     # For each user field a push would move up, the number of sibling doc types
     # that keep their own value for it (and so won't see the pushed value).
     def push_preview(name)
@@ -378,6 +407,8 @@ module Design
 
     def style_has_parent?(name) = parent_values(name).values.any? { |v| !v.nil? }
 
+    protected
+
     # Clear `fields` on this design's row `name` (nil, unmarked); delete the row
     # if that leaves it empty and the style has a parent. This design only.
     def clear_style_fields!(name, fields, has_parent: nil)
@@ -396,24 +427,12 @@ module Design
     # Chapter rows under a changed theme base: clear each of `fields` on this
     # design's row `name` only where it now equals the base (`base`, the saved
     # base row); keep the other per-size (e.g. proportionally scaled) values.
-    # Used by push-to-theme and by the theme's "apply to all".
+    # Used by push-to-theme.
     def clear_fields_matching_base!(name, fields, base)
       row = paragraph_styles.find_by(name: name) or return
       same = fields.map(&:to_s).select { |f| !row[f].nil? && ParagraphStyle.inherits_value?(f, row[f], base[f]) }
       clear_style_fields!(name, same, has_parent: true) if same.any?
     end
-
-    # korean_name / vertical_align of a style that has no theme base row: they
-    # live on this doc type's own rows, so write them on every size's existing
-    # row (labels, not scaled and not marked as overrides).
-    def set_base_only_fields!(name, attrs)
-      transaction do
-        same_doc_type_designs.find_each { |dd| dd.paragraph_styles.find_by(name: name)&.update!(attrs) }
-        touch_inheritors!
-      end
-    end
-
-    protected
 
     # This design's current value for `field`: its own row's value, else the
     # inherited one (`parent` = parent_values(name), passed to avoid re-querying).
@@ -446,8 +465,8 @@ module Design
       with_chapter = theme.document_designs.where(doc_type: "chapter").pluck(:paper_size_id)
       missing = sizes - with_chapter
       return if missing.empty?
-      names = Design::PaperSize.where(id: missing).map(&:display_name).join(", ")
-      raise MissingChapterError, "no chapter design on #{names}"
+      names = Design::PaperSize.where(id: missing).map(&:display_name)
+      raise MissingChapterError, names
     end
 
     private

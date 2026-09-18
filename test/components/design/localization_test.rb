@@ -12,8 +12,7 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     c.define_singleton_method(:form_action_url) { "/x" }
     c.define_singleton_method(:preview_url) { "/x/preview" }
     c.define_singleton_method(:csrf_token) { "test-token" }
-    c.define_singleton_method(:typography_panel_url) { |o| "/x/panel/#{o.id}" }
-    c.define_singleton_method(:typography_override_url) { |_n| "/x/override" }
+    c.define_singleton_method(:typography_style_url) { |n| "/x/styles/#{n}" }
     c.define_singleton_method(:typography_new_style_url) { "/x/new" }
     c.call
   end
@@ -62,11 +61,15 @@ class Design::LocalizationTest < ActiveSupport::TestCase
 
   test "paragraph panel renders Korean chrome" do
     html = I18n.with_locale(:ko) { paragraph_panel_render }
-    assert_includes html, "저장"
-    assert_includes html, "← 뒤로"
-    assert_includes html, "기본값으로 되돌리기"
+    %w[design.panel.back design.style_panel.sections.type_text design.style_panel.sections.border
+       design.style_panel.all_sizes design.style_panel.push_to_theme design.style_panel.all_options
+       design.style_panel.status.saving design.fields.size].each do |key|
+      assert_includes html, CGI.escapeHTML(I18n.t(key, locale: :ko)), key
+    end
+    assert_includes html, I18n.t("design.style_panel.revert_all", count: 1, locale: :ko)
     refute_includes html, ">Save<"
     refute_includes html, "Revert to base"
+    refute_includes html, ">Back<"
     assert_not_includes html, "translation missing"
   end
 
@@ -95,13 +98,14 @@ class Design::LocalizationTest < ActiveSupport::TestCase
 
   def paragraph_panel_render
     theme = Design::Theme.create!(name: "GPN #{SecureRandom.hex(3)}", locale: "ko")
-    style = theme.base_paragraph_styles.create!(name: "body", font_size: 10)
-    c = Design::Views::ParagraphStyles::Panel.new(paragraph_style: style, panel_update_url: "/x", back_url: "/x", revert_url: "/x", editable: true)
-    c.define_singleton_method(:helpers) do
-      o = Object.new
-      def o.form_authenticity_token = "t"
-      o
-    end
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.find_by(doc_type: "chapter") || ps.document_designs.create!(doc_type: "chapter")
+    theme.base_paragraph_styles.find_or_create_by!(name: "body").update!(font_size: 10)
+    dd.set_style_field!("body", "font_size", 12) # so the chip, menu counts and × render
+    c = Design::Views::ParagraphStyles::StylePanel.new(
+      document_design: dd, style_name: "body", back_url: "/x",
+      urls: { field: "/x", style: "/x", push: "/x", preview: "/x" })
+    c.define_singleton_method(:helpers) { Object.new.tap { |o| def o.form_authenticity_token = "t" } }
     c.call
   end
 

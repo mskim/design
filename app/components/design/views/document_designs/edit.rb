@@ -4,12 +4,14 @@ module Design
       class Edit < Design::Views::Base
         register_element :turbo_frame
 
-        def initialize(theme:, paper_size:, document_design:, paragraph_styles:, editable: true)
+        # tab: the properties panel's open tab (see PropertiesPanel::TABS).
+        def initialize(theme:, paper_size:, document_design:, paragraph_styles:, editable: true, tab: nil)
           @theme = theme
           @paper_size = paper_size
           @document_design = document_design
           @paragraph_styles = paragraph_styles
           @editable = editable
+          @tab = tab
         end
 
         def view_template
@@ -24,7 +26,7 @@ module Design
 
               div(class: "flex flex-col lg:flex-row gap-6") do
                 div(class: "flex-1 min-w-0") { preview_section }
-                div(class: "lg:w-[28rem] lg:shrink-0") { render Design::Views::DocumentDesigns::PropertiesPanel.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: @editable) }
+                div(class: "lg:w-[28rem] lg:shrink-0") { render Design::Views::DocumentDesigns::PropertiesPanel.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: @editable, tab: @tab) }
               end
             end
           end

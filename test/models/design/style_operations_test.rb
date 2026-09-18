@@ -70,7 +70,7 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
 
   test "clear_style_fields! rejects non-style fields" do
     @foreword.paragraph_styles.create!(name: "zz_body", korean_name: "본문", font_size: 12)
-    assert_raises(ArgumentError) { @foreword.clear_style_fields!("zz_body", %w[font_size korean_name]) }
+    assert_raises(ArgumentError) { @foreword.send(:clear_style_fields!, "zz_body", %w[font_size korean_name]) }
     assert_equal 12, row_of(@foreword, "zz_body").font_size.to_i, "nothing cleared"
   end
 
@@ -106,6 +106,21 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
       assert row, "parentless row must survive"
       assert_nil row.font_size
     end
+  end
+
+  test "create_style! adds an empty row on every size of the doc type, kept though parentless" do
+    @foreword.create_style!("zz_new", korean_name: "새")
+
+    @forewords.each do |dd|
+      row = row_of(dd, "zz_new")
+      assert row, "foreword on #{dd.paper_size.size_name} should have a row"
+      assert_equal "새", row.korean_name
+      assert Design::ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }, "no field stored"
+    end
+    @chapters.each { |dd| assert_nil row_of(dd, "zz_new"), "chapter must stay untouched" }
+
+    @foreword.revert_style!("zz_new")
+    @forewords.each { |dd| assert row_of(dd, "zz_new"), "parentless row survives revert_style!" }
   end
 
   test "push_style! from chapter writes user fields to the theme base and clears them on every chapter" do
@@ -381,6 +396,26 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
 
     assert_raises(Design::DocumentDesign::MissingChapterError) { @foreword.push_style!("zz_body") }
     @chapters.each { |dd| assert_nil row_of(dd, "zz_body"), "nothing is written before the check" }
+  end
+
+  test "MissingChapterError names the sizes that lack a chapter" do
+    @foreword.set_style_field!("zz_body", "text_align", "center")
+    @chapters.last.destroy!
+    error = assert_raises(Design::DocumentDesign::MissingChapterError) { @foreword.push_style!("zz_body") }
+    assert_equal [ @ps2.display_name ], error.sizes
+    assert_includes error.message, @ps2.display_name
+  end
+
+  test "style_exists? is true for a base, a chapter-only or an own row, false otherwise" do
+    @chapter.paragraph_styles.create!(name: "zz_ch_only", font_size: 9)
+    @foreword.paragraph_styles.create!(name: "zz_own_only", font_size: 9)
+
+    assert @foreword.style_exists?("zz_body"), "theme base"
+    assert @foreword.style_exists?("zz_ch_only"), "chapter-only, seen from foreword"
+    assert @foreword.style_exists?("zz_own_only"), "own row"
+    refute @foreword.style_exists?("zz_nowhere")
+    refute @forewords.last.style_exists?("zz_ch_only"), "another size's chapter is not this size's parent"
+    assert @chapter.style_exists?("zz_ch_only")
   end
 
   test "push_preview from chapter counts every other doc type keeping its own value" do

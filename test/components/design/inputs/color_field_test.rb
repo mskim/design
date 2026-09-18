@@ -54,10 +54,14 @@ class Design::ColorFieldTest < ActiveSupport::TestCase
     assert(doc.css("[data-mode]").all? { |b| b["aria-pressed"] == "false" })
   end
 
-  test "ids are unique per instance" do
-    a = render_field(value: "").at_css("[data-design--color-row-target='popover']")["id"]
-    b = render_field(value: "").at_css("[data-design--color-row-target='popover']")["id"]
-    refute_equal a, b
+  test "nameless rows get distinct ids" do
+    [ nil, "" ].each do |name|
+      ids = 2.times.map do
+        Nokogiri::HTML.fragment(Design::Views::Inputs::ColorField.new(name: name, value: "", label: "색").call)
+                  .at_css("[data-design--color-row-target='popover']")["id"]
+      end
+      refute_equal ids.first, ids.last, name.inspect
+    end
   end
 
   test "cmyk panel remembers the stored value on focus and reverts it on a channel revert" do
@@ -78,5 +82,31 @@ class Design::ColorFieldTest < ActiveSupport::TestCase
     doc = render_field(value: "#000000", disabled: true)
     assert doc.at_css("button[data-design--color-row-target='trigger']").key?("disabled")
     assert doc.at_css("input[type=hidden]").key?("disabled")
+  end
+
+  test "an inherited colour shows the parent's swatch and summary, marked inherited" do
+    doc = render_field(value: "", inherited_value: "CMYK=0,100,0,0")
+    assert_equal "", doc.at_css("input[type=hidden]")["value"].to_s, "no own value is stored"
+    summary = doc.at_css("[data-design--color-row-target='summary']")
+    assert_equal "C0 M100 Y0 K0", summary.text.strip
+    assert summary.key?("data-inherited")
+    assert_includes doc.at_css("[data-design--color-row-target='swatch']")["style"],
+                    Design::Views::Inputs::ColorValue.swatch_hex("CMYK=0,100,0,0")
+    assert_equal "CMYK=0,100,0,0", doc.at_css("[data-controller='design--color-row']")["data-design--color-row-parent-value"]
+  end
+
+  test "an own colour is not marked inherited; no parent means the plain inherit label" do
+    refute render_field(value: "CMYK=0,0,0,100", inherited_value: "CMYK=0,100,0,0")
+             .at_css("[data-design--color-row-target='summary']").key?("data-inherited")
+    doc = render_field(value: "")
+    assert_equal I18n.t("design.inputs.inherit"), doc.at_css("[data-design--color-row-target='summary']").text.strip
+    refute doc.at_css("[data-controller='design--color-row']").key?("data-design--color-row-parent-value")
+  end
+
+  test "a named colour row has stable ids, channel sub-fields included" do
+    doc = render_field(value: "")
+    assert_equal "cf-paragraph_style-text_color-popover", doc.at_css("[data-design--color-row-target='popover']")["id"]
+    assert_equal %w[c m y k].map { |ch| "cf-paragraph_style-text_color-#{ch}" },
+                 doc.css("input[data-channel]").map { |i| i["id"] }
   end
 end

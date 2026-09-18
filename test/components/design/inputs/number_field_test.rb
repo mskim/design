@@ -95,4 +95,38 @@ class Design::NumberFieldTest < ActiveSupport::TestCase
     assert_equal suffix["id"], doc.at_css("input")["aria-describedby"]
     refute render_field(name: "x", unit: :none).at_css("input").key?("aria-describedby")
   end
+
+  test "a named field gets a stable id from its name; nameless fields stay random" do
+    a = render_field(name: "paragraph_style[font_size]").at_css("input")["id"]
+    assert_equal "nf-paragraph_style-font_size", a
+    assert_equal a, render_field(name: "paragraph_style[font_size]").at_css("input")["id"], "same name, same id (a morph matches it)"
+    refute_equal render_field(name: nil).at_css("input")["id"], render_field(name: nil).at_css("input")["id"]
+    assert_equal "given", render_field(name: "x", id: "given").at_css("input")["id"]
+  end
+
+  test "dom_key: plain bracket names map directly; anything else gets a hash suffix so distinct names stay distinct" do
+    nf = Design::Views::Inputs::NumberField
+    assert_equal "paragraph_style-font_size", nf.dom_key("paragraph_style[font_size]")
+    assert_equal "a-b-c", nf.dom_key("a[b][c]")
+    assert_equal "plain", nf.dom_key("plain")
+    hash = ->(name) { Digest::MD5.hexdigest(name)[0, 6] }
+    assert_equal "a-b-#{hash.("a.b")}", nf.dom_key("a.b")
+    refute_equal nf.dom_key("a.b"), nf.dom_key("a-b"), "a.b and a-b no longer collide"
+    refute_equal nf.dom_key("x[a b]"), nf.dom_key("x[a-b]")
+    assert_equal "-#{hash.("본문")}", nf.dom_key("본문"), "an empty key gets the hash"
+    refute_equal nf.dom_key("본문"), nf.dom_key("제목")
+  end
+
+  test "an empty name counts as unnamed: a random id" do
+    refute_equal render_field(name: "").at_css("input")["id"], render_field(name: "").at_css("input")["id"]
+  end
+
+  test "the placeholder (an inherited value) is grey italic, and the field re-syncs after a morph" do
+    doc = render_field(name: "x", placeholder: "10.0")
+    classes = doc.at_css("input")["class"].split
+    assert_includes classes, "placeholder:italic"
+    assert_includes classes, "placeholder:text-slate-400"
+    assert_includes doc.at_css("[data-controller='design--scrub-input']")["data-action"],
+                    "turbo:morph-element->design--scrub-input#resync"
+  end
 end

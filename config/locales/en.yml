@@ -200,7 +200,6 @@ en:
       padding_bottom: "Padding Bottom (pt)"
       table_cell: "Table Cell"
       vertical_align: "Vertical align"
-      theme_only_hint: "Edit in theme"
 
     doc_types:
       title_page: "Title page"
@@ -224,13 +223,48 @@ en:
     panel:
       back: "← Back"
       new_style: "New Style"
-      errors_heading: "Please fix the following errors:"
-      revert: "Revert to base"
-      apply_to_all: "Apply to all document types"
-      apply_to_all_hint: "Default: only this document type (all paper sizes)"
-      apply_to_all_confirm: "Only the fields you changed are applied to the theme, and those fields are reset on %{count} document type(s). Continue?"
-      stale_save: "This style was changed elsewhere. Please enter your changes again."
 
+    style_panel:
+      all_sizes: "all paper sizes"
+      has_changes: "Changed for this document type"
+      menu: "Style menu"
+      revert_all: "Revert (%{count})"
+      push_to_theme: "Apply to theme…"
+      push_to_chapter: "Apply to chapter…"
+      all_options: "Edit all options…"
+      from_theme: "From theme"
+      from_chapter: "From chapter"
+      generated: "Auto-scaled"
+      revert_field: "%{field} — revert to inherited"
+      revert_confirm: "Revert %{count} change(s) to this style on every paper size. Continue?"
+      create: "Create"
+      korean_name_optional: "Korean name (optional)"
+      status:
+        saving: "Saving…"
+        saved: "Saved"
+        error: "Error"
+      sections:
+        type_text: "Font · Text"
+        bold: "Bold · Emphasis"
+        space: "Indents · Spacing"
+        fill: "Fill"
+        border: "Border"
+        pad: "Padding"
+      push_confirm:
+        theme: "Apply %{count} changed field(s) of this style to the theme."
+        chapter: "Apply %{count} changed field(s) to the chapter; this document type then follows the chapter."
+        kept: "%{field}: %{count} other document type(s) keep their own value."
+      errors:
+        not_a_number: "Enter a number"
+        negative: "Must be 0 or more"
+        positive: "Must be more than 0"
+        too_large: "Must be between -%{max} and %{max}"
+        invalid_option: "Choose a value from the list"
+        invalid_flags: "Must be four 0/1 flags (e.g. 1,0,1,0)"
+        invalid_color: "Must be CMYK=c,m,y,k or #rrggbb"
+        missing_chapter: "Can't apply: no chapter design on %{sizes}"
+        name_blank: "Enter a name"
+        name_invalid: "This name can't be used"
     paper_sizes:
       edit_title: "Edit Paper Size"
       margins: "Margins (mm)"
@@ -388,7 +422,14 @@ en:
     inputs:
       lines: "lines"
       inherit: "Inherit"
+      inherit_with_value: "Inherit (%{value})"
+      none: "None"
       clear: "Clear"
       picker: "Pick…"
       cmyk: "CMYK"
       hex: "Hex"
+      corners:
+        tl: "top left"
+        tr: "top right"
+        br: "bottom right"
+        bl: "bottom left"

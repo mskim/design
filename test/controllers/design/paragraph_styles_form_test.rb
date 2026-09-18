@@ -28,8 +28,8 @@ class Design::ParagraphStylesFormTest < ActionDispatch::IntegrationTest
     assert_equal 14.0, style.reload.font_size
   end
 
-  # Doc-type styles have no full Form any more (edited via panel/panel_update, whose
-  # full page carries the preview — see document_designs_panel_test).
+  # Doc-type styles have no full Form: they are edited in the style panel
+  # (styles/:name), whose full page carries the preview. See document_design_styles_test.
   test "theme-level style form renders no live preview frame" do
     tstyle = @theme.base_paragraph_styles.create!(name: "body2", font_size: 10)
     get design.edit_theme_theme_paragraph_style_path(@theme, tstyle)

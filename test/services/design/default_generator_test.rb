@@ -123,14 +123,4 @@ class Design::DefaultGeneratorTest < ActiveSupport::TestCase
     assert_equal 18.0, row.font_size.to_f
     assert_equal "red", row.text_color
   end
-
-  test "override_for creates a sparse row instead of copying the base" do
-    base!("title", 24)
-    ch = size!.document_designs.create!(doc_type: "chapter")
-    dd = ch.paper_size.document_designs.create!(doc_type: "foreword")
-    row = dd.override_for("title")
-    assert row.persisted?
-    assert Design::ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }
-    assert_equal row.id, dd.override_for("title").id
-  end
 end
