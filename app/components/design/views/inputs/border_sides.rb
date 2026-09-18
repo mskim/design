@@ -6,6 +6,7 @@ module Design
       # sides, shown (muted) and toggled from while this row inherits.
       class BorderSides < Design::Views::Base
         BUTTON = "text-xs cursor-pointer border border-slate-300 rounded bg-white".freeze
+        SIDES = %w[top right bottom left].freeze # the flag string's order
 
         def initialize(name:, value:, inherited_value: nil, disabled: false)
           @name = name

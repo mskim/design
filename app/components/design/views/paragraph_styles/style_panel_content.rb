@@ -87,6 +87,10 @@ module Design
         def own = @state[:own]
         def chapter? = @design.doc_type == "chapter"
 
+        # 되돌리기 reverts every size, so it counts the union of the fields
+        # changed on any size of this doc type (not a per-size total).
+        def changed_on_all_sizes = @changed_on_all_sizes ||= @design.style_changed_fields_on_all_sizes(@name)
+
         def field_state(f)
           return :inherited unless changed.include?(f)
           user_fields.include?(f) ? :changed : :generated
@@ -124,8 +128,11 @@ module Design
                    disabled: (true unless @editable), data: { action: "design--dropdown#toggle" }) { "▾" }
             div(class: "hidden absolute left-0 z-20 mt-1 w-56 rounded-md border border-slate-200 bg-white py-1 shadow-lg",
                 role: "menu", data: { "design--dropdown-target": "menu" }) do
-              menu_item(I18n.t("design.style_panel.revert_all", count: changed.size), "revertStyle",
-                        disabled: changed.empty? || !@state[:has_parent])
+              revert_count = changed_on_all_sizes.size
+              revertable = revert_count.positive? && @state[:has_parent]
+              menu_item(I18n.t("design.style_panel.revert_all", count: revert_count), "revertStyle",
+                        disabled: !revertable,
+                        confirm: (I18n.t("design.style_panel.revert_confirm", count: revert_count) if revertable))
               menu_item(I18n.t(chapter? ? "design.style_panel.push_to_theme" : "design.style_panel.push_to_chapter"),
                         "pushStyle", disabled: user_fields.empty?, confirm: push_confirm)
               menu_item(I18n.t("design.style_panel.all_options"), nil, disabled: true)
@@ -178,10 +185,12 @@ module Design
         def field(f)
           kind, label_key, opts = FIELDS.fetch(f)
           opts ||= {}
-          render StyleField.new(field: f, state: field_state(f), source: source_label, parent_text: parent_text(f, kind, opts),
+          label = I18n.t("design.fields.#{label_key}")
+          render StyleField.new(field: f, label: label, state: field_state(f), source: source_label,
+                                parent_text: parent_text(f, kind, opts),
                                 error: Array(@field_errors[f]).first, editable: @editable,
                                 span: opts[:span] || kind == :font) do
-            control(f, kind, I18n.t("design.fields.#{label_key}"), opts)
+            control(f, kind, label, opts)
           end
         end
 
@@ -197,9 +206,10 @@ module Design
             render Design::Views::Inputs::ColorField.new(
               name: name, value: shown_value(f).to_s, inherited_value: parent[f], label: label, disabled: disabled)
           when :select, :font
-            field_row(label) do
+            id = Design::Views::Inputs::InheritSelect.default_id(name)
+            field_row(label, for: id) do
               render Design::Views::Inputs::InheritSelect.new(
-                name: name, value: shown_value(f), inherited_value: parent[f], i18n_scope: opts[:i18n],
+                name: name, id: id, value: shown_value(f), inherited_value: parent[f], i18n_scope: opts[:i18n],
                 options: kind == :font ? Design::Theme::AVAILABLE_FONTS : opts.fetch(:options), disabled: disabled)
             end
           when :border_sides
@@ -221,13 +231,35 @@ module Design
           end
         end
 
+        # The inherited value as the tooltip reads it: option labels, colour
+        # summaries, numbers with the control's unit, and the sides/corners
+        # that are on.
         def parent_text(f, kind, opts)
           v = parent[f]
           return nil if v.nil?
-          if kind == :select && opts[:options].include?(v) then I18n.t("design.options.#{opts[:i18n]}.#{v}")
-          elsif kind == :color then Design::Views::Inputs::ColorValue.summary(v)
+          case kind
+          when :select then opts[:options].include?(v) ? I18n.t("design.options.#{opts[:i18n]}.#{v}") : display(v)
+          when :color then Design::Views::Inputs::ColorValue.summary(v)
+          when :number then with_unit(display(v), opts.fetch(:unit, :pt))
+          when :border_sides then flags_text(v, Design::Views::Inputs::BorderSides::SIDES.map { |s| I18n.t("design.shared.#{s}") })
+          when :corners then flags_text(v, Design::Views::Inputs::Corners::CORNERS.map { |c| I18n.t("design.inputs.corners.#{c}") })
           else display(v)
           end
+        end
+
+        def with_unit(text, unit)
+          suffix = Design::Views::Inputs::NumberField.suffix_for(unit)
+          return text unless suffix
+          unit == :lines ? "#{text} #{suffix}" : "#{text}#{suffix}"
+        end
+
+        # "1,0,1,0" → "위, 아래" (names in the flag string's order); an unreadable
+        # value is shown as stored.
+        def flags_text(value, names)
+          flags = value.to_s.split(",").map(&:strip)
+          return value.to_s unless flags.size == names.size && flags.all? { |x| %w[0 1].include?(x) }
+          on = names.zip(flags).filter_map { |n, x| n if x == "1" }
+          on.empty? ? I18n.t("design.inputs.none") : on.join(", ")
         end
 
         def source_label = I18n.t(chapter? ? "design.style_panel.from_theme" : "design.style_panel.from_chapter")

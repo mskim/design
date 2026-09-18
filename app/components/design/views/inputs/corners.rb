@@ -6,6 +6,7 @@ module Design
       # corners, shown (muted) and toggled from while this row inherits.
       class Corners < Design::Views::Base
         BUTTON = "w-6 h-6 text-xs cursor-pointer border border-slate-300 flex items-center justify-center bg-white".freeze
+        CORNERS = %w[tl tr br bl].freeze # the flag string's order
         ROUNDED = { "tl" => "rounded-tl-md", "tr" => "rounded-tr-md", "bl" => "rounded-bl-md", "br" => "rounded-br-md" }.freeze
 
         def initialize(name:, value:, inherited_value: nil, disabled: false)

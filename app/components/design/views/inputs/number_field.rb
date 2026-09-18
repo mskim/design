@@ -38,6 +38,16 @@ module Design
         # a control only when its id is the same across renders.
         def self.dom_key(name) = name.to_s.gsub(/[^A-Za-z0-9_-]+/, "-").gsub(/\A-+|-+\z/, "")
 
+        # The unit shown after a value (nil for :none).
+        def self.suffix_for(unit)
+          case unit
+          when :pt then "pt"
+          when :mm then "mm"
+          when :percent then "%"
+          when :lines then I18n.t("design.inputs.lines")
+          end
+        end
+
         def view_template
           div(class: wrapper_class, data: controller_data) do
             label(for: @id, class: label_class, data: { "design--scrub-input-target": "handle", action: HANDLE_ACTIONS }) { @label }
@@ -75,14 +85,7 @@ module Design
           }
         end
 
-        def suffix
-          case @unit
-          when :pt then "pt"
-          when :mm then "mm"
-          when :percent then "%"
-          when :lines then I18n.t("design.inputs.lines")
-          end
-        end
+        def suffix = self.class.suffix_for(@unit)
 
         # A named group (`group/nf`) + data-invalid (toggled by JS) drives the red outline,
         # so an enclosing `group` can't trigger it; the classes live here in Ruby where

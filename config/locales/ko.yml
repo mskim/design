@@ -235,7 +235,8 @@ ko:
       from_theme: "테마에서"
       from_chapter: "장에서"
       generated: "자동 크기 조정"
-      revert_field: "상속으로 되돌리기"
+      revert_field: "%{field} — 상속으로 되돌리기"
+      revert_confirm: "모든 판형에서 이 스타일의 변경 %{count}개를 되돌립니다. 계속할까요?"
       create: "만들기"
       korean_name_optional: "한글 이름 (선택)"
       status:
@@ -422,7 +423,13 @@ ko:
       lines: "줄"
       inherit: "상속"
       inherit_with_value: "상속 (%{value})"
+      none: "없음"
       clear: "지우기"
       picker: "선택…"
       cmyk: "CMYK"
       hex: "Hex"
+      corners:
+        tl: "왼쪽 위"
+        tr: "오른쪽 위"
+        br: "오른쪽 아래"
+        bl: "왼쪽 아래"

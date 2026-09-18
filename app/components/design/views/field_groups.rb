@@ -29,11 +29,13 @@ module Design
 
       # Inline row: right-aligned label + control on one line. `narrow: true` (number
       # fields with a fixed-width input) lets the label flex to fill the freed space.
-      def field_row(label_text, span: false, narrow: false)
+      # `for:` ties the label to its control's id (the control's accessible name).
+      def field_row(label_text, span: false, narrow: false, for: nil)
+        label_for = binding.local_variable_get(:for)
         label_cls = narrow ? "min-w-0 flex-1 text-right text-sm leading-tight text-slate-600"
                            : "w-16 shrink-0 text-right text-sm leading-tight text-slate-600"
         div(class: "ps-field flex min-w-0 items-center gap-2 #{'col-span-2' if span}".rstrip) do
-          label(class: label_cls) { label_text }
+          label(for: label_for, class: label_cls) { label_text }
           yield
         end
       end

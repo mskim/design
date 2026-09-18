@@ -65,9 +65,72 @@ class Design::StylePanelTest < ActiveSupport::TestCase
     assert_equal "11.0", input["placeholder"], "a doc type's parent is chapter's resolved style, not the theme"
     wrapper = field(doc, "font_size")
     assert_equal "inherited", wrapper["data-state"]
-    assert_equal "#{I18n.t('design.style_panel.from_chapter')}: 11.0", wrapper["title"]
-    assert_equal "#{I18n.t('design.style_panel.from_theme')}: 10.0", field(content(@chapters.last), "font_size")["title"]
+    assert_equal "#{I18n.t('design.style_panel.from_chapter')}: 11.0pt", wrapper["title"]
+    assert_equal "#{I18n.t('design.style_panel.from_theme')}: 10.0pt", field(content(@chapters.last), "font_size")["title"]
     assert_nil field(doc, "tracking")["title"], "no parent value → no title (not a bare source label)"
+  end
+
+  test "inherited tooltips: numbers carry the control's unit; flag strings name the sides that are on" do
+    @base.update!(scale: 90, tracking: -0.5, space_before_in_lines: 1, rounded_corners: "1,0,1,0")
+    doc = content
+    from = I18n.t("design.style_panel.from_chapter")
+    assert_equal "#{from}: 90.0%", field(doc, "scale")["title"]
+    assert_equal "#{from}: -0.5", field(doc, "tracking")["title"], "unitless"
+    assert_equal "#{from}: 1.0 #{I18n.t('design.inputs.lines')}", field(doc, "space_before_in_lines")["title"]
+    assert_equal "#{from}: #{I18n.t('design.shared.top')}, #{I18n.t('design.shared.bottom')}", field(doc, "border_side")["title"]
+    assert_equal "#{from}: #{I18n.t('design.inputs.corners.tl')}, #{I18n.t('design.inputs.corners.br')}",
+                 field(doc, "rounded_corners")["title"], "tl,tr,br,bl order"
+    @base.update!(border_side: "0,0,0,0")
+    assert_equal "#{from}: #{I18n.t('design.inputs.none')}", field(content, "border_side")["title"]
+  end
+
+  test "× is labelled with its field" do
+    x = field(content, "font_size").at_css("button[data-action='design--style-autosave#revert']")
+    assert_equal I18n.t("design.style_panel.revert_field", field: I18n.t("design.fields.size")), x["aria-label"]
+  end
+
+  test "selects are labelled: the row's label points at the select's stable id" do
+    doc = content
+    %w[font text_align bold_font fill_type corner_radius].each do |f|
+      select = doc.at_css("select[name='paragraph_style[#{f}]']")
+      assert select["id"].present?, f
+      assert_equal "sel-paragraph_style-#{f}", select["id"], f
+      assert_equal 1, doc.css("label[for='#{select['id']}']").size, f
+    end
+  end
+
+  test "되돌리기 counts the fields changed on any size and asks before reverting all sizes" do
+    @forewords.last.paragraph_styles.create!(name: "zz_body", tracking: 1) # only on the other size
+    revert = content(@foreword).at_css("button[data-action='design--style-autosave#revertStyle']")
+    assert_equal I18n.t("design.style_panel.revert_all", count: 1), revert.text
+    refute revert.key?("disabled"), "nothing changed on this size, but revert reaches every size"
+    assert_equal I18n.t("design.style_panel.revert_confirm", count: 1), revert["data-confirm-message"]
+
+    @foreword.set_style_field!("zz_body", "text_align", "center") # every size
+    revert = content(@foreword).at_css("button[data-action='design--style-autosave#revertStyle']")
+    assert_equal I18n.t("design.style_panel.revert_all", count: 2), revert.text, "union over sizes: text_align, tracking"
+    assert_equal I18n.t("design.style_panel.revert_confirm", count: 2), revert["data-confirm-message"]
+
+    assert_nil content(@chapter).at_css("button[data-action='design--style-autosave#revertStyle']")["data-confirm-message"],
+               "nothing to revert → no confirm"
+  end
+
+  test "되돌리기 is disabled for a parentless style (it would vanish)" do
+    @foreword.create_style!("zz_own")
+    @foreword.set_style_field!("zz_own", "font_size", 12)
+    assert content(@foreword, "zz_own").at_css("button[data-action='design--style-autosave#revertStyle'][disabled]")
+  end
+
+  test "read-only: the ▾ toggle is disabled" do
+    assert content(editable: false).at_css("button[data-action='design--dropdown#toggle'][disabled]")
+    refute content.at_css("button[data-action='design--dropdown#toggle']").key?("disabled")
+  end
+
+  test "each style field has exactly one named control" do
+    doc = content
+    Design::ParagraphStyle::STYLE_FIELDS.each do |f|
+      assert_equal 1, doc.css("[name='paragraph_style[#{f}]']").size, f
+    end
   end
 
   test "a changed field shows its value, a blue dot and an active ×" do
@@ -171,8 +234,18 @@ class Design::StylePanelTest < ActiveSupport::TestCase
     assert doc.css("button[data-action='design--style-autosave#revert']").all? { |b| b.key?("disabled") }
   end
 
-  test "control ids are stable across renders (so a morph keeps focus)" do
+  test "control ids are stable across inherited, changed and 422 renders (so a morph keeps focus), and unique" do
     ids = ->(doc) { doc.css("[id]").map { |e| e["id"] } }
-    assert_equal ids.(content), ids.(content)
+    inherited = ids.(content)
+    assert_equal inherited.uniq, inherited, "ids are unique within a render"
+    assert_equal inherited, ids.(content)
+
+    { "font_size" => 12, "text_align" => "center", "text_color" => "CMYK=0,0,0,50", "border_side" => "1,1,1,1",
+      "font" => Design::Theme::AVAILABLE_FONTS.first, "fill_type" => "solid" }.each do |f, v|
+      @foreword.set_style_field!("zz_body", f, v)
+    end
+    assert_equal inherited, ids.(content), "changed render"
+    assert_equal inherited, ids.(content(field_errors: { "font_size" => [ "bad" ], "text_align" => [ "bad" ] },
+                                         attempted: { "font_size" => "abc", "text_align" => "banana" })), "422 render"
   end
 end

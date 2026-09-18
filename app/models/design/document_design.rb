@@ -267,6 +267,13 @@ module Design
         has_parent: parent.values.any? { |v| !v.nil? } }
     end
 
+    # Fields of style `name` stored on ANY size of this doc type: what
+    # revert_style! clears (the style panel's 되돌리기 count).
+    def style_changed_fields_on_all_sizes(name)
+      rows = ParagraphStyle.where(styleable: same_doc_type_designs, name: name).to_a
+      ParagraphStyle::STYLE_FIELDS.select { |f| rows.any? { |r| !r[f].nil? } }
+    end
+
     # Raised by push_style! (before any write) when some size with this doc
     # type has no chapter design; `sizes` are those sizes' display names.
     class MissingChapterError < StandardError

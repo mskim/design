@@ -3,12 +3,14 @@ module Design
     module Inputs
       # A <select> whose first option ("") means "inherit": "상속 (<parent>)",
       # grey italic while selected. A current value missing from `options` is
-      # added so it round-trips unchanged.
+      # added so it round-trips unchanged. A named select gets a stable id
+      # ("sel-paragraph_style-font"), so a <label for> names it and a morph keeps it.
       class InheritSelect < Design::Views::Base
         CLASS = "#{Design::Views::FieldGroups::CONTROL} data-[inherited]:italic data-[inherited]:text-slate-400".freeze
 
-        def initialize(name:, value:, options:, inherited_value: nil, i18n_scope: nil, disabled: false)
+        def initialize(name:, value:, options:, inherited_value: nil, i18n_scope: nil, disabled: false, id: nil)
           @name = name
+          @id = id || (self.class.default_id(name) if name.present?)
           @value = value.to_s.presence
           @options = options
           @inherited = inherited_value.to_s.presence
@@ -17,11 +19,13 @@ module Design
         end
 
         def view_template
-          select(name: @name, class: CLASS, disabled: (true if @disabled), data: { inherited: (true unless @value) }) do
+          select(id: @id, name: @name, class: CLASS, disabled: (true if @disabled), data: { inherited: (true unless @value) }) do
             option(value: "", selected: @value.nil?) { inherit_label }
             all_options.each { |opt| option(value: opt, selected: opt == @value) { label_for(opt) } }
           end
         end
+
+        def self.default_id(name) = "sel-#{NumberField.dom_key(name)}"
 
         private
 

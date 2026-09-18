@@ -235,7 +235,8 @@ en:
       from_theme: "From theme"
       from_chapter: "From chapter"
       generated: "Auto-scaled"
-      revert_field: "Revert to inherited"
+      revert_field: "%{field} — revert to inherited"
+      revert_confirm: "Revert %{count} change(s) to this style on every paper size. Continue?"
       create: "Create"
       korean_name_optional: "Korean name (optional)"
       status:
@@ -422,7 +423,13 @@ en:
       lines: "lines"
       inherit: "Inherit"
       inherit_with_value: "Inherit (%{value})"
+      none: "None"
       clear: "Clear"
       picker: "Pick…"
       cmyk: "CMYK"
       hex: "Hex"
+      corners:
+        tl: "top left"
+        tr: "top right"
+        br: "bottom right"
+        bl: "bottom left"

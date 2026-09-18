@@ -35,4 +35,11 @@ class Design::InheritSelectTest < ActiveSupport::TestCase
   test "disabled" do
     assert render_select(value: nil, disabled: true).at_css("select[disabled]")
   end
+
+  test "a stable id from the name (a label can point at it), or the one given" do
+    assert_equal "sel-paragraph_style-text_align", render_select(value: nil).at_css("select")["id"]
+    assert_equal "mine", render_select(value: nil, id: "mine").at_css("select")["id"]
+    doc = Nokogiri::HTML.fragment(Design::Views::Inputs::InheritSelect.new(name: nil, value: nil, options: %w[a]).call)
+    refute doc.at_css("select").key?("id")
+  end
 end
