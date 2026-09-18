@@ -200,6 +200,7 @@ en:
       padding_bottom: "Padding Bottom (pt)"
       table_cell: "Table Cell"
       vertical_align: "Vertical align"
+      theme_only_hint: "Edit in theme"
 
     doc_types:
       title_page: "Title page"

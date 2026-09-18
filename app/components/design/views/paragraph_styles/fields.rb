@@ -32,7 +32,7 @@ module Design
           group_box("basic", I18n.t("design.fields.identity")) do
             rows do
               text_field(I18n.t("design.fields.name"), :name)
-              text_field(I18n.t("design.fields.korean_name"), :korean_name)
+              text_field(I18n.t("design.fields.korean_name"), :korean_name, theme_only: true)
             end
           end
         end
@@ -59,7 +59,8 @@ module Design
           group_box("table", I18n.t("design.fields.table_cell")) do
             rows do
               select_field(I18n.t("design.fields.vertical_align"), :vertical_align,
-                           Design::ParagraphStyle::VERTICAL_ALIGNS, include_blank: "— inherit —", span: true)
+                           Design::ParagraphStyle::VERTICAL_ALIGNS, include_blank: "— inherit —", span: true,
+                           theme_only: true)
             end
           end
         end
@@ -92,7 +93,7 @@ module Design
         def fill_section
           group_box("fill", I18n.t("design.fields.fill")) do
             rows do
-              select_field(I18n.t("design.fields.fill_type"), :fill_type, %w[none solid gradient], i18n_scope: "fill_type")
+              select_field(I18n.t("design.fields.fill_type"), :fill_type, %w[none solid gradient], include_blank: "— inherit —", i18n_scope: "fill_type")
               select_field(I18n.t("design.fields.gradient_dir"), :fill_gradient_direction, %w[top_to_bottom bottom_to_top left_to_right right_to_left angle], include_blank: "— none —", i18n_scope: "gradient_dir")
               color_row(I18n.t("design.fields.fill_color"), :fill_color)
               color_row(I18n.t("design.fields.ending_color"), :fill_ending_color)
@@ -124,9 +125,14 @@ module Design
 
         # ── Field helpers (box/row/control helpers come from FieldGroups) ──
 
-        def text_field(label_text, attr, span: false)
+        # theme_only: a theme-level field (korean_name, vertical_align) that a
+        # doc-type row can't store — shown read-only there, and (being disabled)
+        # not submitted, so it can't look saved while being dropped.
+        def text_field(label_text, attr, span: false, theme_only: false)
           field_row(label_text, span: span) do
-            input(type: "text", name: "paragraph_style[#{attr}]", value: field_value(@paragraph_style.public_send(attr)), class: CONTROL, **disabled_attr)
+            input(type: "text", name: "paragraph_style[#{attr}]", value: field_value(@paragraph_style.public_send(attr)),
+                  class: CONTROL, **disabled_attr(theme_only: theme_only))
+            theme_only_hint if theme_only
           end
         end
 
@@ -138,17 +144,32 @@ module Design
             disabled: disabled_attr[:disabled] == true)
         end
 
-        def select_field(label_text, attr, options, include_blank: nil, i18n_scope: nil, span: false)
+        # A nil value selects the blank option (so an inherited field posts "" and
+        # stays inherited); a current value missing from `options` is added as an
+        # extra option so it round-trips unchanged.
+        def select_field(label_text, attr, options, include_blank: nil, i18n_scope: nil, span: false, theme_only: false)
           field_row(label_text, span: span) do
-            select(name: "paragraph_style[#{attr}]", class: CONTROL, **disabled_attr) do
+            select(name: "paragraph_style[#{attr}]", class: CONTROL, **disabled_attr(theme_only: theme_only)) do
               current = @paragraph_style.public_send(attr)
               option(value: "") { include_blank } if include_blank
-              options.each do |opt|
-                label = i18n_scope ? I18n.t("design.options.#{i18n_scope}.#{opt}") : opt
+              select_options(options, current).each do |opt|
+                label = i18n_scope && options.include?(opt) ? I18n.t("design.options.#{i18n_scope}.#{opt}") : opt
                 option(value: opt, selected: opt == current) { label }
               end
             end
+            theme_only_hint if theme_only
           end
+        end
+
+        def select_options(options, current)
+          current.present? && !options.include?(current) ? options + [ current ] : options
+        end
+
+        def theme_only? = @paragraph_style.doc_type_row?
+
+        def theme_only_hint
+          return unless theme_only?
+          span(class: "shrink-0 text-xs text-slate-500") { I18n.t("design.fields.theme_only_hint") }
         end
 
         # Font names are long → full row.
@@ -212,16 +233,18 @@ module Design
               select(name: "paragraph_style[corner_radius]", class: "h-8 min-w-0 flex-1 rounded border border-slate-300 px-2 text-sm", **disabled_attr) do
                 current = @paragraph_style.corner_radius
                 option(value: "") { "— none —" }
-                %w[none small medium large].each do |opt|
-                  option(value: opt, selected: opt == current) { I18n.t("design.options.corner_radius.#{opt}") }
+                known = %w[none small medium large]
+                select_options(known, current).each do |opt|
+                  label = known.include?(opt) ? I18n.t("design.options.corner_radius.#{opt}") : opt
+                  option(value: opt, selected: opt == current) { label }
                 end
               end
             end
           end
         end
 
-        def disabled_attr
-          @editable ? {} : { disabled: true }
+        def disabled_attr(theme_only: false)
+          @editable && !(theme_only && theme_only?) ? {} : { disabled: true }
         end
 
         def field_value(value)

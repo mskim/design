@@ -378,6 +378,20 @@ module Design
 
     def style_has_parent?(name) = parent_values(name).values.any? { |v| !v.nil? }
 
+    # Clear `fields` on this design's row `name` (nil, unmarked); delete the row
+    # if that leaves it empty and the style has a parent. This design only.
+    def clear_style_fields!(name, fields, has_parent: nil)
+      row = paragraph_styles.find_by(name: name) or return
+      fields.each { |f| row[f.to_s] = nil }
+      row.overridden_fields = Array(row.overridden_fields) - fields.map(&:to_s)
+      has_parent = style_has_parent?(name) if has_parent.nil?
+      if has_parent && ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }
+        row.destroy!
+      else
+        row.save!
+      end
+    end
+
     protected
 
     # This design's current value for `field`: its own row's value, else the
@@ -387,17 +401,7 @@ module Design
       own.nil? ? parent[field] : own
     end
 
-    def clear_style_field(name, field, has_parent: nil)
-      row = paragraph_styles.find_by(name: name) or return
-      row[field] = nil
-      row.overridden_fields = Array(row.overridden_fields) - [ field ]
-      has_parent = style_has_parent?(name) if has_parent.nil?
-      if has_parent && ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }
-        row.destroy!
-      else
-        row.save!
-      end
-    end
+    def clear_style_field(name, field, has_parent: nil) = clear_style_fields!(name, [ field ], has_parent: has_parent)
 
     # Deleting rows doesn't bump max(updated_at); touch every design whose preview
     # may change (this doc type everywhere; for chapter, every doc type).

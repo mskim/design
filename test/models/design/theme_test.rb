@@ -151,6 +151,38 @@ class Design::ThemeTest < ActiveSupport::TestCase
     assert_equal 0, poem.paragraph_styles.where(name: "wing_left").count
   end
 
+  test "apply_paragraph_style_to_all! writes only the given fields and keeps other overrides" do
+    theme = Design::Theme.create!(name: "FA #{SecureRandom.hex(3)}", locale: "ko")
+    s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    poem = s1.document_designs.create!(doc_type: "poem")
+    base = theme.base_paragraph_styles.create!(name: "zz_body", font: "BaseFont", font_size: 10)
+    poem.paragraph_styles.create!(name: "zz_body", font_size: 9, text_align: "center",
+                                  overridden_fields: %w[font_size text_align])
+
+    theme.apply_paragraph_style_to_all!("zz_body", { "font_size" => "20" })
+
+    base.reload
+    assert_equal 20, base.font_size.to_i
+    assert_equal "BaseFont", base.font, "fields not given are left alone"
+    row = poem.paragraph_styles.find_by(name: "zz_body")
+    assert_nil row.font_size
+    assert_equal [ "text_align" ], row.overridden_fields
+    assert_equal "center", row.text_align, "other overrides are kept"
+  end
+
+  test "apply_paragraph_style_to_all! clear: also clears fields not written to the base" do
+    theme = Design::Theme.create!(name: "FA #{SecureRandom.hex(3)}", locale: "ko")
+    s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    poem = s1.document_designs.create!(doc_type: "poem")
+    base = theme.base_paragraph_styles.create!(name: "zz_body", font: "BaseFont", font_size: 10)
+    poem.paragraph_styles.create!(name: "zz_body", font: "PoemFont", overridden_fields: %w[font])
+
+    theme.apply_paragraph_style_to_all!("zz_body", {}, clear: %w[font])
+
+    assert_equal "BaseFont", base.reload.font
+    assert_nil poem.paragraph_styles.find_by(name: "zz_body"), "emptied row with a parent is deleted"
+  end
+
   test "shadow_override_doc_types returns distinct doc_types (one per doc_type, not per row)" do
     theme = Design::Theme.create!(name: "SH #{SecureRandom.hex(3)}", locale: "ko")
     s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
