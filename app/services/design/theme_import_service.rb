@@ -27,6 +27,9 @@ module Design
         import_heading_elements(db, dd_id_map)
         import_design_paragraph_styles(db, dd_id_map)
         Design::ThemeStyleSeeder.call(theme) # .book_design v2 has no table_styles; re-seed defaults
+        # .book_design files carry full-snapshot doc-type rows; keep only the fields
+        # that differ from the parent (theme → chapter → doc type). Also re-exports the .db.
+        Design::ParagraphStyleNormalizer.call(theme)
         theme
       end
     ensure

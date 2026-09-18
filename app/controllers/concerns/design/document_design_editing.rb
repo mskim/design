@@ -64,7 +64,7 @@ module Design
         if params[:apply_scope] == "all"
           @theme.apply_paragraph_style_to_all!(name, paragraph_style_params)
         else
-          @theme.apply_paragraph_style_to_doc_type!(@document_design.doc_type, name, paragraph_style_params)
+          write_changed_style_fields(style, name)
         end
         Design::ThemeDbExportService.new(@theme).export!
         # Refresh the preview AND the form: re-render the panel against where the
@@ -86,6 +86,24 @@ module Design
     private
 
     KNOWN_STYLE_LEVELS = %w[theme paper document].freeze
+
+    # Default-scope Save: write only the style fields the user changed, compared
+    # against what the form showed (the record it was rendered from) — never
+    # against another paper size's values, whose heading sizes legitimately
+    # differ. Each field goes through set_style_field!, which writes this doc type
+    # on every size and clears the field where it equals the parent. Non-style
+    # keys (korean_name, vertical_align) are theme-level and not written here.
+    def write_changed_style_fields(style, name)
+      fields = style.changes.filter_map do |field, (was, now)|
+        field if Design::ParagraphStyle::STYLE_FIELDS.include?(field) && !(blank_value?(was) && blank_value?(now))
+      end
+      @document_design.transaction do
+        fields.each { |f| @document_design.set_style_field!(name, f, style[f]) }
+      end
+    end
+
+    # A form renders nil as "" — a nil → "" round trip is not a user change.
+    def blank_value?(value) = value.nil? || (value.is_a?(String) && value.strip.empty?)
 
     # Stale style link (reverted, or cleared by an "apply to all" save): show the
     # live document view instead of raising. A turbo-frame request re-renders the

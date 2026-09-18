@@ -173,6 +173,60 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_equal 10, base.reload.font_size, "base untouched on scoped save"
   end
 
+  # What the Panel form posts: every permitted field as rendered (nil → "").
+  # vertical_align is omitted — its select only renders for table-cell styles.
+  def form_params_for(style, **edits)
+    (Design::ParagraphStyleParams::PERMITTED - [ :vertical_align ])
+      .index_with { |attr| style.public_send(attr).to_s }
+      .merge(edits.transform_values(&:to_s))
+  end
+
+  test "default-scope save where only font_size changed leaves every other field nil on all sizes" do
+    s2 = @theme.paper_sizes.create!(size_name: "사륙판", width_mm: 128, height_mm: 188)
+    ch2 = s2.document_designs.find_or_create_by!(doc_type: "chapter")
+    base = @theme.base_paragraph_styles.create!(name: "body", font: "BaseFont", font_size: 10,
+                                                text_align: "justify", text_color: "CMYK=0,0,0,100", first_line_indent: 10)
+
+    stub_preview do
+      patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: base.id),
+            params: { paragraph_style: form_params_for(base, font_size: 13) },
+            headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    end
+
+    assert_response :success
+    [ @dd, ch2 ].each do |ch|
+      row = ch.paragraph_styles.find_by(name: "body")
+      assert_not_nil row&.font_size, "font_size written on #{ch.paper_size.size_name}"
+      (Design::ParagraphStyle::STYLE_FIELDS - %w[font_size]).each do |f|
+        assert_nil row[f], "#{f} was not changed, so it stays inherited on #{ch.paper_size.size_name}"
+      end
+    end
+  end
+
+  test "default-scope save that doesn't touch font_size keeps per-size scaled heading sizes" do
+    theme = Design::Theme.create!(name: "PH #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
+    theme.base_paragraph_styles.create!(name: "title", font: "BaseFont", font_size: 24)
+    big = theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    small = theme.paper_sizes.create!(size_name: "사륙판", width_mm: 128, height_mm: 188)
+    ch_big = big.document_designs.find_or_create_by!(doc_type: "chapter")
+    ch_small = small.document_designs.find_or_create_by!(doc_type: "chapter")
+    big_title = ch_big.paragraph_styles.find_by!(name: "title")
+    small_size = ch_small.paragraph_styles.find_by!(name: "title").font_size
+    refute_equal big_title.font_size, small_size, "precondition: the generator scaled title per size"
+
+    stub_preview do
+      patch design.panel_update_theme_paper_size_document_design_path(theme, big, ch_big, level: "document", style_id: big_title.id),
+            params: { paragraph_style: form_params_for(big_title, text_color: "CMYK=0,100,0,0") },
+            headers: { "Accept" => "text/vnd.turbo-stream.html" }
+    end
+
+    assert_response :success
+    small_row = ch_small.paragraph_styles.find_by!(name: "title")
+    assert_equal small_size, small_row.font_size, "the other size keeps its own scaled heading size"
+    assert_equal "CMYK=0,100,0,0", small_row.text_color, "the changed field fans out"
+    assert_equal "CMYK=0,100,0,0", big_title.reload.text_color
+  end
+
   test "default-scope save refreshes the panel as the document override with a revert link" do
     base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
 

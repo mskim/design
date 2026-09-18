@@ -52,14 +52,17 @@ module Design
       paper_sizes.order(:id).first
     end
 
-    # Write `attrs` (a permitted paragraph-style params hash) as a document-level
-    # override of `name` onto every DocumentDesign of `doc_type` across this theme's
-    # paper sizes (the current document is one of them). The theme base is untouched;
-    # because all sizes share one base, identical override attrs resolve identically.
+    # Set each STYLE_FIELDS key present in `attrs` (a Hash or permitted
+    # ActionController::Parameters, string or symbol keys) on style `name` of
+    # `doc_type`, via DocumentDesign#set_style_field! on the first design of that
+    # doc type — which writes every paper size and stores only fields that differ
+    # from the parent. Non-style keys (korean_name, vertical_align) are ignored.
     def apply_paragraph_style_to_doc_type!(doc_type, name, attrs)
+      dd = document_designs.where(doc_type: doc_type).order(:id).first or return
+      attrs = attrs.to_h.stringify_keys
       transaction do
-        document_designs.where(doc_type: doc_type).find_each do |dd|
-          dd.upsert_paragraph_style!(name, attrs)
+        (attrs.keys & Design::ParagraphStyle::STYLE_FIELDS).each do |field|
+          dd.set_style_field!(name, field, attrs[field])
         end
       end
     end
@@ -74,6 +77,8 @@ module Design
         document_designs.find_each do |dd|
           dd.paragraph_styles.where(name: name).destroy_all
         end
+        # Deleting rows doesn't bump the preview-cache fingerprint; touch instead.
+        document_designs.update_all(updated_at: Time.current)
         base
       end
     end
