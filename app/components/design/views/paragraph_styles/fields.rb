@@ -192,51 +192,19 @@ module Design
             label: label_text, span: span, disabled: disabled_attr[:disabled] == true)
         end
 
-        # ── Border side / corner editors (compact; behaviour unchanged) ──
+        # ── Border side / corner editors (Inputs::BorderSides / Inputs::Corners) ──
 
         def border_side_editor
-          div do
-            label(class: "text-xs text-slate-600") { I18n.t("design.fields.border_sides") }
-            div(class: "mt-0.5", data: { controller: "design--border-side-editor" }) do
-              input(type: "hidden", name: "paragraph_style[border_side]", value: field_value(@paragraph_style.border_side), data: { "design--border-side-editor-target": "input" }, **disabled_attr)
-              div(class: "flex flex-col items-center gap-0.5") do
-                button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "top" },
-                  class: "px-3 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-white", **disabled_attr) { I18n.t("design.shared.top") }
-                div(class: "flex items-center gap-0.5") do
-                  button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "left" },
-                    class: "px-0.5 py-1.5 text-xs cursor-pointer border border-slate-300 rounded bg-white", **disabled_attr) { I18n.t("design.shared.left") }
-                  div(class: "w-14 h-10 bg-white border border-dashed border-slate-300", data: { "design--border-side-editor-target": "box" })
-                  button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "right" },
-                    class: "px-0.5 py-1.5 text-xs cursor-pointer border border-slate-300 rounded bg-white", **disabled_attr) { I18n.t("design.shared.right") }
-                end
-                button(type: "button", data: { action: "click->design--border-side-editor#toggle", side: "bottom" },
-                  class: "px-2 py-0.5 text-xs cursor-pointer border border-slate-300 rounded bg-white", **disabled_attr) { I18n.t("design.shared.bottom") }
-              end
-            end
-          end
+          render Design::Views::Inputs::BorderSides.new(
+            name: "paragraph_style[border_side]", value: field_value(@paragraph_style.border_side),
+            disabled: disabled_attr[:disabled] == true)
         end
 
         def corner_editor
           div do
-            label(class: "text-xs text-slate-600") { I18n.t("design.fields.rounded_corners") }
-            div(class: "mt-0.5", data: { controller: "design--corner-editor" }) do
-              input(type: "hidden", name: "paragraph_style[rounded_corners]", value: field_value(@paragraph_style.rounded_corners), data: { "design--corner-editor-target": "input" }, **disabled_attr)
-              div(class: "flex flex-col items-center gap-0.5") do
-                div(class: "flex gap-8") do
-                  button(type: "button", data: { action: "click->design--corner-editor#toggle", corner: "tl", "design--corner-editor-target": "tl" },
-                    class: "w-6 h-6 text-xs cursor-pointer border border-slate-300 rounded-tl-md flex items-center justify-center bg-white", **disabled_attr)
-                  button(type: "button", data: { action: "click->design--corner-editor#toggle", corner: "tr", "design--corner-editor-target": "tr" },
-                    class: "w-6 h-6 text-xs cursor-pointer border border-slate-300 rounded-tr-md flex items-center justify-center bg-white", **disabled_attr)
-                end
-                div(class: "w-14 h-8 bg-white border border-slate-300", data: { "design--corner-editor-target": "box" })
-                div(class: "flex gap-8") do
-                  button(type: "button", data: { action: "click->design--corner-editor#toggle", corner: "bl", "design--corner-editor-target": "bl" },
-                    class: "w-6 h-6 text-xs cursor-pointer border border-slate-300 rounded-bl-md flex items-center justify-center bg-white", **disabled_attr)
-                  button(type: "button", data: { action: "click->design--corner-editor#toggle", corner: "br", "design--corner-editor-target": "br" },
-                    class: "w-6 h-6 text-xs cursor-pointer border border-slate-300 rounded-br-md flex items-center justify-center bg-white", **disabled_attr)
-                end
-              end
-            end
+            render Design::Views::Inputs::Corners.new(
+              name: "paragraph_style[rounded_corners]", value: field_value(@paragraph_style.rounded_corners),
+              disabled: disabled_attr[:disabled] == true)
             div(class: "mt-1 flex items-center gap-1.5") do
               label(class: "shrink-0 text-sm text-slate-600") { I18n.t("design.fields.corner_radius") }
               select(name: "paragraph_style[corner_radius]", class: "h-8 min-w-0 flex-1 rounded border border-slate-300 px-2 text-sm", **disabled_attr) do

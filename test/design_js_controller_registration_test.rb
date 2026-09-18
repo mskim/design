@@ -109,4 +109,12 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "parent: String"
     assert_includes src, "parentValue"
   end
+
+  test "border and corner editors dispatch a bubbling change and know the parent value" do
+    %w[border_side_editor corner_editor].each do |c|
+      src = File.read(ENGINE_JS.join("design-controllers/design/#{c}_controller.js"))
+      assert_includes src, %(dispatchEvent(new Event("change", { bubbles: true }))), c
+      assert_includes src, "parent: String", c
+    end
+  end
 end
