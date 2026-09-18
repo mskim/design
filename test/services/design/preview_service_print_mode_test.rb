@@ -39,6 +39,18 @@ class Design::PreviewServicePrintModeTest < ActiveSupport::TestCase
     refute_equal normal.send(:cache_fingerprint), print.send(:cache_fingerprint)
   end
 
+  # doc_processor_rb cf4eb37 changed what a chapter renders in print mode
+  # (heading, running heads and tables now shift too), not the normal
+  # render: only print caches go stale, so only the print key moves.
+  test "the print key carries its own version; the normal key doesn't" do
+    assert_equal "print-v2", Design::PreviewService::PRINT_CACHE_VERSION
+    normal = Design::PreviewService.new(@dd, paper_size: @ps)
+    print = Design::PreviewService.new(@dd, paper_size: @ps, print_mode: true)
+    parts = ->(svc) { svc.send(:cache_fingerprint_parts) }
+    assert_equal parts.(normal) + [ "print-v2" ], parts.(print)
+    refute_includes parts.(normal).join, "print"
+  end
+
   test "a doc type without a print preview ignores print mode (one cache)" do
     dd = @ps.document_designs.create!(doc_type: "blank_page")
     svc = Design::PreviewService.new(dd, paper_size: @ps, print_mode: true)
