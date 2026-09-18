@@ -119,6 +119,16 @@ class Design::PageSectionTest < ActiveSupport::TestCase
                     I18n.t("design.page_section.errors.too_narrow", min: 20)
   end
 
+  test "a valid design renders no warning" do
+    assert_empty content.css("[data-page-warning]")
+  end
+
+  test "stored margins leaving too little text height show too_short under 여백" do
+    @ps.update_columns(top_margin_mm: 110, bottom_margin_mm: 100)
+    assert_equal [ I18n.t("design.page_section.errors.too_short", min: 20) ],
+                 content.css("fieldset[data-group='margins'] [data-page-warning]").map(&:text)
+  end
+
   test "read-only: controls and the link disabled, no active ×, no edit link" do
     @ps.update!(top_margin_mm: 30, overridden_fields: %w[top_margin_mm])
     doc = content(editable: false)

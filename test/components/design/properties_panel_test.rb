@@ -58,7 +58,9 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
     names = tabs_form.css("[name^='document_design[']").map { |e| e["name"] }
     assert_includes names, "document_design[heading_height_in_lines]"
     %w[body_line_count column_count gutter].each { |f| refute_includes names, "document_design[#{f}]" }
-    assert tabs_form.css("[name^='page[']").all? { |e| e["form"] == "page-section-form" }, "FormData(tabs form) skips them"
+    page_controls = tabs_form.css("[name^='page[']")
+    refute_empty page_controls
+    assert page_controls.all? { |e| e["form"] == "page-section-form" }, "FormData(tabs form) skips them"
   end
 
   test "the Page section's empty form sits outside the tabs form, inside the frame" do

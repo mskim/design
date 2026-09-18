@@ -282,7 +282,7 @@ en:
       body_line_count: "Body lines"
       from_paper_size: "From page size"
       columns: "Columns"
-      column_count: "Columns"
+      column_count: "Number of columns"
       gutter: "Gutter"
       revert_margin: "%{field} — back to the rule's value"
       revert_body: "%{field} — back to the page size's value"
