@@ -160,6 +160,22 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "values["
   end
 
+  # fieldChanged and revert (× / emptying) build their jobs the same way.
+  test "style_autosave passes the required fields to every saveJobs call" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    calls = src.scan(/saveJobs\(\{[^}]*\}\)/)
+    assert_equal 2, calls.size
+    calls.each { |call| assert_includes call, "required: this.requiredFieldsValue" }
+  end
+
+  # A field name is never interpolated into a selector: the partner is found
+  # by matching each input's name (partnerInput, node-tested).
+  test "style_autosave finds the linked partner without building a selector from its name" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, "partnerInput("
+    refute_match(/querySelector\(`\[name=/, src)
+  end
+
   # The morph decision is taken once per element, before Idiomorph touches its
   # attributes (it asks about `value` twice); the listener is added in connect(),
   # so the form's data-action needs no entry for it.

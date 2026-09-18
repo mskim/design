@@ -16,6 +16,15 @@ export function partnerOf(field) {
   return i < 0 ? null : LINKED_FIELDS[1 - i]
 }
 
+// The input for `field`'s linked partner among `inputs` (anything with a
+// `name`), matched by field name through `fieldOf` — never by building a
+// selector from the name. null when there is no partner or it isn't there.
+export function partnerInput(inputs, fieldOf, field) {
+  const partner = partnerOf(field)
+  if (!partner) return null
+  return Array.from(inputs).find((input) => fieldOf(input.name) === partner) ?? null
+}
+
 export function saveJobs({ field, value, url, linked = false, required = [] }) {
   const pair = linked && LINKED_FIELDS.includes(field)
   if (value === "" && !required.includes(field)) {

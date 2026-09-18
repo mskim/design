@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { saveJobs, partnerOf, LINKED_FIELDS, LINKED_KEY }
+import { saveJobs, partnerOf, partnerInput, LINKED_FIELDS, LINKED_KEY }
   from "../../app/javascript/design-controllers/design/field_save_jobs.js"
 
 const url = "/p/field"
@@ -42,4 +42,15 @@ test("partnerOf pairs Left and Right only", () => {
   assert.equal(partnerOf("left_margin_mm"), "right_margin_mm")
   assert.equal(partnerOf("right_margin_mm"), "left_margin_mm")
   assert.equal(partnerOf("top_margin_mm"), null)
+})
+
+test("partnerInput finds the partner by its field name, never by building a selector", () => {
+  const fieldOf = (name) => name?.match(/^page\[([a-z_]+)\]$/)?.[1] ?? null
+  const left = { name: "page[left_margin_mm]" }
+  const right = { name: "page[right_margin_mm]" }
+  const inputs = [ { name: "page[top_margin_mm]" }, { name: 'x"] , [name="page[right_margin_mm]' }, left, right ]
+  assert.equal(partnerInput(inputs, fieldOf, "left_margin_mm"), right)
+  assert.equal(partnerInput(inputs, fieldOf, "right_margin_mm"), left)
+  assert.equal(partnerInput(inputs, fieldOf, "top_margin_mm"), null, "no partner")
+  assert.equal(partnerInput([ left ], fieldOf, "left_margin_mm"), null, "partner not rendered")
 })

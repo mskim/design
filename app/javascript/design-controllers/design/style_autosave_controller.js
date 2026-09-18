@@ -2,28 +2,33 @@ import { Controller } from "@hotwired/stimulus"
 import { StyleSaveQueue } from "design-controllers/design/style_save_queue"
 import { fieldMatcher, LocalValueKeeper, dropStreamsFor, keepsUserAttribute, PANEL_TARGET, FIELD_PREFIX, MENU, MARGIN_LINK }
   from "design-controllers/design/style_panel_morph"
-import { saveJobs, partnerOf } from "design-controllers/design/field_save_jobs"
+import { saveJobs, partnerInput } from "design-controllers/design/field_save_jobs"
 
-// Autosave for the paragraph style panel (D2b). Each committed field change —
-// the `change` a NumberField commit, a select, a ColorField close or a border/
-// corner toggle emits — becomes one request; × buttons and the ▾ menu add
-// theirs. Requests run one at a time, in order (StyleSaveQueue). Responses are
-// turbo streams that morph #style-panel-content (and replace the preview); the
-// morph keeps focus, and the handlers below keep what it must not overwrite:
-// a value whose save is unanswered, an uncommitted (dirty) value — typing or a
-// scrub-drag — an open colour popover, each <details>' open state and the ▾
-// menu's open state. Whether a control keeps its value is decided once per
-// morphed element (LocalValueKeeper). When the last request of a burst fails
-// without a stream, the preview is reloaded. Once the panel is gone (the
-// frame moved to another style), waiting saves are dropped and a late
-// response renders only its preview stream, never the panel stream, which
-// would land in the next style's panel (same id).
+// Autosave for the paragraph style panel (D2b) and the Layout tab's Page
+// section (D3: margins, binding, body lines, columns). Each committed field
+// change — the `change` a NumberField commit, a select, a ColorField close or
+// a border/corner toggle emits — becomes one request (field_save_jobs.js);
+// × buttons and the ▾ menu add theirs. Requests run one at a time, in order
+// (StyleSaveQueue). Responses are turbo streams that morph the panel target
+// (#style-panel-content or #page-section-content) and replace the preview;
+// the morph keeps focus, and the handlers below keep what it must not
+// overwrite: a value whose save is unanswered, an uncommitted (dirty) value —
+// typing or a scrub-drag — an open colour popover, each <details>' open
+// state, the ▾ menu's open state and the 🔗 margin link's pressed state.
+// Whether a control keeps its value is decided once per morphed element
+// (LocalValueKeeper). When the last request of a burst fails without a
+// stream, the preview is reloaded. Once the panel is gone (the frame moved
+// to another style), waiting saves are dropped and a late response renders
+// only its preview stream, never the panel stream, which would land in the
+// next panel with the same id.
 //
 // Configured by data values: `field-prefix` (controls named <prefix>[<field>];
-// `paragraph_style` by default), `panel-target` (the morphed element's id;
-// `style-panel-content` by default) and `required-fields` (never reverted:
-// emptying one PATCHes ""). A `[data-margin-link]` toggle inside the element
-// links the Left and Right margins (field_save_jobs.js).
+// `paragraph_style` by default, `page` for the Page section), `panel-target`
+// (the morphed element's id; `style-panel-content` by default,
+// `page-section-content` for the Page section) and `required-fields` (never
+// reverted: emptying one PATCHes "" — the Page section's column count and
+// gutter). A `[data-margin-link]` toggle inside the element links the Left
+// and Right margins: a value sets both in one request, a revert reverts both.
 
 export default class extends Controller {
   static targets = ["status"]
@@ -75,7 +80,10 @@ export default class extends Controller {
   // × on a field (with the link on, × on Left or Right reverts both).
   revert(event) {
     const field = event.currentTarget.dataset.field
-    if (field) this.enqueueAll(saveJobs({ field, value: "", url: this.fieldUrlValue, linked: this.linked }))
+    if (field) {
+      this.enqueueAll(saveJobs({ field, value: "", url: this.fieldUrlValue, linked: this.linked,
+                                 required: this.requiredFieldsValue }))
+    }
   }
 
   // 🔗 between Left and Right: client-side state (kept through morphs by
@@ -90,8 +98,7 @@ export default class extends Controller {
   // The linked partner shows the committed value at once; its save is part of
   // the pair's request, so the queue reports it pending until the answer.
   mirrorPartner(field, value) {
-    const partner = partnerOf(field)
-    const input = partner && this.element.querySelector(`[name="${this.fieldPrefixValue}[${partner}]"]`)
+    const input = partnerInput(this.element.querySelectorAll("[name]"), this.fieldOf, field)
     if (!input || input.value === value) return
     input.value = value
     markCommitted(input)
