@@ -9,7 +9,7 @@ module Design
 
     def edit
       @paragraph_styles = @document_design.paragraph_styles.order(:name)
-      render Design::Views::DocumentDesigns::Edit.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, paragraph_styles: @paragraph_styles, editable: editable?, tab: params[:tab])
+      render Design::Views::DocumentDesigns::Edit.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, paragraph_styles: @paragraph_styles, editable: editable?, tab: params[:tab], print_preview: print_preview?)
     end
 
     def update
@@ -17,7 +17,7 @@ module Design
         Design::ThemeDbExportService.new(@theme).export!
         redirect_to helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design), notice: "Document design updated."
       else
-        render Design::Views::DocumentDesigns::Edit.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, paragraph_styles: @document_design.paragraph_styles.order(:name), editable: editable?), status: :unprocessable_entity
+        render Design::Views::DocumentDesigns::Edit.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, paragraph_styles: @document_design.paragraph_styles.order(:name), editable: editable?, print_preview: print_preview?), status: :unprocessable_entity
       end
     end
 

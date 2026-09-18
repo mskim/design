@@ -390,6 +390,9 @@ en:
       theme_page: "theme page"
 
     preview:
+      guides: "Guides"
+      print: "Print"
+      print_unavailable: "This document type doesn't use the binding margin"
       generation_failed: "Preview generation failed"
       heading_fallback: "Heading"
       body_fallback: "Body"

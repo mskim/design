@@ -6,9 +6,11 @@ module Design
 
         # pages: [ { jpg_url:, overlay_data: }, ... ] in page order. mode: :scroll stacks
         # them all (the design editor); :single shows page 1 (style edit pages). The
-        # legacy jpg_url/overlay_data kwargs are a one-page shorthand.
+        # legacy jpg_url/overlay_data kwargs are a one-page shorthand. print_mode: the
+        # pages were rendered in print mode (the service result), so the guides
+        # draw the binding.
         def initialize(document_design:, paper_size:, pages: nil, mode: :scroll, jpg_url: nil, overlay_data: [],
-                       page_width: nil, page_height: nil, style_urls: {})
+                       page_width: nil, page_height: nil, style_urls: {}, print_mode: false)
           @dd = document_design
           @ps = paper_size
           @pages = pages || (jpg_url ? [ { jpg_url: jpg_url, overlay_data: overlay_data || [] } ] : [])
@@ -16,6 +18,7 @@ module Design
           @page_width = page_width || @ps.width_pt
           @page_height = page_height || @ps.height_pt
           @style_urls = style_urls || {}
+          @print_mode = print_mode
         end
 
         def view_template
@@ -37,15 +40,40 @@ module Design
         def render_page(page, number)
           aspect = @page_width / @page_height
           div(class: "flex flex-col items-center gap-1") do
-            div(class: "relative bg-white shadow-lg", style: "width: #{DISPLAY_WIDTH}px; aspect-ratio: #{aspect};") do
+            div(class: "relative bg-white shadow-lg", style: "width: #{DISPLAY_WIDTH}px; aspect-ratio: #{aspect};",
+                data: guide_data(number)) do
               img(src: page[:jpg_url], class: "absolute inset-0 w-full h-full object-contain",
                   style: "pointer-events: none;", alt: "Preview of #{@dd.doc_type} page #{number}", loading: "eager")
+              if guides?
+                div(class: "pointer-events-none absolute inset-0 group-data-[guides=off]/preview:hidden",
+                    data: { "design--page-guides-target": "layer" })
+              end
               render_svg_overlay(page[:overlay_data]) if page[:overlay_data].present?
             end
             if @pages.size > 1
               p(class: "text-xs text-slate-500", data: { page_label: true }) { "#{number} / #{@pages.size}" }
             end
           end
+        end
+
+        def guides? = @dd.guide_kind != :none
+
+        def guide_data(number)
+          return {} unless guides?
+          { controller: "design--page-guides", "design--page-guides-geometry-value": guide_geometry(number).to_json }
+        end
+
+        # The page-guides controller's input, in pt: the rendered page size (a
+        # wing's flap width comes from the service result), the paper size's
+        # margins, the binding only when this preview renders in print mode,
+        # this design's columns, and the page's parity (preview page N is odd
+        # when N is, as the engine's start_page 0 makes it).
+        def guide_geometry(number)
+          { kind: @dd.guide_kind.to_s, width: @page_width.to_f.round(3), height: @page_height.to_f.round(3),
+            top: @ps.top_margin_pt.to_f.round(3), bottom: @ps.bottom_margin_pt.to_f.round(3),
+            left: @ps.left_margin_pt.to_f.round(3), right: @ps.right_margin_pt.to_f.round(3),
+            binding: @print_mode ? @ps.binding_margin_pt.to_f.round(3) : 0.0,
+            columnCount: @dd.column_count.to_i, gutter: @dd.gutter.to_f, parity: number.odd? ? "odd" : "even" }
         end
 
         def render_svg_overlay(overlay_data)

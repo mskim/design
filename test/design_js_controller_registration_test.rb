@@ -186,7 +186,7 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "LocalValueKeeper"
   end
 
-  %w[style_save_queue style_panel_morph edge_flags field_save_jobs].each do |mod|
+  %w[style_save_queue style_panel_morph edge_flags field_save_jobs page_guides].each do |mod|
     test "#{mod} is a pure module" do
       src = File.read(ENGINE_JS.join("design-controllers/design/#{mod}.js"))
       refute_match(/^import /, src)
@@ -198,5 +198,17 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
   test "live_preview ignores the Page section's events (they bubble through the tabs form)" do
     assert_includes File.read(ENGINE_JS.join("design-controllers/design/live_preview_controller.js")),
                     %(closest?.("[data-page-section]"))
+  end
+
+  test "page_guides and preview_toolbar controllers import the pure page_guides module by its importmap name" do
+    %w[page_guides preview_toolbar].each do |c|
+      src = File.read(ENGINE_JS.join("design-controllers/design/#{c}_controller.js"))
+      assert_includes src, %(import { Controller } from "@hotwired/stimulus"), c
+      assert_includes src, %("design-controllers/design/page_guides"), c
+      refute_match(/from\s+["']\.\.?\//, src, c)
+    end
+    src = File.read(ENGINE_JS.join("design-controllers/design/preview_toolbar_controller.js"))
+    assert_includes src, "localStorage"
+    assert_includes src, "document.cookie = printCookie("
   end
 end

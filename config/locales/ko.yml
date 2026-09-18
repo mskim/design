@@ -390,6 +390,9 @@ ko:
       theme_page: "테마 페이지"
 
     preview:
+      guides: "안내선"
+      print: "인쇄용"
+      print_unavailable: "이 문서 유형은 제본 여백을 쓰지 않음"
       generation_failed: "미리보기 생성 실패"
       heading_fallback: "제목"
       body_fallback: "본문"

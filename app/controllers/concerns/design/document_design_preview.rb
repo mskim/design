@@ -67,7 +67,8 @@ module Design
       end
       Design::Views::DocumentDesigns::Preview.new(
         document_design: dd, paper_size: @paper_size, pages: pages, mode: preview_mode,
-        page_width: result[:page_width], page_height: result[:page_height], style_urls: build_style_urls)
+        page_width: result[:page_width], page_height: result[:page_height], style_urls: build_style_urls,
+        print_mode: result[:print_mode] == true)
     end
 
     # Turbo-stream replacing the document preview with a freshly rendered one.
