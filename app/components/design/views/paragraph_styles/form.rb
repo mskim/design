@@ -17,7 +17,7 @@ module Design
 
         def view_template
           shell(title: @paragraph_style.name, action_slot: nil, sidebar: sidebar) do
-            div(class: "mx-auto max-w-6xl px-6 py-10 flex flex-col gap-8") do
+            div(class: "px-6 py-8 flex flex-col gap-8") do
               render Design::Views::Breadcrumb.new(crumbs: @crumbs)
 
               h1(class: "text-2xl font-semibold text-slate-900") { @paragraph_style.name }

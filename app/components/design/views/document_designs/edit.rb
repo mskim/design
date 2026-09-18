@@ -15,7 +15,7 @@ module Design
         def view_template
           shell(title: doc_type_label(@document_design.doc_type), action_slot: nil,
                 sidebar: design_sidebar(@theme, @paper_size, @document_design)) do
-            div(class: "mx-auto max-w-6xl px-6 py-10 flex flex-col gap-8") do
+            div(class: "px-6 py-8 flex flex-col gap-8") do
               render Design::Views::DocumentDesigns::EditorToolbar.new(
                 theme: @theme, paper_size: @paper_size, document_design: @document_design
               )

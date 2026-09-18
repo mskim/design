@@ -14,7 +14,7 @@ module Design
 
         def view_template
           turbo_frame(id: "properties_panel") do
-            div(class: "w-96 border-l flex flex-col max-h-screen") do
+            div(class: "w-full border-l flex flex-col max-h-screen") do
               render_header
               render_form_body
             end
@@ -325,7 +325,7 @@ module Design
             end
             div(class: "flex gap-2 mt-2") do
               select(
-                class: "flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm",
+                class: "min-w-0 flex-1 rounded border border-slate-300 px-2 py-1.5 text-sm",
                 data: { "design--heading-elements-target": "typeSelect" },
                 **disabled_attr
               ) do
@@ -370,7 +370,7 @@ module Design
               name: "#{prefix}[style_name]",
               value: el&.style_name || "title",
               placeholder: "style name",
-              class: "flex-1 rounded border border-slate-300 px-2 py-1 text-xs",
+              class: "min-w-0 flex-1 rounded border border-slate-300 px-2 py-1 text-xs",
               data: { "design--heading-elements-target": "styleName" },
               **disabled_attr
             )
