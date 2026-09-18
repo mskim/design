@@ -8,6 +8,8 @@ module Design
     GENERATION_LOCK = Mutex.new
 
     PREVIEW_DPI = 150
+    MAX_PREVIEW_PAGES = 4
+    CACHE_VERSION = "v2" # bump when the stamp/JPG layout changes; old stamps become misses
     FALLBACK_HEADING = {
       "title" => "첫번째 이야기",
       "subtitle" => "부제목은 여기에",
@@ -83,70 +85,45 @@ module Design
 
       db_path = File.join(work, "preview.db")
       pdf_path = File.join(work, "preview.pdf")
-      work_jpg = File.join(work, "preview.jpg")
 
       db_doc = nil
-      overlay_data = nil
+      pages = nil
       begin
         # The DB build, PDF render, and overlay read all go through doc_processor's
         # global Sequel models, so they must run one-at-a-time per process.
         GENERATION_LOCK.synchronize do
-          # 1. Create and populate SQLite database
           db_doc = create_db_document(db_path)
           populate_database(db_doc)
-
-          # 2. Generate PDF via doc_processor_rb renderer
           generate_pdf(db_doc, pdf_path)
-
-          # 3. Extract overlay data from block_overlays table
-          overlay_data = extract_overlay_data(db_doc)
-
-          # 4. Synthesize heading overlay for TOC (the renderer only emits toc_entry overlays)
-          if document_design.doc_type == "toc" && document_design.heading_height_in_lines.to_i > 0
-            overlay_data = synthesize_toc_heading_overlay + overlay_data
-          end
+          # Per-page overlays must be read while the DBDocument is open (inside the lock).
+          pages = extract_pages_overlay_data(db_doc)
         ensure
           db_doc&.close # release the connection before the next thread rebinds the models
           db_doc = nil
         end
 
-        # 5. Convert PDF → JPG (libvips, no Sequel models — safe outside the lock)
-        convert_pdf_to_jpg(pdf_path, work_jpg)
+        # Rasterize (libvips, no Sequel models — safe outside the lock) into the work dir,
+        # then publish page by page + the stamp that validates them.
+        rendered = convert_pdf_to_jpgs(pdf_path, work)
+        pages = pages.first(rendered)
+        publish_pages(work, pages.size)
+        save_cache_stamp(pages)
 
-        # 6. Publish: rename the finished JPG into place (atomic, same FS), then the
-        # stamp that validates it. Concurrent runs produce equivalent output, so
-        # last-writer-wins is safe.
-        File.rename(work_jpg, jpg_path)
-        save_cache_stamp(overlay_data)
-
-        {
-          success: true,
-          jpg_path: jpg_path,
-          overlay_data: overlay_data,
-          page_width: preview_page_width_pt,
-          page_height: paper_size.height_pt,
-          error: nil
-        }
+        result_hash(pages)
       rescue => e
         Rails.logger.error "DesignPreviewService error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
-        {
-          success: false,
-          jpg_path: nil,
-          overlay_data: [],
-          page_width: preview_page_width_pt,
-          page_height: paper_size.height_pt,
-          error: e.message
-        }
+        { success: false, page_count: 0, pages: [], jpg_path: nil, overlay_data: [],
+          page_width: preview_page_width_pt, page_height: paper_size.height_pt, error: e.message }
       ensure
         db_doc&.close
         FileUtils.rm_rf(work)
       end
     end
 
-    # Path where the JPG preview lives (for serving from controller)
-    def jpg_path
-      File.join(preview_dir, "preview.jpg")
-    end
+    # Page-1 JPG (kept for callers that only ever show the first page: cards, gallery).
+    def jpg_path = page_jpg_path(1)
+
+    def page_jpg_path(page) = File.join(preview_dir, "preview_#{page}.jpg")
 
     def clear_cache
       FileUtils.rm_rf(preview_dir)
@@ -174,7 +151,7 @@ module Design
         document_design.heading_elements.maximum(:updated_at),
         paper_size.theme.base_paragraph_styles.maximum(:updated_at)
       ].compact
-      Digest::MD5.hexdigest(timestamps.map(&:to_s).join("-"))
+      "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((timestamps.map(&:to_s) + [ sample_content.raw.to_s.bytesize.to_s ]).join("-"))
     end
 
     def cache_stamp_path
@@ -182,30 +159,49 @@ module Design
     end
 
     def load_cached_preview
-      stamp_path = cache_stamp_path
-      jpg = File.join(preview_dir, "preview.jpg")
-      return nil unless File.exist?(stamp_path) && File.exist?(jpg)
+      return nil unless File.exist?(cache_stamp_path)
+      stamp = JSON.parse(File.read(cache_stamp_path))
+      return nil unless stamp["fingerprint"] == cache_fingerprint && stamp["pages"].is_a?(Array)
+      count = stamp["pages"].size
+      return nil unless count.positive? && (1..count).all? { |n| File.exist?(page_jpg_path(n)) }
 
-      stamp = JSON.parse(File.read(stamp_path))
-      return nil unless stamp["fingerprint"] == cache_fingerprint
-
-      {
-        success: true,
-        jpg_path: jpg,
-        overlay_data: stamp["overlay_data"].map(&:symbolize_keys),
-        page_width: preview_page_width_pt,
-        page_height: paper_size.height_pt,
-        error: nil
-      }
+      pages = stamp["pages"].each_with_index.map do |pg, i|
+        { jpg_path: page_jpg_path(i + 1), overlay_data: pg["overlay_data"].map(&:symbolize_keys) }
+      end
+      result_hash(pages)
     rescue JSON::ParserError
       nil
     end
 
-    def save_cache_stamp(overlay_data)
+    def save_cache_stamp(pages)
       File.write(cache_stamp_path, {
         fingerprint: cache_fingerprint,
-        overlay_data: overlay_data
+        page_count: pages.size,
+        pages: pages.map { |pg| { overlay_data: pg[:overlay_data] } }
       }.to_json)
+    end
+
+    def result_hash(pages)
+      {
+        success: true,
+        page_count: pages.size,
+        pages: pages,
+        jpg_path: pages.first&.dig(:jpg_path),
+        overlay_data: pages.first&.dig(:overlay_data) || [],
+        page_width: preview_page_width_pt,
+        page_height: paper_size.height_pt,
+        error: nil
+      }
+    end
+
+    # Move preview_1..N.jpg from the work dir into preview_dir (atomic per file, same FS)
+    # and drop any stale higher-numbered pages from a previous, longer render.
+    def publish_pages(work, count)
+      (1..count).each { |n| File.rename(File.join(work, "preview_#{n}.jpg"), page_jpg_path(n)) }
+      Dir[File.join(preview_dir, "preview_*.jpg")].each do |f|
+        n = f[/preview_(\d+)\.jpg\z/, 1].to_i
+        File.delete(f) if n > count
+      end
     end
 
     def create_db_document(db_path)
@@ -422,7 +418,9 @@ module Design
       return unless doc_type.needs_text_box?
       return if document_design.doc_type == "toc"
 
-      repeat = document_design.doc_type == "copyright" ? 1 : (doc_type.single_page? ? 2 : 6)
+      # Enough to overflow into page 2–3 for multi-page types; the preview is capped at
+      # MAX_PREVIEW_PAGES anyway, so 6× only made the PDF slower to render.
+      repeat = document_design.doc_type == "copyright" ? 1 : 2
       paragraphs = body_paragraphs
       repeat.times do
         paragraphs.each do |para|
@@ -553,16 +551,6 @@ module Design
       ps = paper_size
       color = parse_color_to_cmyk(document_design.page_bg_color)
 
-      doc = HexaPDF::Document.open(pdf_path)
-      page = doc.pages[0]
-      contents_ref = page[:Contents]
-
-      existing_stream = if contents_ref.is_a?(Array)
-        contents_ref.map { |ref| ref.stream }.join("\n")
-      else
-        contents_ref.stream
-      end
-
       # Insert page bg BEFORE text commands but AFTER any white fill from the component
       c, m, y, k = color.map { |v| v / 100.0 }
       bg_commands = "q\n"
@@ -570,16 +558,28 @@ module Design
       bg_commands += "#{-BLEED_PT} #{-BLEED_PT} #{ps.width_pt + 2 * BLEED_PT} #{ps.height_pt + 2 * BLEED_PT} re\n"
       bg_commands += "f\nQ\n"
 
-      # Find where text content starts (first /F or BT command)
-      text_start = existing_stream.index(%r{^/F}m) || existing_stream.index(/^BT/m)
-      if text_start
-        new_stream = existing_stream[0...text_start] + bg_commands + existing_stream[text_start..]
-      else
-        new_stream = existing_stream + bg_commands
-      end
+      doc = HexaPDF::Document.open(pdf_path)
+      # Every page carries the background, not just the first (the preview shows several).
+      doc.pages.each do |page|
+        contents_ref = page[:Contents]
 
-      new_obj = doc.add({}, stream: new_stream)
-      page[:Contents] = new_obj
+        existing_stream = if contents_ref.is_a?(Array)
+          contents_ref.map { |ref| ref.stream }.join("\n")
+        else
+          contents_ref.stream
+        end
+
+        # Find where text content starts (first /F or BT command)
+        text_start = existing_stream.index(%r{^/F}m) || existing_stream.index(/^BT/m)
+        if text_start
+          new_stream = existing_stream[0...text_start] + bg_commands + existing_stream[text_start..]
+        else
+          new_stream = existing_stream + bg_commands
+        end
+
+        new_obj = doc.add({}, stream: new_stream)
+        page[:Contents] = new_obj
+      end
 
       tmp_path = "#{pdf_path}.tmp"
       doc.write(tmp_path)
@@ -778,8 +778,8 @@ module Design
       DOC_LAYOUT_MAP.fetch(type_name, DocProcessorRb::DocLayout::Book::Chapter)
     end
 
-    def convert_pdf_to_jpg(pdf_path, jpg_path)
-      Design::PdfToJpg.convert(pdf_path, jpg_path, dpi: PREVIEW_DPI)
+    def convert_pdf_to_jpgs(pdf_path, dir)
+      Design::PdfToJpg.convert_pages(pdf_path, dir, max_pages: MAX_PREVIEW_PAGES, dpi: PREVIEW_DPI)
     end
 
     def synthesize_toc_heading_overlay
@@ -811,19 +811,25 @@ module Design
       ]
     end
 
-    def extract_overlay_data(db_doc)
-      overlays = db_doc.block_overlays(document_id: 1, page_number: 1)
+    # One entry per rendered page (capped), each with that page's overlays. The DBDocument
+    # must still be open. The TOC renderer emits no heading overlay, so synthesize one on page 1.
+    def extract_pages_overlay_data(db_doc)
+      count = [ db_doc.pages(document_id: 1).size, MAX_PREVIEW_PAGES ].min
+      count = 1 if count < 1
+      (1..count).map do |page_number|
+        overlays = overlay_rows(db_doc.block_overlays(document_id: 1, page_number: page_number))
+        if page_number == 1 && document_design.doc_type == "toc" && document_design.heading_height_in_lines.to_i > 0
+          overlays = synthesize_toc_heading_overlay + overlays
+        end
+        { jpg_path: page_jpg_path(page_number), overlay_data: overlays }
+      end
+    end
+
+    def overlay_rows(overlays)
       overlays.map do |o|
-        {
-          type: o.overlay_type,
-          x: o.rendered_x.to_f,
-          y: o.rendered_y.to_f,
-          width: o.rendered_width.to_f,
-          height: o.rendered_height.to_f,
-          markup: o.markup,
-          content_preview: o.content_preview,
-          is_continuation: o.is_continuation == 1
-        }
+        { type: o.overlay_type, x: o.rendered_x.to_f, y: o.rendered_y.to_f,
+          width: o.rendered_width.to_f, height: o.rendered_height.to_f,
+          markup: o.markup, content_preview: o.content_preview, is_continuation: o.is_continuation == 1 }
       end
     end
 
