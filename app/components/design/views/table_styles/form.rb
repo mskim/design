@@ -15,13 +15,13 @@ module Design
             div(class: "flex-1 px-4 py-3 flex flex-col gap-4") do
               section(I18n.t("design.table_styles.borders")) do
                 row do
-                  field(I18n.t("design.table_styles.width"), :border_width, type: "number", step: "0.1")
+                  number_field(I18n.t("design.table_styles.width"), :border_width, step: "0.1")
                   select_field(I18n.t("design.table_styles.style"), :border_style, Design::TableStyle::BORDER_STYLES)
                 end
                 color_field(I18n.t("design.table_styles.color"), :border_color)
                 row do
-                  field(I18n.t("design.table_styles.outer_width"), :outer_border_width, type: "number", step: "0.1")
-                  field(I18n.t("design.table_styles.header_sep"), :header_separator_width, type: "number", step: "0.1")
+                  number_field(I18n.t("design.table_styles.outer_width"), :outer_border_width, step: "0.1")
+                  number_field(I18n.t("design.table_styles.header_sep"), :header_separator_width, step: "0.1")
                 end
               end
               section(I18n.t("design.table_styles.backgrounds")) do
@@ -35,7 +35,7 @@ module Design
                 end
                 row do
                   select_field(I18n.t("design.table_styles.header_weight"), :header_font_weight, Design::TableStyle::FONT_WEIGHTS)
-                  field(I18n.t("design.table_styles.cell_padding"), :cell_padding, type: "number", step: "0.5")
+                  number_field(I18n.t("design.table_styles.cell_padding"), :cell_padding, step: "0.5")
                 end
               end
             end
@@ -57,26 +57,17 @@ module Design
 
         def row(&block) = div(class: "grid grid-cols-2 gap-3", &block)
 
-        def field(label_text, attr, type: "text", **opts)
-          div do
-            label(class: "block text-xs text-slate-500 mb-0.5") { label_text }
-            input(type: type, name: "table_style[#{attr}]", value: @style.public_send(attr).to_s,
-                  class: "w-full rounded-md border border-slate-300 px-2.5 py-1 text-sm", **opts)
-          end
+        def number_field(label_text, attr, step:)
+          render Design::Views::Inputs::NumberField.new(
+            name: "table_style[#{attr}]", value: @style.public_send(attr).to_s,
+            label: label_text, unit: :pt, step: step.to_f, min: 0, layout: :stacked)
         end
 
+        # Table colours are read by TableStyleResolver through HexToCmyk (hex only).
         def color_field(label_text, attr)
-          div(data: { controller: "design--color-field" }) do
-            label(class: "block text-xs text-slate-500 mb-0.5") { label_text }
-            div(class: "flex gap-1.5 items-center") do
-              input(type: "color", value: normalize_color(@style.public_send(attr)),
-                    class: "w-7 h-7 rounded border border-slate-300 cursor-pointer shrink-0 p-0",
-                    data: { "design--color-field-target": "picker", action: "input->design--color-field#pickerChanged" })
-              input(type: "text", name: "table_style[#{attr}]", value: @style.public_send(attr).to_s, placeholder: "#rrggbb",
-                    class: "flex-1 min-w-0 rounded-md border border-slate-300 px-2 py-1 text-sm",
-                    data: { "design--color-field-target": "text", action: "input->design--color-field#textChanged" })
-            end
-          end
+          render Design::Views::Inputs::ColorField.new(
+            name: "table_style[#{attr}]", value: @style.public_send(attr), label: label_text,
+            layout: :stacked, formats: [ :hex ])
         end
 
         def select_field(label_text, attr, options)
@@ -87,11 +78,6 @@ module Design
               options.each { |opt| option(value: opt, selected: current == opt) { opt } }
             end
           end
-        end
-
-        def normalize_color(color)
-          return "#ffffff" if color.nil? || color.to_s.strip.empty?
-          color.to_s.start_with?("#") ? color : "#ffffff"
         end
 
         def render_errors

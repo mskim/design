@@ -38,18 +38,11 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
       "index.js must call eagerLoadControllersFrom so ruby-ui--tabs is auto-registered"
   end
 
-  # color-field controller (ported from book_design) — registers as design--color-field
-  test "design/color_field_controller.js exists in design-controllers" do
-    controller_path = ENGINE_JS.join("design-controllers/design/color_field_controller.js")
-    assert File.exist?(controller_path),
-      "Missing #{controller_path} — design--color-field controller will not load"
-  end
-
-  test "color_field controller exports a Stimulus Controller class" do
-    src = File.read(ENGINE_JS.join("design-controllers/design/color_field_controller.js"))
-    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
-    assert_includes src, "export default class"
-    assert_includes src, "static targets"
+  # color-field / color-mode-field were replaced by design--color-row (ColorField).
+  test "the old colour controllers are gone" do
+    %w[color_field_controller.js color_mode_field_controller.js].each do |f|
+      refute File.exist?(ENGINE_JS.join("design-controllers/design", f)), "#{f} should have been removed"
+    end
   end
 
   # toggle-visibility controller (written from scratch) — registers as design--toggle-visibility
@@ -87,5 +80,26 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "change(", "must define a change() action"
     assert_includes src, "dataset.url"
     assert_includes src, "Turbo.visit"
+  end
+
+  test "scrub_input controller exists and imports number_math by its importmap name" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/scrub_input_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, %("design-controllers/design/number_math")
+    %w[scrubStart( scrubMove( scrubEnd( keydown( commit( remember( handleClick( disconnect(].each { |m| assert_includes src, m }
+    assert_includes src, 'dispatch("revert"', "resets must dispatch design--scrub-input:revert"
+  end
+
+  test "color_row controller exists and imports color_math by its importmap name" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/color_row_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, %("design-controllers/design/color_math")
+    %w[toggle( close( selectMode( fromChannels( fromSlider( fromHex( fromPicker( clear( keydown(].each { |m| assert_includes src, m }
+  end
+
+  test "color_row controller reverts the stored colour and closes on a document-level Escape" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/color_row_controller.js"))
+    [ "revertField(", "rememberField(", 'addEventListener("keydown"', "showPicker" ].each { |m| assert_includes src, m }
+    refute_match(/convert\s*[:=]/, src, "mode switch must not rewrite the stored value")
   end
 end

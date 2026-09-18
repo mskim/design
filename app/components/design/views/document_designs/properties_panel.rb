@@ -84,14 +84,14 @@ module Design
           div(class: "pt-2") do
             group_box("basic", I18n.t("design.properties_panel.layout")) do
               rows do
-                number_field(I18n.t("design.properties_panel.heading_lines"), :heading_height_in_lines)
+                number_field(I18n.t("design.properties_panel.heading_lines"), :heading_height_in_lines, unit: :lines)
                 select_field(I18n.t("design.properties_panel.heading_v_align"), :heading_v_align, %w[center top bottom], i18n_scope: "v_align")
                 if @document_design.doc_type == "toc"
                   select_field(I18n.t("design.properties_panel.toc_v_align"), :toc_v_align, %w[bottom center top], i18n_scope: "v_align")
                 end
                 number_field(I18n.t("design.properties_panel.body_line_count"), :body_line_count, placeholder: @paper_size.body_line_count)
-                number_field(I18n.t("design.properties_panel.columns"), :column_count)
-                number_field(I18n.t("design.properties_panel.gutter"), :gutter, step: "0.1")
+                number_field(I18n.t("design.properties_panel.columns"), :column_count, min: 1)
+                number_field(I18n.t("design.properties_panel.gutter"), :gutter, step: "0.1", unit: :pt)
               end
             end
             heading_elements_section
@@ -110,18 +110,8 @@ module Design
         def render_photo_section
           group_box("space", I18n.t("design.properties_panel.photo_layout")) do
             div(class: "grid grid-cols-2 gap-2") do
-              div do
-                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_grid_width") }
-                input(type: "number", name: "document_design[photo_grid_width]",
-                      value: field_value(@document_design.photo_grid_width),
-                      placeholder: "3", min: 1, max: 6, class: NUMBER_CONTROL, **disabled_attr)
-              end
-              div do
-                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_grid_height") }
-                input(type: "number", name: "document_design[photo_grid_height]",
-                      value: field_value(@document_design.photo_grid_height),
-                      placeholder: "2", min: 1, max: 12, class: NUMBER_CONTROL, **disabled_attr)
-              end
+              number_field(I18n.t("design.properties_panel.photo_grid_width"), :photo_grid_width, placeholder: 3, min: 1, max: 6, layout: :stacked)
+              number_field(I18n.t("design.properties_panel.photo_grid_height"), :photo_grid_height, placeholder: 2, min: 1, max: 12, layout: :stacked)
             end
             div(class: "mt-2") do
               label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_anchor") }
@@ -140,25 +130,8 @@ module Design
               end
             end
             div(class: "mt-2 grid grid-cols-2 gap-2") do
-              div do
-                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_border_width") }
-                input(type: "number", name: "document_design[photo_border_width]",
-                      value: field_value(@document_design.photo_border_width),
-                      placeholder: "0", min: 0, step: "0.5", class: NUMBER_CONTROL, **disabled_attr)
-              end
-              div(data: { controller: "design--color-field" }) do
-                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_border_color") }
-                div(class: "flex gap-2 items-center") do
-                  input(type: "color", value: normalize_color(@document_design.photo_border_color || "#000000"),
-                        class: "h-7 w-7 rounded border cursor-pointer p-0",
-                        data: { "design--color-field-target": "picker", action: "input->design--color-field#pickerChanged" }, **disabled_attr)
-                  input(type: "text", name: "document_design[photo_border_color]",
-                        value: @document_design.photo_border_color || "",
-                        placeholder: "#000000 or CMYK=0,0,0,80",
-                        class: "flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm",
-                        data: { "design--color-field-target": "text", action: "input->design--color-field#textChanged" }, **disabled_attr)
-                end
-              end
+              number_field(I18n.t("design.properties_panel.photo_border_width"), :photo_border_width, placeholder: 0, min: 0, step: "0.5", unit: :pt, layout: :stacked)
+              color_input(I18n.t("design.properties_panel.photo_border_color"), :photo_border_color)
             end
           end
         end
@@ -166,7 +139,7 @@ module Design
         def render_image_opacity_section
           group_box("fill", I18n.t("design.properties_panel.image_opacity")) do
             rows do
-              number_field(I18n.t("design.properties_panel.image_opacity"), :image_opacity)
+              number_field(I18n.t("design.properties_panel.image_opacity"), :image_opacity, unit: :percent, min: 0, max: 100)
             end
           end
         end
@@ -207,56 +180,16 @@ module Design
               end
             end
             div(class: "mt-2 grid grid-cols-2 gap-2") do
-              div do
-                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.grid_width") }
-                input(
-                  type: "number",
-                  name: "document_design[text_box_grid_width]",
-                  value: field_value(@document_design.text_box_grid_width),
-                  placeholder: "4", min: 1, max: 12,
-                  class: "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm",
-                  **disabled_attr
-                )
-              end
-              div do
-                label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.grid_height") }
-                input(
-                  type: "number",
-                  name: "document_design[text_box_grid_height]",
-                  value: field_value(@document_design.text_box_grid_height),
-                  placeholder: "6", min: 1, max: 12,
-                  class: "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm",
-                  **disabled_attr
-                )
-              end
+              number_field(I18n.t("design.properties_panel.grid_width"), :text_box_grid_width, placeholder: 4, min: 1, max: 12, layout: :stacked)
+              number_field(I18n.t("design.properties_panel.grid_height"), :text_box_grid_height, placeholder: 6, min: 1, max: 12, layout: :stacked)
             end
           end
         end
 
         def render_page_bg_section
           group_box("fill", I18n.t("design.properties_panel.page_background")) do
-            div(data: { controller: "design--color-field" }) do
-              label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.background_color") }
-              div(class: "flex gap-2 items-center") do
-                input(
-                  type: "color",
-                  value: normalize_color(@document_design.page_bg_color || "#ffffff"),
-                  class: "h-7 w-7 rounded border cursor-pointer p-0",
-                  data: { "design--color-field-target": "picker", action: "input->design--color-field#pickerChanged" },
-                  **disabled_attr
-                )
-                input(
-                  type: "text",
-                  name: "document_design[page_bg_color]",
-                  value: @document_design.page_bg_color || "",
-                  placeholder: "CMYK=0,0,0,20 or #cccccc",
-                  class: "flex-1 rounded border border-slate-300 bg-white px-2 py-1 text-sm",
-                  data: { "design--color-field-target": "text", action: "input->design--color-field#textChanged" },
-                  **disabled_attr
-                )
-              end
-              p(class: "text-xs text-slate-500 mt-1") { I18n.t("design.properties_panel.page_background_hint") }
-            end
+            color_input(I18n.t("design.properties_panel.background_color"), :page_bg_color)
+            p(class: "text-xs text-slate-500 mt-1") { I18n.t("design.properties_panel.page_background_hint") }
           end
         end
 
@@ -472,32 +405,7 @@ module Design
             end
             div(class: current == "color" ? "" : "hidden",
                 data: { "design--heading-bg-target": "colorFields" }) do
-              label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.color") }
-              div(class: "flex items-center gap-1", data: { controller: "design--color-mode-field" }) do
-                input(
-                  type: "color",
-                  data: { "design--color-mode-field-target": "picker", action: "input->design--color-mode-field#pickerChanged" },
-                  class: "h-7 w-7 cursor-pointer border-0 p-0",
-                  **disabled_attr
-                )
-                select(
-                  data: { "design--color-mode-field-target": "mode", action: "change->design--color-mode-field#modeChanged" },
-                  class: "text-xs px-1 py-0.5",
-                  **disabled_attr
-                ) do
-                  option(value: "cmyk") { "CMYK" }
-                  option(value: "hex") { "Hex" }
-                  option(value: "named") { "Name" }
-                end
-                input(
-                  type: "text",
-                  name: "document_design[heading_bg_color]",
-                  value: @document_design.heading_bg_color || "white",
-                  data: { "design--color-mode-field-target": "input", action: "input->design--color-mode-field#textChanged" },
-                  class: "flex-1 border border-slate-300 rounded px-2 py-1 text-sm",
-                  **disabled_attr
-                )
-              end
+              color_input(I18n.t("design.properties_panel.color"), :heading_bg_color, default: "white")
             end
             div(class: current == "image" ? "" : "hidden",
                 data: { "design--heading-bg-target": "imageFields" }) do
@@ -511,27 +419,13 @@ module Design
             div(class: current == "gradient" ? "" : "hidden",
                 data: { "design--heading-bg-target": "gradientFields" }) do
               div(class: "grid grid-cols-2 gap-2") do
-                div do
-                  label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.gradient_start") }
-                  input(type: "color", name: "document_design[heading_bg_gradient_start]",
-                        value: @document_design.heading_bg_gradient_start || "#ffffff",
-                        class: "w-full h-8 rounded border cursor-pointer", **disabled_attr)
-                end
-                div do
-                  label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.gradient_end") }
-                  input(type: "color", name: "document_design[heading_bg_gradient_end]",
-                        value: @document_design.heading_bg_gradient_end || "#000000",
-                        class: "w-full h-8 rounded border cursor-pointer", **disabled_attr)
-                end
+                color_input(I18n.t("design.properties_panel.gradient_start"), :heading_bg_gradient_start, default: "#ffffff", formats: [ :hex ])
+                color_input(I18n.t("design.properties_panel.gradient_end"), :heading_bg_gradient_end, default: "#000000", formats: [ :hex ])
               end
-              div do
-                label(class: "block text-xs font-medium mb-1 text-slate-600") { I18n.t("design.properties_panel.angle") }
-                input(type: "number", name: "document_design[heading_bg_gradient_angle]",
-                      value: (@document_design.heading_bg_gradient_angle || 0).to_s,
-                      min: 0, max: 360, step: 1,
-                      class: "w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm",
-                      **disabled_attr)
-              end
+              render Design::Views::Inputs::NumberField.new(
+                name: "document_design[heading_bg_gradient_angle]", value: field_value(@document_design.heading_bg_gradient_angle || 0),
+                label: I18n.t("design.properties_panel.angle"), unit: :none, step: 1, min: 0, max: 360, layout: :stacked,
+                disabled: disabled_attr[:disabled] == true)
             end
             end
           end
@@ -555,7 +449,7 @@ module Design
         def header_footer_slot(label_text, slot_prefix, tint)
           group_box(tint, label_text) do
             rows do
-              number_field(I18n.t("design.properties_panel.y_offset"), :"#{slot_prefix}_y_offset", step: "0.1")
+              number_field(I18n.t("design.properties_panel.y_offset"), :"#{slot_prefix}_y_offset", step: "0.1", unit: :mm)
               text_field(I18n.t("design.properties_panel.content"), :"#{slot_prefix}_content_string", span: true)
             end
           end
@@ -563,20 +457,18 @@ module Design
 
         # --------------- Field helpers (ported from FormPanel, extended with disabled support) ---------------
 
-        def number_field(label_text, attr, step: nil, placeholder: nil)
-          # type=text (not number): the native spinner arrows ate the whole field and
-          # hid the value. inputmode=decimal still gives a numeric keyboard on touch.
-          field_row(label_text, narrow: true) do
-            attrs = {
-              type: "text", inputmode: "decimal",
-              name: "document_design[#{attr}]",
-              value: field_value(@document_design.public_send(attr)),
-              class: NUMBER_CONTROL
-            }
-            attrs[:placeholder] = field_value(placeholder) if placeholder
-            attrs.merge!(disabled_attr)
-            input(**attrs)
-          end
+        def number_field(label_text, attr, step: nil, placeholder: nil, unit: :none, min: nil, max: nil, layout: :inline)
+          render Design::Views::Inputs::NumberField.new(
+            name: "document_design[#{attr}]", value: field_value(@document_design.public_send(attr)),
+            label: label_text, unit: unit, step: (step || 1).to_f, min: min, max: max,
+            placeholder: (field_value(placeholder) if placeholder), layout: layout,
+            disabled: disabled_attr[:disabled] == true)
+        end
+
+        def color_input(label_text, attr, default: nil, formats: [ :cmyk, :hex ])
+          render Design::Views::Inputs::ColorField.new(
+            name: "document_design[#{attr}]", value: @document_design.public_send(attr) || default,
+            label: label_text, layout: :stacked, formats: formats, disabled: disabled_attr[:disabled] == true)
         end
 
         def text_field(label_text, attr, span: false)
@@ -618,25 +510,6 @@ module Design
           when BigDecimal then value.to_s("F")
           else value.to_s
           end
-        end
-
-        def normalize_color(color)
-          return "#ffffff" if color.nil? || color.to_s.strip.empty? || color == "white"
-          return "#000000" if color == "black"
-          return color if color.start_with?("#")
-
-          if color.start_with?("CMYK=")
-            parts = color.sub("CMYK=", "").split(",").map(&:to_f)
-            if parts.length == 4
-              c, m, y, k = parts.map { |v| v / 100.0 }
-              r = ((1 - c) * (1 - k) * 255).round
-              g = ((1 - m) * (1 - k) * 255).round
-              b = ((1 - y) * (1 - k) * 255).round
-              return "#%02x%02x%02x" % [ r.clamp(0, 255), g.clamp(0, 255), b.clamp(0, 255) ]
-            end
-          end
-
-          "#ffffff"
         end
 
         def disabled_attr

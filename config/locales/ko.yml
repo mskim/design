@@ -383,3 +383,10 @@ ko:
         heading_not_allowed: "이 문서 유형은 ```heading 블록이 아니라 마크다운 문단을 사용합니다."
         yaml: "heading 블록의 YAML이 올바르지 않습니다: %{message}"
         toc: "잘못된 차례 행: %{line} (## 수준:제목:쪽 형식이어야 합니다)"
+    inputs:
+      lines: "줄"
+      inherit: "상속"
+      clear: "지우기"
+      picker: "선택…"
+      cmyk: "CMYK"
+      hex: "Hex"

@@ -12,11 +12,20 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
     assert_includes html, %(name="paragraph_style[name]")
     assert_includes html, %(name="paragraph_style[font_size]")
     assert_includes html, %(name="paragraph_style[text_color]")
-    assert_includes html, %(data-controller="design--color-mode-field")
+    assert_includes html, %(data-controller="design--color-row")
+    assert_includes html, %(data-controller="design--scrub-input")
     assert_includes html, %(data-controller="design--border-side-editor")
     assert_includes html, %(data-controller="design--corner-editor")
     assert_includes html, %(name="paragraph_style[border_side]")
     assert_includes html, %(name="paragraph_style[corner_radius]")
+  end
+
+  test "non-negative number fields get min 0; indents and tracking stay unbounded" do
+    doc = Nokogiri::HTML.fragment(Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style).call)
+    min_of = ->(attr) { doc.at_css("input[name='paragraph_style[#{attr}]']").ancestors("[data-controller='design--scrub-input']").first["data-design--scrub-input-min-value"] }
+    %w[font_size scale text_line_spacing space_before space_after space_before_in_lines space_after_in_lines
+       border_thickness padding_top padding_bottom].each { |attr| assert_equal "0", min_of.(attr), attr }
+    %w[first_line_indent left_indent right_indent tracking space_width].each { |attr| assert_nil min_of.(attr), attr }
   end
 
   # ── vertical_align (table cells only) ──
@@ -81,12 +90,13 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
     assert_match(/name="paragraph_style\[text_align\]"[^>]*disabled|disabled[^>]*name="paragraph_style\[text_align\]"/, html)
   end
 
-  test "editable: false — color mode field inputs carry disabled" do
+  test "editable: false — color row controls carry disabled" do
     html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style, editable: false).call
-    # The color text input (e.g. text_color) must be present and disabled must appear in the html
-    assert_includes html, %(name="paragraph_style[text_color]")
-    # disabled appears on the color picker and mode select inside the color-mode-field controller
-    assert_match(/data-controller="design--color-mode-field".*?disabled/m, html)
+    # The colour row is present, its hidden value input (e.g. text_color) is disabled
+    assert_includes html, %(data-controller="design--color-row")
+    assert_match(/name="paragraph_style\[text_color\]"[^>]*disabled|disabled[^>]*name="paragraph_style\[text_color\]"/, html)
+    # and the popover trigger button is disabled
+    assert_match(/data-design--color-row-target="trigger"[^>]*disabled|disabled[^>]*data-design--color-row-target="trigger"/, html)
   end
 
   test "editable: false — border-side-editor buttons carry disabled" do

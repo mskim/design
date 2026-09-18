@@ -156,27 +156,74 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
 
   # --------------- page_bg section (Task 4) ---------------
 
-  test "renders page_bg section with color input and design--color-field controller" do
+  COLOR_ATTRS = %w[photo_border_color page_bg_color heading_bg_color heading_bg_gradient_start heading_bg_gradient_end].freeze
+
+  test "renders page_bg section with color input and design--color-row controller" do
     html = render_panel
     assert_includes html, "Page Background"
-    assert_includes html, %(name="document_design[page_bg_color]")
-    assert_includes html, %(data-controller="design--color-field")
+    doc = Nokogiri::HTML.fragment(html)
+    assert doc.at_css("[data-controller='design--color-row'] input[type=hidden][name='document_design[page_bg_color]']"),
+           "page_bg_color must be a hidden input inside design--color-row"
+    assert_includes html, I18n.t("design.properties_panel.page_background_hint")
+  end
+
+  test "every colour field is a hidden input inside a design--color-row" do
+    @dd = @ps.document_designs.create!(doc_type: "front_wing")
+    doc = Nokogiri::HTML.fragment(render_panel)
+    COLOR_ATTRS.each do |attr|
+      assert doc.at_css("[data-controller='design--color-row'] input[type=hidden][name='document_design[#{attr}]']"),
+             "#{attr} must be a hidden input inside design--color-row"
+    end
+    assert_empty doc.css("[data-controller='design--color-field'], [data-controller='design--color-mode-field']")
+    assert_empty doc.css("input[type=color][name]"), "no native colour picker may submit a value"
+  end
+
+  test "gradient colour rows are hex-only and keep their defaults" do
+    doc = Nokogiri::HTML.fragment(render_panel)
+    { "heading_bg_gradient_start" => "#ffffff", "heading_bg_gradient_end" => "#000000" }.each do |attr, default|
+      hidden = doc.at_css("input[name='document_design[#{attr}]']")
+      assert_equal default, hidden["value"]
+      row = hidden.ancestors("[data-controller='design--color-row']").first
+      assert_equal "hex", row["data-design--color-row-formats-value"]
+    end
+    assert_equal "white", doc.at_css("input[name='document_design[heading_bg_color]']")["value"]
   end
 
   test "page_bg color inputs are disabled when editable: false" do
-    html = render_panel(editable: false)
-    # page_bg_color text input has data-action containing "->", so use a multichar scan
-    assert_includes html, %(name="document_design[page_bg_color]")
-    assert_includes html, "disabled"
-    # Verify the text input carries disabled (it appears after the data-action attr which contains "->")
-    assert_match(/name="document_design\[page_bg_color\]".*?disabled/m, html)
+    doc = Nokogiri::HTML.fragment(render_panel(editable: false))
+    hidden = doc.at_css("[data-controller='design--color-row'] input[type=hidden][name='document_design[page_bg_color]']")
+    assert hidden
+    assert hidden.key?("disabled"), "page_bg_color hidden input must be disabled"
   end
 
-  test "page_bg color picker input is disabled when editable: false" do
-    html = render_panel(editable: false)
-    assert_includes html, %(data-controller="design--color-field")
-    # The color picker (type="color") inside the color-field controller must carry disabled
-    assert_includes html, "disabled"
+  test "colour row trigger buttons are disabled when editable: false" do
+    @dd = @ps.document_designs.create!(doc_type: "front_wing")
+    doc = Nokogiri::HTML.fragment(render_panel(editable: false))
+    COLOR_ATTRS.each do |attr|
+      row = doc.at_css("input[name='document_design[#{attr}]']").ancestors("[data-controller='design--color-row']").first
+      trigger = row.at_css("button[data-design--color-row-target='trigger']")
+      assert trigger.key?("disabled"), "#{attr} trigger must be disabled"
+    end
+  end
+
+  test "colour row trigger buttons are enabled when editable: true" do
+    @dd = @ps.document_designs.create!(doc_type: "front_wing")
+    doc = Nokogiri::HTML.fragment(render_panel(editable: true))
+    COLOR_ATTRS.each do |attr|
+      row = doc.at_css("input[name='document_design[#{attr}]']").ancestors("[data-controller='design--color-row']").first
+      refute row.at_css("button[data-design--color-row-target='trigger']").key?("disabled"), "#{attr} trigger must be enabled"
+    end
+  end
+
+  # --------------- Number fields (design--scrub-input) ---------------
+
+  test "photo grid width is a scrub-input number field capped at 6" do
+    @dd = @ps.document_designs.create!(doc_type: "front_wing")
+    doc = Nokogiri::HTML.fragment(render_panel)
+    input = doc.at_css("[data-controller='design--scrub-input'] input[name='document_design[photo_grid_width]']")
+    assert input, "photo_grid_width must be inside design--scrub-input"
+    wrapper = input.ancestors("[data-controller='design--scrub-input']").first
+    assert_equal "6", wrapper["data-design--scrub-input-max-value"]
   end
 
   # --------------- document_cover section (Task 4) ---------------

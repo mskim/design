@@ -42,13 +42,13 @@ module Design
           group_box("type_text", "#{I18n.t('design.fields.font')} · #{I18n.t('design.fields.text')}") do
             rows do
               font_select(I18n.t("design.fields.font"), :font)
-              number_field(I18n.t("design.fields.size"), :font_size, step: "0.1")
-              number_field(I18n.t("design.fields.scale"), :scale, step: "0.01")
+              number_field(I18n.t("design.fields.size"), :font_size, step: "0.1", min: 0)
+              number_field(I18n.t("design.fields.scale"), :scale, step: "1", min: 0, unit: :percent)
               color_row(I18n.t("design.fields.color"), :text_color, span: true)
               select_field(I18n.t("design.fields.align"), :text_align, %w[left center right justify], include_blank: "— inherit —", i18n_scope: "text_align")
-              number_field(I18n.t("design.fields.tracking"), :tracking, step: "0.1")
-              number_field(I18n.t("design.fields.space_width"), :space_width, step: "0.1")
-              number_field(I18n.t("design.fields.line_spacing"), :text_line_spacing, step: "0.1")
+              number_field(I18n.t("design.fields.tracking"), :tracking, step: "0.1", unit: :none)
+              number_field(I18n.t("design.fields.space_width"), :space_width, step: "0.1", unit: :none)
+              number_field(I18n.t("design.fields.line_spacing"), :text_line_spacing, step: "0.1", min: 0)
             end
           end
         end
@@ -81,10 +81,10 @@ module Design
               number_field(I18n.t("design.fields.first_line_indent"), :first_line_indent, step: "0.1")
               number_field(I18n.t("design.fields.left_indent"), :left_indent, step: "0.1")
               number_field(I18n.t("design.fields.right_indent"), :right_indent, step: "0.1")
-              number_field(I18n.t("design.fields.space_before_pt"), :space_before, step: "0.1")
-              number_field(I18n.t("design.fields.space_after_pt"), :space_after, step: "0.1")
-              number_field(I18n.t("design.fields.space_before_lines"), :space_before_in_lines, step: "0.1")
-              number_field(I18n.t("design.fields.space_after_lines"), :space_after_in_lines, step: "0.1")
+              number_field(I18n.t("design.fields.space_before_pt"), :space_before, step: "0.1", min: 0)
+              number_field(I18n.t("design.fields.space_after_pt"), :space_after, step: "0.1", min: 0)
+              number_field(I18n.t("design.fields.space_before_lines"), :space_before_in_lines, step: "0.1", min: 0, unit: :lines)
+              number_field(I18n.t("design.fields.space_after_lines"), :space_after_in_lines, step: "0.1", min: 0, unit: :lines)
             end
           end
         end
@@ -103,7 +103,7 @@ module Design
         def border_section
           group_box("border", I18n.t("design.fields.border")) do
             rows do
-              number_field(I18n.t("design.fields.thickness"), :border_thickness, step: "0.1")
+              number_field(I18n.t("design.fields.thickness"), :border_thickness, step: "0.1", min: 0)
               color_row(I18n.t("design.fields.border_color"), :border_color)
             end
             div(class: "mt-1.5 grid grid-cols-2 gap-2") do
@@ -116,8 +116,8 @@ module Design
         def padding_section
           group_box("pad", I18n.t("design.fields.padding")) do
             rows do
-              number_field(I18n.t("design.fields.padding_top"), :padding_top, step: "0.1")
-              number_field(I18n.t("design.fields.padding_bottom"), :padding_bottom, step: "0.1")
+              number_field(I18n.t("design.fields.padding_top"), :padding_top, step: "0.1", min: 0)
+              number_field(I18n.t("design.fields.padding_bottom"), :padding_bottom, step: "0.1", min: 0)
             end
           end
         end
@@ -130,10 +130,12 @@ module Design
           end
         end
 
-        def number_field(label_text, attr, step: nil, span: false)
-          field_row(label_text, span: span, narrow: true) do
-            input(type: "text", inputmode: "decimal", name: "paragraph_style[#{attr}]", value: field_value(@paragraph_style.public_send(attr)), class: NUMBER_CONTROL, **disabled_attr)
-          end
+        # min: 0 for sizes/spacing that can't be negative; indents and tracking stay unbounded.
+        def number_field(label_text, attr, step: nil, span: false, unit: :pt, min: nil)
+          render Design::Views::Inputs::NumberField.new(
+            name: "paragraph_style[#{attr}]", value: field_value(@paragraph_style.public_send(attr)),
+            label: label_text, unit: unit, step: (step || 0.1).to_f, min: min, span: span,
+            disabled: disabled_attr[:disabled] == true)
         end
 
         def select_field(label_text, attr, options, include_blank: nil, i18n_scope: nil, span: false)
@@ -155,24 +157,9 @@ module Design
         end
 
         def color_row(label_text, attr, span: false)
-          field_row(label_text, span: span) do
-            color_field(attr, @paragraph_style.public_send(attr))
-          end
-        end
-
-        def color_field(field, value)
-          div(class: "flex min-w-0 flex-1 items-center gap-1.5", data: { controller: "design--color-mode-field" }) do
-            input(type: "color", data: { "design--color-mode-field-target": "picker", action: "input->design--color-mode-field#pickerChanged" }, class: "h-8 w-8 shrink-0 cursor-pointer rounded border border-slate-300 p-0", **disabled_attr)
-            select(data: { "design--color-mode-field-target": "mode", action: "change->design--color-mode-field#modeChanged" }, class: "shrink-0 rounded border border-slate-300 px-1 py-0.5 text-xs", **disabled_attr) do
-              option(value: "cmyk") { "CMYK" }
-              option(value: "hex") { "Hex" }
-              option(value: "named") { "Name" }
-            end
-            input(type: "text", name: "paragraph_style[#{field}]", value: field_value(value),
-                  data: { "design--color-mode-field-target": "input", action: "input->design--color-mode-field#textChanged" },
-                  class: "h-8 min-w-0 flex-1 rounded border border-slate-300 px-2 text-sm",
-                  **disabled_attr)
-          end
+          render Design::Views::Inputs::ColorField.new(
+            name: "paragraph_style[#{attr}]", value: @paragraph_style.public_send(attr),
+            label: label_text, span: span, disabled: disabled_attr[:disabled] == true)
         end
 
         # ── Border side / corner editors (compact; behaviour unchanged) ──
