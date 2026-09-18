@@ -13,9 +13,10 @@ module Design
 
     def print_preview? = cookies[PRINT_COOKIE] == "1"
 
-    # The service for this request's preview (dd may be the live-preview copy).
-    def preview_service(dd = @document_design)
-      Design::PreviewService.new(dd, paper_size: @paper_size, print_mode: print_preview?)
+    # The service for this request's preview (dd may be the live-preview copy,
+    # rendered with live: true so it never touches the saved design's cache).
+    def preview_service(dd = @document_design, live: false)
+      Design::PreviewService.new(dd, paper_size: @paper_size, print_mode: print_preview?, live: live)
     end
 
     # Stale style link (a reverted style, or an old level/style_id link whose row
@@ -62,7 +63,8 @@ module Design
         # print=1 so a browser never reuses a normal image for a print one (the
         # helper drops the nil param).
         { jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(
-            @theme, @paper_size, @document_design, page: i + 1, t: stamp, print: ("1" if result[:print_mode])),
+            @theme, @paper_size, @document_design, page: i + 1, t: stamp, print: ("1" if result[:print_mode]),
+            live: result[:live_token]),
           overlay_data: pg[:overlay_data] }
       end
       Design::Views::DocumentDesigns::Preview.new(
