@@ -61,13 +61,20 @@ module Design
 
     attr_reader :document_design, :paper_size
 
-    def initialize(document_design, paper_size: nil)
+    # print_mode: render as the printed book does (인쇄용): the body text box
+    # adds the binding margin on the spine side (odd pages left, even pages
+    # right; preview page 1 is odd). Only BINDING_DOC_TYPES use it; elsewhere
+    # it is off, so those doc types keep a single cache.
+    def initialize(document_design, paper_size: nil, print_mode: false)
       @document_design = document_design
       @paper_size = paper_size || document_design.paper_size
+      @print_mode = print_mode == true && document_design.binding_applies?
     end
 
+    def print_mode? = @print_mode
+
     # Generate preview: PDF → up to MAX_PREVIEW_PAGES JPGs + per-page overlay data
-    # Returns { success:, page_count:, pages: [{ jpg_path:, overlay_data: }], page_width:, page_height:, error: }
+    # Returns { success:, page_count:, pages: [{ jpg_path:, overlay_data: }], page_width:, page_height:, print_mode:, error: }
     # jpg_path/overlay_data are also present as page-1 aliases for callers that only show the first page.
     def generate
       cached = load_cached_preview
@@ -116,7 +123,7 @@ module Design
       rescue => e
         Rails.logger.error "DesignPreviewService error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
         { success: false, page_count: 0, pages: [], jpg_path: nil, overlay_data: [],
-          page_width: preview_page_width_pt, page_height: paper_size.height_pt, error: e.message }
+          page_width: preview_page_width_pt, page_height: paper_size.height_pt, print_mode: @print_mode, error: e.message }
       ensure
         db_doc&.close
         FileUtils.rm_rf(work)
@@ -138,8 +145,11 @@ module Design
     # the engine's master page uses it, so text, headings and the grid share it.
     def body_line_height = document_design.body_line_height
 
+    # Print mode renders into a subfolder, so publish_pages' preview_*.jpg glob
+    # never sees the other mode's pages, and a normal clear_cache removes both.
     def preview_dir
-      Rails.root.join("tmp", "previews", "dd_#{document_design.id}")
+      base = Rails.root.join("tmp", "previews", "dd_#{document_design.id}")
+      @print_mode ? base.join("print") : base
     end
 
     # Private per-call working dir (unique per generation) so concurrent renders of
@@ -166,7 +176,8 @@ module Design
       ].compact
       # Sub-second precision: two edits within the same second must not collide.
       parts = timestamps.map { |t| t.respond_to?(:iso8601) ? t.iso8601(6) : t.to_s }
-      "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((parts + [ sample_content.fingerprint ]).join("-"))
+      # The normal key is unchanged (existing caches stay warm); print mode adds a part.
+      "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((parts + [ sample_content.fingerprint, ("print" if @print_mode) ].compact).join("-"))
     end
 
     def cache_stamp_path
@@ -205,6 +216,7 @@ module Design
         overlay_data: pages.first&.dig(:overlay_data) || [],
         page_width: preview_page_width_pt,
         page_height: paper_size.height_pt,
+        print_mode: @print_mode,
         error: nil
       }
     end
@@ -547,7 +559,7 @@ module Design
         # components (**options), so they're instantiated separately.
         wing_renderer_class.new(db_document: db_doc, doc_info: doc_info, options: { svg: true })
       else
-        doc_layout_class.new(db_document: db_doc, doc_info: doc_info, svg: true)
+        doc_layout_class.new(db_document: db_doc, doc_info: doc_info, svg: true, print_mode: @print_mode)
       end
 
       component.render_to_pdf(pdf_path)

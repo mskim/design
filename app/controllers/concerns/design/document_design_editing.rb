@@ -6,7 +6,7 @@ module Design
 
     def preview
       dd = request.post? ? build_preview_design : @document_design
-      result = Design::PreviewService.new(dd, paper_size: @paper_size).generate
+      result = preview_service(dd).generate
       component = preview_component(result, dd)
 
       if request.post?
@@ -16,8 +16,11 @@ module Design
       end
     end
 
+    # print=1 comes from the frame's URLs (the cookie at render time); the
+    # theme page's cards and design_preview_img call this without it and must
+    # stay normal, so the cookie is not read here.
     def preview_jpg
-      result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
+      result = Design::PreviewService.new(@document_design, paper_size: @paper_size, print_mode: params[:print] == "1").generate
       page = params.fetch(:page, 1).to_i
       path = preview_pages(result)[page - 1]&.dig(:jpg_path) if result[:success] && page >= 1
       if path && File.exist?(path)
