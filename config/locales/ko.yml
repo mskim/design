@@ -256,6 +256,11 @@ ko:
       errors:
         not_a_number: "숫자를 입력해 주세요"
         negative: "0 이상이어야 합니다"
+        positive: "0보다 커야 합니다"
+        too_large: "-%{max}에서 %{max} 사이여야 합니다"
+        invalid_option: "목록에 있는 값을 골라 주세요"
+        invalid_flags: "네 칸 모두 0 또는 1이어야 합니다 (예: 1,0,1,0)"
+        invalid_color: "CMYK=c,m,y,k 또는 #rrggbb 형식이어야 합니다"
         missing_chapter: "장 디자인이 없는 판형이 있어 반영할 수 없습니다: %{sizes}"
         name_blank: "이름을 입력해 주세요"
         name_invalid: "이 이름은 쓸 수 없습니다"

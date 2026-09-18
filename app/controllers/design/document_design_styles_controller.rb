@@ -53,10 +53,12 @@ module Design
 
     # PATCH styles/:name/field (field, value). The value is validated on the
     # row it lands on for this size (existing or new); a failure writes nothing.
+    # Only a string (or nothing) is a value: value[]= / value[a]= are a 400.
     def update_field
       value = params[:value]
+      return head(:bad_request) unless value.nil? || value.is_a?(String)
       row = target_row
-      row[field] = value.is_a?(String) ? value.strip : value
+      row[field] = value&.strip
       return render_invalid_field(row, value) unless row.valid?(:style_panel)
 
       @document_design.set_style_field!(style_name, field, value)

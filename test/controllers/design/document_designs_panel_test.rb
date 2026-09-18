@@ -36,6 +36,13 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "an old panel link keeps preview_mode=single on the redirect" do
+    style = @dd.paragraph_styles.create!(name: "body")
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: style.id,
+                                                           preview_mode: "single")
+    assert_redirected_to design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, "body", preview_mode: "single")
+  end
+
   test "invalid level raises RecordNotFound (404)" do
     get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "bogus", style_id: 1)
     assert_response :not_found

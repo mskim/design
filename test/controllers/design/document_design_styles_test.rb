@@ -161,6 +161,83 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     patch field_path(@fw, "zz_nowhere"), params: { field: "font_size", value: "12" }, headers: STREAM
     assert_response :not_found
     assert_nil row_of(@fw, "zz_nowhere")
+    delete field_path(@fw, "zz_nowhere"), params: { field: "font_size" }, headers: STREAM
+    assert_response :not_found
+    delete style_path(@fw, "zz_nowhere"), headers: STREAM
+    assert_response :not_found
+    post push_path(@fw, "zz_nowhere"), headers: STREAM
+    assert_response :not_found
+  end
+
+  test "a value that isn't a string (value[]=, value[a]=) is a 400 and writes nothing" do
+    exports = count_exports do
+      patch field_path, params: "field=font_size&value[]=12", headers: STREAM
+      assert_response :bad_request
+      patch field_path, params: "field=text_align&value[a]=1", headers: STREAM
+      assert_response :bad_request
+    end
+    assert_equal 0, exports
+    assert_nil row_of(@fw)
+  end
+
+  test "a select value outside the panel's options is a 422; a listed one saves" do
+    exports = count_exports do
+      stub_preview { patch field_path, params: { field: "text_align", value: "banana" }, headers: STREAM }
+    end
+    assert_response :unprocessable_entity
+    assert_equal I18n.t("design.style_panel.errors.invalid_option"),
+                 stream_template("style-panel-content").at_css("[data-field-error='text_align']").text.strip
+    assert_nil row_of(@fw)
+    assert_equal 0, exports
+
+    stub_preview { patch field_path, params: { field: "text_align", value: "justify" }, headers: STREAM }
+    assert_response :success
+    @forewords.each { |dd| assert_equal "justify", row_of(dd).text_align }
+  end
+
+  test "an infinite or huge number is a 422" do
+    %w[1e999 99999].each do |v|
+      stub_preview { patch field_path, params: { field: "font_size", value: v }, headers: STREAM }
+      assert_response :unprocessable_entity, v
+    end
+    assert_nil row_of(@fw)
+  end
+
+  test "a 422 on an existing row leaves its stored values alone" do
+    @fw.set_style_field!("zz_body", "font_size", 12)
+    stub_preview { patch field_path, params: { field: "font_size", value: "abc" }, headers: STREAM }
+    assert_response :unprocessable_entity
+    assert_equal "abc", stream_template("style-panel-content").at_css("input[name='paragraph_style[font_size]']")["value"]
+    @forewords.each { |dd| assert_equal 12, row_of(dd).reload.font_size.to_i }
+  end
+
+  test "render_preview=0 skips the preview on a 422, DELETE field, DELETE style and push" do
+    requests = {
+      "422" => -> { patch field_path, params: { field: "font_size", value: "abc", render_preview: "0" }, headers: STREAM },
+      "DELETE field" => -> { delete field_path, params: { field: "text_align", render_preview: "0" }, headers: STREAM },
+      "DELETE style" => -> { delete style_path, params: { render_preview: "0" }, headers: STREAM },
+      "push" => -> { post push_path, params: { render_preview: "0" }, headers: STREAM }
+    }
+    requests.each do |label, request|
+      @fw.set_style_field!("zz_body", "text_align", "center")
+      request.call
+      assert_includes [ 200, 422 ], response.status, label
+      assert stream_attrs.any? { |a| a["target"] == "style-panel-content" }, label
+      refute stream_attrs.any? { |a| a["target"] == "preview_frame" }, label
+    end
+  end
+
+  test "names with dots and Korean names route" do
+    @theme.base_paragraph_styles.create!(name: "cover.title", font_size: 20)
+    @theme.base_paragraph_styles.create!(name: "본문", font_size: 10)
+    [ "cover.title", "본문" ].each do |name|
+      get style_path(@fw, name), headers: FRAME
+      assert_response :success, name
+      assert_select "[data-style-name]", text: name
+      patch field_path(@fw, name), params: { field: "text_align", value: "center", render_preview: "0" }, headers: STREAM
+      assert_response :success, name
+      assert_equal "center", row_of(@fw, name).text_align, name
+    end
   end
 
   # ── DELETE style / POST push ──

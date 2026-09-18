@@ -32,17 +32,41 @@ module Design
 
     # Sizes and spacing (pt, lines, %) can't be negative; indents and tracking can.
     NON_NEGATIVE_FIELDS = %w[
-      font_size scale text_line_spacing space_before space_after
+      font_size scale space_width text_line_spacing space_before space_after
       space_before_in_lines space_after_in_lines border_thickness padding_top padding_bottom
     ].freeze
+    # A zero size or scale draws nothing.
+    POSITIVE_FIELDS = %w[font_size scale].freeze
+    NUMBER_LIMIT = 10_000
 
     # A plain decimal: optional sign, digits with an optional fraction (or a
-    # bare fraction), optional exponent. Float() would also take "0x1A", "1_0".
-    DECIMAL = /\A[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\z/
+    # bare fraction). No exponent ("1e999" is Infinity); Float() would also
+    # take "0x1A", "1_0".
+    DECIMAL = /\A[+-]?(\d+(\.\d*)?|\.\d+)\z/
 
-    # Only the style panel's field save asks for this (row.valid?(:style_panel));
+    # The style panel's select options (StylePanelContent renders these).
+    TEXT_ALIGNS = %w[left center right justify].freeze
+    FILL_TYPES = %w[none solid gradient].freeze
+    GRADIENT_DIRECTIONS = %w[top_to_bottom bottom_to_top left_to_right right_to_left angle].freeze
+    CORNER_RADII = %w[none small medium large].freeze
+    OPTION_FIELDS = {
+      "text_align" => TEXT_ALIGNS, "fill_type" => FILL_TYPES,
+      "fill_gradient_direction" => GRADIENT_DIRECTIONS, "corner_radius" => CORNER_RADII
+    }.freeze
+
+    FONT_FIELDS = %w[font bold_font emphasis_font].freeze
+    # "top,right,bottom,left" / "tl,tr,br,bl" on-off flags.
+    FLAG_FIELDS = %w[border_side rounded_corners].freeze
+    FLAGS = /\A[01](,[01]){3}\z/
+    COLOR_FIELDS = %w[text_color bold_text_color emphasis_color fill_color fill_ending_color border_color].freeze
+    # What Inputs::ColorValue reads: "CMYK=c,m,y,k" (plain decimals, spaces
+    # around each allowed), "#rrggbb", or a legacy colour name.
+    COLOR = /\A(CMYK=(\s*[+-]?(\d+(\.\d*)?|\.\d+)\s*)(,\s*[+-]?(\d+(\.\d*)?|\.\d+)\s*){3}|#\h{6}|(?i:black|white|red|blue|green|gray))\z/
+
+    # Only the style panel's field save asks for these (row.valid?(:style_panel));
     # importers, the size generator and set_style_field!'s own saves don't.
     validate :numeric_style_fields, on: :style_panel, if: :doc_type_row?
+    validate :text_style_fields, on: :style_panel, if: :doc_type_row?
 
     def doc_type_row? = styleable_type == "Design::DocumentDesign"
 
@@ -80,12 +104,41 @@ module Design
         next if raw.nil? || (raw.is_a?(String) && raw.strip.empty?)
         text = raw.to_s.strip
         number = raw.is_a?(Numeric) ? raw : (text.match?(DECIMAL) ? text.to_d : nil)
-        if number.nil?
+        if number.nil? || !number.finite?
           errors.add(f, I18n.t("design.style_panel.errors.not_a_number"))
+        elsif number.abs > NUMBER_LIMIT
+          errors.add(f, I18n.t("design.style_panel.errors.too_large", max: NUMBER_LIMIT))
+        elsif POSITIVE_FIELDS.include?(f) && !number.positive?
+          errors.add(f, I18n.t("design.style_panel.errors.positive"))
         elsif NON_NEGATIVE_FIELDS.include?(f) && number.negative?
           errors.add(f, I18n.t("design.style_panel.errors.negative"))
         end
       end
+    end
+
+    # Selects, fonts, flag strings and colours take only what the panel's
+    # controls produce. A font may also be the value already stored on this
+    # row or its parent, so a legacy font round-trips. Like the numbers, only
+    # fields assigned in this edit are checked.
+    def text_style_fields
+      STYLE_FIELDS.each do |f|
+        next unless attribute_came_from_user?(f)
+        value = self[f]
+        next if value.nil? || (value.is_a?(String) && value.strip.empty?)
+        text = value.to_s
+        error = if OPTION_FIELDS.key?(f) then :invalid_option unless OPTION_FIELDS[f].include?(text)
+                elsif FONT_FIELDS.include?(f) then :invalid_option unless allowed_fonts(f).include?(text)
+                elsif FLAG_FIELDS.include?(f) then :invalid_flags unless text.match?(FLAGS)
+                elsif COLOR_FIELDS.include?(f) then :invalid_color unless text.match?(COLOR)
+                end
+        errors.add(f, I18n.t("design.style_panel.errors.#{error}")) if error
+      end
+    end
+
+    def allowed_fonts(f)
+      stored = attribute_in_database(f)
+      parent = styleable.respond_to?(:parent_values) ? styleable.parent_values(name)[f] : nil
+      Design::Theme::AVAILABLE_FONTS + [ stored, parent ].compact
     end
 
     def normalize_doc_type_blanks
