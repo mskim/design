@@ -3,6 +3,7 @@ module Design
     extend ActiveSupport::Concern
 
     include Design::ParagraphStyleParams
+    include Design::DocumentDesignPreview
 
     def preview
       dd = request.post? ? build_preview_design : @document_design
@@ -33,21 +34,18 @@ module Design
 
     def panel
       style = find_panel_style(params[:level], params[:style_id])
-      panel_update_url = helpers.panel_update_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: params[:level], style_id: style.id)
-      revert_url = document_style_revert_url(style, params[:level])
+      # Full navigation (old preview-overlay links, bookmarks): styles are now
+      # keyed by name. (The embedded branch below goes in Task 7.)
+      unless turbo_frame_request?
+        return redirect_to helpers.theme_paper_size_document_design_style_path(
+          @theme, @paper_size, @document_design, style.name, preview_mode: params[:preview_mode].presence)
+      end
 
       # Embedded (typography tab / style list, via a turbo-frame request): just the
-      # bare panel that swaps into properties_panel. Full navigation (clicking a
-      # style in the preview): a full page with the preview on the left.
-      if turbo_frame_request?
-        render_paragraph_style_panel(style, panel_update_url: panel_update_url, revert_url: revert_url)
-      else
-        render Design::Views::ParagraphStyles::EditPage.new(
-          paragraph_style: style, theme: @theme, paper_size: @paper_size, document_design: @document_design,
-          panel_update_url: panel_update_url,
-          back_url: helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),
-          revert_url: revert_url, editable: editable?)
-      end
+      # bare panel that swaps into properties_panel.
+      panel_update_url = helpers.panel_update_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: params[:level], style_id: style.id)
+      render_paragraph_style_panel(style, panel_update_url: panel_update_url,
+                                   revert_url: document_style_revert_url(style, params[:level]))
     rescue ActiveRecord::RecordNotFound
       # A valid-level style link can outlive its row (reverted to base, or cleared by
       # an "apply to all" save) — degrade to the live document view instead of 500ing.
@@ -169,59 +167,6 @@ module Design
       end
     end
 
-    # Stale style link (reverted, or cleared by an "apply to all" save): show the
-    # live document view instead of raising. A turbo-frame request re-renders the
-    # properties panel in place; a full navigation redirects to the editor.
-    def fall_back_to_document_view
-      if turbo_frame_request?
-        render Design::Views::DocumentDesigns::PropertiesPanel.new(
-          theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: editable?)
-      else
-        redirect_to helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design)
-      end
-    end
-
-    def editable?
-      @theme.editable_by?(Design.current_user)
-    end
-
-    # "single" (style edit pages) or nil → :scroll (the design editor). Carried on the
-    # preview frame src and as a hidden field in the style Panel form.
-    def preview_mode
-      params[:preview_mode] == "single" ? :single : :scroll
-    end
-
-    # What the style Panel form should post back: "single" or nil (nothing for scroll).
-    def panel_preview_mode
-      preview_mode == :single ? "single" : nil
-    end
-
-    # Older/stubbed service results carry only the page-1 keys; normalise to pages.
-    def preview_pages(result)
-      result[:pages] || [ { jpg_path: result[:jpg_path], overlay_data: result[:overlay_data] || [] } ]
-    end
-
-    # Preview (or PreviewError) component for a service result.
-    # dd may be an unsaved live-preview copy (same id); URLs always use @document_design.
-    def preview_component(result, dd = @document_design)
-      return Design::Views::DocumentDesigns::PreviewError.new(error: result[:error]) unless result[:success]
-
-      stamp = Time.now.to_i
-      pages = preview_pages(result).each_with_index.map do |pg, i|
-        { jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, page: i + 1, t: stamp),
-          overlay_data: pg[:overlay_data] }
-      end
-      Design::Views::DocumentDesigns::Preview.new(
-        document_design: dd, paper_size: @paper_size, pages: pages, mode: preview_mode,
-        page_width: result[:page_width], page_height: result[:page_height], style_urls: build_style_urls)
-    end
-
-    # Turbo-stream replacing the document preview with a freshly rendered one.
-    def preview_frame_stream
-      result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
-      turbo_stream.replace("preview_frame", html: preview_component(result).call.html_safe)
-    end
-
     # Turbo-stream re-rendering the style panel after a save, pointed at where the
     # value now lives: an "apply to all" save → the theme base (level "theme", no
     # revert); otherwise → the live state (live_panel_stream).
@@ -315,20 +260,6 @@ module Design
       # In-memory ONLY — NOT `dd.heading_elements = elements` (the collection setter destroys real rows via dependent: :destroy).
       dd.association(:heading_elements).target = elements
       dd
-    end
-
-    def build_style_urls
-      urls = {}
-      @theme.base_paragraph_styles.each do |s|
-        urls[s.name] = helpers.panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: "theme", style_id: s.id)
-      end
-      @paper_size.paragraph_styles.each do |s|
-        urls[s.name] = helpers.panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: "paper", style_id: s.id)
-      end
-      @document_design.paragraph_styles.each do |s|
-        urls[s.name] = helpers.panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: "document", style_id: s.id)
-      end
-      urls
     end
 
     def document_design_params

@@ -30,6 +30,20 @@ module Design
     before_validation :normalize_doc_type_blanks, if: :doc_type_row?
     after_initialize :clear_doc_type_defaults, if: -> { new_record? && doc_type_row? }
 
+    # Sizes and spacing (pt, lines, %) can't be negative; indents and tracking can.
+    NON_NEGATIVE_FIELDS = %w[
+      font_size scale text_line_spacing space_before space_after
+      space_before_in_lines space_after_in_lines border_thickness padding_top padding_bottom
+    ].freeze
+
+    # A plain decimal: optional sign, digits with an optional fraction (or a
+    # bare fraction), optional exponent. Float() would also take "0x1A", "1_0".
+    DECIMAL = /\A[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\z/
+
+    # Only the style panel's field save asks for this (row.valid?(:style_panel));
+    # importers, the size generator and set_style_field!'s own saves don't.
+    validate :numeric_style_fields, on: :style_panel, if: :doc_type_row?
+
     def doc_type_row? = styleable_type == "Design::DocumentDesign"
 
     # Proportional values are rounded to 2 decimals, so a scaled value can land
@@ -55,6 +69,24 @@ module Design
     end
 
     private
+
+    # Decimal columns cast "abc" to 0 and "12pt" to 12 silently, so check what
+    # was typed. Only fields assigned in this edit are checked (came_from_user?,
+    # via Design::Overridable) — a legacy row never blocks an unrelated save.
+    def numeric_style_fields
+      STYLE_FIELDS.each do |f|
+        next unless type_for_attribute(f).type == :decimal && attribute_came_from_user?(f)
+        raw = read_attribute_before_type_cast(f)
+        next if raw.nil? || (raw.is_a?(String) && raw.strip.empty?)
+        text = raw.to_s.strip
+        number = raw.is_a?(Numeric) ? raw : (text.match?(DECIMAL) ? text.to_d : nil)
+        if number.nil?
+          errors.add(f, I18n.t("design.style_panel.errors.not_a_number"))
+        elsif NON_NEGATIVE_FIELDS.include?(f) && number.negative?
+          errors.add(f, I18n.t("design.style_panel.errors.negative"))
+        end
+      end
+    end
 
     def normalize_doc_type_blanks
       STYLE_FIELDS.each { |f| self[f] = nil if self[f].is_a?(String) && self[f].strip.empty? }

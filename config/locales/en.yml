@@ -258,6 +258,10 @@ en:
         theme: "Apply %{count} changed field(s) of this style to the theme."
         chapter: "Apply %{count} changed field(s) to the chapter; this document type then follows the chapter."
         kept: "%{field}: %{count} other document type(s) keep their own value."
+      errors:
+        not_a_number: "Enter a number"
+        negative: "Must be 0 or more"
+        missing_chapter: "Can't apply: no chapter design on %{sizes}"
     paper_sizes:
       edit_title: "Edit Paper Size"
       margins: "Margins (mm)"

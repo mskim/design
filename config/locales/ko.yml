@@ -258,6 +258,10 @@ ko:
         theme: "이 스타일에서 바꾼 %{count}개 항목을 테마에 반영합니다."
         chapter: "이 문서 유형에서 바꾼 %{count}개 항목을 장에 반영하고, 여기서는 장의 값을 따릅니다."
         kept: "%{field}: 자체 값이 있는 다른 문서 유형 %{count}개는 그 값을 유지합니다."
+      errors:
+        not_a_number: "숫자를 입력해 주세요"
+        negative: "0 이상이어야 합니다"
+        missing_chapter: "장 디자인이 없는 판형이 있어 반영할 수 없습니다: %{sizes}"
     paper_sizes:
       edit_title: "판형 편집"
       margins: "여백 (mm)"

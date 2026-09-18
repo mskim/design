@@ -20,11 +20,11 @@ class Design::PreviewModeTest < ActionDispatch::IntegrationTest
     assert_select "input[name=preview_mode]", false
   end
 
-  test "paragraph style edit page requests a single-page preview and posts preview_mode with the panel" do
-    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: @style.id)
+  test "paragraph style edit page requests a single-page preview and saves in single mode" do
+    get design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, "body")
     assert_response :success
     assert_select "turbo-frame#preview_frame[src*='preview_mode=single']"
-    assert_select "form input[type=hidden][name=preview_mode][value=single]"
+    assert_select "form[data-design--style-autosave-preview-mode-value='single']"
   end
 
   test "embedded panel (turbo-frame request) carries the incoming preview_mode" do

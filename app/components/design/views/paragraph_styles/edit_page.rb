@@ -1,42 +1,30 @@
 module Design
   module Views
     module ParagraphStyles
-      # Full-page style editor reached by clicking a style in the document preview:
-      # the document's preview on the LEFT, the style's edit form (the Panel) on the
-      # RIGHT. Works for any level (document/theme/paper) because the document context
-      # comes from the panel route, so even a theme-inherited style shows the preview.
+      # Full-page style editor (preview-overlay clicks): the document's
+      # one-page preview on the left, the StylePanel on the right.
       class EditPage < Design::Views::Base
         register_element :turbo_frame
 
-        def initialize(paragraph_style:, theme:, paper_size:, document_design:, panel_update_url:, back_url:, revert_url: nil, editable: true)
-          @paragraph_style = paragraph_style
+        def initialize(theme:, paper_size:, document_design:, style_name:, urls:, back_url:, editable: true)
           @theme = theme
           @paper_size = paper_size
           @document_design = document_design
-          @panel_update_url = panel_update_url
+          @style_name = style_name
+          @urls = urls
           @back_url = back_url
-          @revert_url = revert_url
           @editable = editable
         end
 
         def view_template
-          shell(title: @paragraph_style.name, action_slot: nil,
-                sidebar: design_sidebar(@theme, @paper_size, @document_design)) do
+          shell(title: @style_name, action_slot: nil, sidebar: sidebar) do
             div(class: "px-6 py-8") do
               div(class: "flex flex-col lg:flex-row lg:items-start gap-6") do
-                # Sticky so the preview stays in view while the (tall) form scrolls the page.
+                # Sticky so the preview stays in view while the (tall) panel scrolls the page.
                 div(class: "flex-1 min-w-0 lg:sticky lg:top-6 lg:self-start") { preview_section }
                 div(class: "lg:w-[28rem] lg:shrink-0") do
-                  render Design::Views::ParagraphStyles::Panel.new(
-                    paragraph_style: @paragraph_style,
-                    panel_update_url: @panel_update_url,
-                    back_url: @back_url,
-                    revert_url: @revert_url,
-                    editable: @editable,
-                    document_design: @document_design,
-                    save_scope_shadow_count: @theme.shadow_override_doc_types(@paragraph_style.name).size,
-                    preview_mode: "single"
-                  )
+                  render StylePanel.new(document_design: @document_design, style_name: @style_name, urls: @urls,
+                                        back_url: @back_url, back_frame: "_top", editable: @editable, preview_mode: "single")
                 end
               end
             end
@@ -44,6 +32,19 @@ module Design
         end
 
         private
+
+        # The design highlighted; switching size opens this style on the same
+        # doc type there (or that size's overview when it has none).
+        def sidebar
+          theme_sidebar(@theme, @paper_size, current: { kind: :document_design, id: @document_design.id },
+                        size_url: ->(ps) { size_url(ps) })
+        end
+
+        def size_url(ps)
+          other = ps.document_designs.find_by(doc_type: @document_design.doc_type)
+          other ? helpers.theme_paper_size_document_design_style_path(@theme, ps, other, @style_name)
+                : helpers.theme_path(@theme, paper_size_id: ps.id)
+        end
 
         def preview_section
           div(class: "rounded-lg border border-slate-200 bg-slate-50 p-4") do

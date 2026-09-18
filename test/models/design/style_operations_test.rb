@@ -383,6 +383,26 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
     @chapters.each { |dd| assert_nil row_of(dd, "zz_body"), "nothing is written before the check" }
   end
 
+  test "MissingChapterError names the sizes that lack a chapter" do
+    @foreword.set_style_field!("zz_body", "text_align", "center")
+    @chapters.last.destroy!
+    error = assert_raises(Design::DocumentDesign::MissingChapterError) { @foreword.push_style!("zz_body") }
+    assert_equal [ @ps2.display_name ], error.sizes
+    assert_includes error.message, @ps2.display_name
+  end
+
+  test "style_exists? is true for a base, a chapter-only or an own row, false otherwise" do
+    @chapter.paragraph_styles.create!(name: "zz_ch_only", font_size: 9)
+    @foreword.paragraph_styles.create!(name: "zz_own_only", font_size: 9)
+
+    assert @foreword.style_exists?("zz_body"), "theme base"
+    assert @foreword.style_exists?("zz_ch_only"), "chapter-only, seen from foreword"
+    assert @foreword.style_exists?("zz_own_only"), "own row"
+    refute @foreword.style_exists?("zz_nowhere")
+    refute @forewords.last.style_exists?("zz_ch_only"), "another size's chapter is not this size's parent"
+    assert @chapter.style_exists?("zz_ch_only")
+  end
+
   test "push_preview from chapter counts every other doc type keeping its own value" do
     prologue = design_for(@ps1, "prologue")
     prologue.paragraph_styles.create!(name: "zz_body", font_size: 13)

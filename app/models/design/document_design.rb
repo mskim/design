@@ -272,7 +272,23 @@ module Design
         has_parent: parent.values.any? { |v| !v.nil? } }
     end
 
-    class MissingChapterError < StandardError; end
+    # Raised by push_style! (before any write) when some size with this doc
+    # type has no chapter design; `sizes` are those sizes' display names.
+    class MissingChapterError < StandardError
+      attr_reader :sizes
+
+      def initialize(sizes = [])
+        @sizes = Array(sizes)
+        super("no chapter design on #{@sizes.join(', ')}")
+      end
+    end
+
+    # Some layer defines a row for `name`: the theme base, chapter on this
+    # size, or this design.
+    def style_exists?(name)
+      theme.base_paragraph_styles.exists?(name: name) || paragraph_styles.exists?(name: name) ||
+        chapter_design&.paragraph_styles&.exists?(name: name) || false
+    end
 
     # Set `field` of style `name` (edited on this size) on every size.
     # A blank value reverts the field everywhere; so does, for doc types other
@@ -446,8 +462,8 @@ module Design
       with_chapter = theme.document_designs.where(doc_type: "chapter").pluck(:paper_size_id)
       missing = sizes - with_chapter
       return if missing.empty?
-      names = Design::PaperSize.where(id: missing).map(&:display_name).join(", ")
-      raise MissingChapterError, "no chapter design on #{names}"
+      names = Design::PaperSize.where(id: missing).map(&:display_name)
+      raise MissingChapterError, names
     end
 
     private

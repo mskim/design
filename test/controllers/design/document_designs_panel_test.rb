@@ -22,21 +22,10 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_select "[data-controller~='ruby-ui--tabs']"
   end
 
-  test "panel renders the autosave Panel for a theme-level style" do
+  test "panel full navigation redirects to the style's name-keyed page" do
     theme_style = @theme.base_paragraph_styles.create!(name: "body")
     get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: theme_style.id)
-    assert_response :success
-    assert_select "turbo-frame#properties_panel form[data-controller~='design--panel-autosave']"
-    assert_includes response.body, %(name="paragraph_style[font_size]")
-  end
-
-  test "panel full navigation (preview click) renders a full page with preview on the left" do
-    theme_style = @theme.base_paragraph_styles.create!(name: "body")
-    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: theme_style.id)
-    assert_response :success
-    # Full page: the document preview AND the style's edit form.
-    assert_select "turbo-frame#preview_frame"
-    assert_select "turbo-frame#properties_panel form[data-controller~='design--panel-autosave']"
+    assert_redirected_to design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, "body")
   end
 
   test "panel as a turbo-frame request renders only the bare panel (embedded, no preview)" do

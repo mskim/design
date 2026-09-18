@@ -41,7 +41,7 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
 
   test "paragraph style edit page highlights the parent design" do
     style = @dd.paragraph_styles.create!(name: "body")
-    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: style.id)
+    get design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, style.name)
     assert_response :success
     assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
   end
@@ -96,7 +96,7 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
 
   test "document-level paragraph style edit page highlights the design" do
     style = @dd.paragraph_styles.create!(name: "caption")
-    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: style.id)
+    get design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, style.name)
     assert_response :success
     assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
   end

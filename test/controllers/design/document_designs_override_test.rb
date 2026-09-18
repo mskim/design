@@ -127,14 +127,16 @@ class Design::DocumentDesignsOverrideTest < ActionDispatch::IntegrationTest
   end
 
   test "panel for a base/theme-level style shows NO Revert link" do
-    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: @base_style.id)
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: @base_style.id),
+        headers: { "Turbo-Frame" => "properties_panel" } # full navigation now redirects (D2b)
     assert_response :success
     refute_includes response.body, "Revert"
   end
 
   test "panel for a document override shows Revert link" do
     override = @dd.paragraph_styles.create!(name: "body", font_size: 10)
-    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: override.id)
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: override.id),
+        headers: { "Turbo-Frame" => "properties_panel" } # full navigation now redirects (D2b)
     assert_response :success
     assert_includes response.body, "Revert"
     assert_includes response.body, "data-turbo-method=\"delete\""
@@ -148,7 +150,8 @@ class Design::DocumentDesignsOverrideTest < ActionDispatch::IntegrationTest
 
   test "panel Back link returns to the full edit page (tabs + preview) via _top" do
     override = @dd.paragraph_styles.create!(name: "body", font_size: 10)
-    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: override.id)
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: override.id),
+        headers: { "Turbo-Frame" => "properties_panel" } # full navigation now redirects (D2b)
     assert_response :success
     assert_includes response.body, "Back"
     assert_includes response.body, "document_designs/#{@dd.id}/edit"
