@@ -117,4 +117,29 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
       assert_includes src, "parent: String", c
     end
   end
+
+  test "style_autosave controller imports the queue by its importmap name and renders streams" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, %("design-controllers/design/style_save_queue")
+    %w[fieldChanged( revert( revertStyle( pushStyle( ignoreSubmit( keepLocalState( keepOpenPopover( send( reloadPreview( closeMenu(].each { |m| assert_includes src, m }
+    assert_includes src, "previewUrl: String"
+    assert_includes src, "renderStreamMessage"
+    refute_match(/from\s+["']\.\.?\//, src, "no relative imports (importmap)")
+  end
+
+  # A save's morph would reset the ▾ menu to its server class ("hidden …") and
+  # close a menu the user just opened: keepLocalState keeps the menu's class.
+  test "style_autosave keeps the dropdown menu's class through a morph" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, %(const MENU = "[data-design--dropdown-target='menu']")
+    assert_match(/attributeName === "class" && el\.matches\(MENU\)/, src)
+  end
+
+  test "style_save_queue is a pure module" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_save_queue.js"))
+    refute_match(/^import /, src)
+    refute_includes src, "document."
+    refute_includes src, "window."
+  end
 end
