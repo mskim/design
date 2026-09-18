@@ -1,8 +1,10 @@
 module Design
   module Views
     # Left rail for every studio page inside a theme: theme + paper size selects on
-    # top, then the book structure (표지/머리/본문/꼬리) with one leaf per doc_type
-    # design. Rendered into Shell's sidebar: slot via Base#theme_sidebar.
+    # top, then (for editable themes) the size actions — new size, size settings,
+    # generate other sizes — then the book structure (표지/머리/본문/꼬리) with one
+    # leaf per doc_type design, and finally the theme's table styles group.
+    # Rendered into Shell's sidebar: slot via Base#theme_sidebar.
     #
     # size_url: ->(paper_size) { url } — the URL of *this page kind* for another
     # size, so changing the size select keeps the designer on the same page.
@@ -83,20 +85,20 @@ module Design
         ul(class: "flex flex-col gap-0.5 list-none p-0") do
           li { a(href: helpers.new_theme_paper_size_path(@theme), class: LINK_CLASS) { I18n.t("design.sidebar.new_size") } }
           if @paper_size
-            active = current?(:paper_size)
-            li do
-              a(href: helpers.edit_theme_paper_size_path(@theme, @paper_size), class: active ? ACTIVE_CLASS : LINK_CLASS,
-                aria_current: (active ? "page" : nil)) { I18n.t("design.sidebar.size_settings") }
-            end
+            leaf(I18n.t("design.sidebar.size_settings"), helpers.edit_theme_paper_size_path(@theme, @paper_size),
+                 active: current?(:paper_size), inactive_class: LINK_CLASS)
             li { generate_sizes_button }
           end
         end
       end
 
-      # Moved from Themes::Show#generate_sizes_button (same route, same confirm). A plain
-      # form rather than button_to: phlex-rails' button_to goes through view_context,
-      # which is nil when the component is rendered bare in tests (Themes::Show#clone_button
-      # uses the same plain-form shape).
+      # Moved from Themes::Show#generate_sizes_button (same route). That button used
+      # data-turbo="false" + data-confirm, but with Turbo disabled and no Rails UJS loaded
+      # (Importmaps + Turbo only) data-confirm never fired — the old confirm was dead. Here
+      # we deliberately drop turbo: false and use turbo_confirm so the confirm actually
+      # works; the controller's redirect is fine under Turbo. A plain form rather than
+      # button_to: phlex-rails' button_to goes through view_context, which is nil when the
+      # component is rendered bare in tests (Themes::Show#clone_button uses the same shape).
       def generate_sizes_button
         form(action: helpers.generate_sizes_theme_path(@theme), method: "post",
              data: { turbo_confirm: I18n.t("design.themes.generate_sizes_confirm") }) do
@@ -135,9 +137,9 @@ module Design
         end
       end
 
-      def leaf(label_text, href, active:)
+      def leaf(label_text, href, active:, inactive_class: LEAF_CLASS)
         li do
-          a(href: href, title: label_text, class: active ? ACTIVE_CLASS : LEAF_CLASS,
+          a(href: href, title: label_text, class: active ? ACTIVE_CLASS : inactive_class,
             aria_current: (active ? "page" : nil)) { label_text }
         end
       end

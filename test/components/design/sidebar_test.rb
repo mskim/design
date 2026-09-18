@@ -20,8 +20,8 @@ class Design::SidebarTest < ActiveSupport::TestCase
     @other = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
   end
 
-  def render_sidebar(**opts)
-    component = Design::Views::Sidebar.new(theme: @theme, paper_size: @ps, **opts)
+  def render_sidebar(theme: @theme, paper_size: @ps, **opts)
+    component = Design::Views::Sidebar.new(theme: theme, paper_size: paper_size, **opts)
     component.define_singleton_method(:helpers) { FakeHelpers.new }
     Nokogiri::HTML.fragment(component.call)
   end
@@ -61,19 +61,14 @@ class Design::SidebarTest < ActiveSupport::TestCase
   end
 
   test "renders without a paper size" do
-    component = Design::Views::Sidebar.new(theme: @theme, paper_size: nil)
-    component.define_singleton_method(:helpers) { FakeHelpers.new }
-    doc = Nokogiri::HTML.fragment(component.call)
+    doc = render_sidebar(paper_size: nil)
     assert doc.at_css("select[data-sidebar='theme']")
     assert_nil doc.at_css("select[data-sidebar='size'] option[selected]")
   end
 
   # --- matter groups ---
 
-  # Matter-group tests count/list <details> groups, so drop the table styles the theme
-  # seeds on create (Theme#seed_default_styles) — that group has its own tests below.
   def seed_designs
-    @theme.table_styles.destroy_all
     @chapter = @ps.document_designs.create!(doc_type: "chapter")
     @title   = @ps.document_designs.create!(doc_type: "title_page")
     @front   = @ps.document_designs.create!(doc_type: "front_page")
@@ -83,13 +78,14 @@ class Design::SidebarTest < ActiveSupport::TestCase
     seed_designs
     doc = render_sidebar
     summaries = doc.css("details > summary").map { |s| s.text.strip }
-    assert_equal [ I18n.t("design.themes.cover"), I18n.t("design.themes.frontmatter"), I18n.t("design.themes.bodymatter") ], summaries
+    assert_equal [ I18n.t("design.themes.cover"), I18n.t("design.themes.frontmatter"), I18n.t("design.themes.bodymatter"),
+                   I18n.t("design.sidebar.table_styles") ], summaries
   end
 
   test "every group is open and each leaf links to the design editor" do
     seed_designs
     doc = render_sidebar
-    assert_equal 3, doc.css("details[open]").size, "all three groups should be open"
+    assert_equal 4, doc.css("details[open]").size, "all four groups should be open"
     link = doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/#{@ps.id}/document_designs/#{@chapter.id}/edit']")
     assert link, "chapter leaf missing"
     assert_equal I18n.t("design.doc_types.chapter"), link.text.strip
@@ -124,9 +120,7 @@ class Design::SidebarTest < ActiveSupport::TestCase
     system_theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko") # user_id nil
     ps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     Design.config.authoring = false
-    component = Design::Views::Sidebar.new(theme: system_theme, paper_size: ps)
-    component.define_singleton_method(:helpers) { FakeHelpers.new }
-    doc = Nokogiri::HTML.fragment(component.call)
+    doc = render_sidebar(theme: system_theme, paper_size: ps)
     assert_nil doc.at_css("a[href$='/paper_sizes/new']")
     assert_nil doc.at_css("form[action$='/generate_sizes']")
   end
