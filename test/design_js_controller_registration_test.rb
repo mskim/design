@@ -88,4 +88,11 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "dataset.url"
     assert_includes src, "Turbo.visit"
   end
+
+  test "scrub_input controller exists and imports number_math by its importmap name" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/scrub_input_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, %("design-controllers/design/number_math")
+    %w[scrubStart( scrubMove( scrubEnd( keydown( commit( remember(].each { |m| assert_includes src, m }
+  end
 end
