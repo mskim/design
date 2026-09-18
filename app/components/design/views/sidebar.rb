@@ -7,6 +7,9 @@ module Design
     # size_url: ->(paper_size) { url } — the URL of *this page kind* for another
     # size, so changing the size select keeps the designer on the same page.
     # Defaults to the theme overview for that size.
+    #
+    # current: { kind:, id: } — which leaf to highlight. ids must be Integers
+    # (compared with == against record ids).
     class Sidebar < Design::Views::Base
       def initialize(theme:, paper_size:, current: nil, size_url: nil)
         @theme = theme
@@ -19,7 +22,9 @@ module Design
         nav(class: "flex flex-col gap-3 p-3 text-sm", aria_label: "Studio") do
           theme_select
           size_select
+          size_links if editable?
           matter_groups if @paper_size
+          table_styles_group
         end
       end
 
@@ -38,8 +43,12 @@ module Design
         [ :other,       "design.sidebar.other" ]
       ].freeze
 
-      LEAF_CLASS   = "block truncate rounded px-2 py-0.5 no-underline hover:bg-slate-200"
-      ACTIVE_CLASS = "block truncate rounded px-2 py-0.5 no-underline bg-slate-900 text-white"
+      LEAF_BASE    = "block truncate rounded px-2 py-0.5 no-underline"
+      LEAF_CLASS   = "#{LEAF_BASE} hover:bg-slate-200"
+      ACTIVE_CLASS = "#{LEAF_BASE} bg-slate-900 text-white"
+      LINK_CLASS   = "#{LEAF_BASE} text-blue-600 hover:bg-slate-200"
+
+      def editable? = @theme.editable_by?(Design.current_user)
 
       def theme_select
         labelled_select("theme", I18n.t("design.sidebar.theme")) do
@@ -70,6 +79,34 @@ module Design
         @size_url ? @size_url.call(ps) : helpers.theme_path(@theme, paper_size_id: ps.id)
       end
 
+      def size_links
+        ul(class: "flex flex-col gap-0.5 list-none p-0") do
+          li { a(href: helpers.new_theme_paper_size_path(@theme), class: LINK_CLASS) { I18n.t("design.sidebar.new_size") } }
+          if @paper_size
+            active = current?(:paper_size)
+            li do
+              a(href: helpers.edit_theme_paper_size_path(@theme, @paper_size), class: active ? ACTIVE_CLASS : LINK_CLASS,
+                aria_current: (active ? "page" : nil)) { I18n.t("design.sidebar.size_settings") }
+            end
+            li { generate_sizes_button }
+          end
+        end
+      end
+
+      # Moved from Themes::Show#generate_sizes_button (same route, same confirm). A plain
+      # form rather than button_to: phlex-rails' button_to goes through view_context,
+      # which is nil when the component is rendered bare in tests (Themes::Show#clone_button
+      # uses the same plain-form shape).
+      def generate_sizes_button
+        form(action: helpers.generate_sizes_theme_path(@theme), method: "post",
+             data: { turbo_confirm: I18n.t("design.themes.generate_sizes_confirm") }) do
+          input(type: "hidden", name: "authenticity_token", value: helpers.form_authenticity_token)
+          button(type: "submit", class: "px-2 py-0.5 text-left text-xs text-blue-600 hover:underline") do
+            I18n.t("design.themes.generate_sizes", size: @theme.default_paper_size&.display_name)
+          end
+        end
+      end
+
       def matter_groups
         grouped = Design::DocumentDesign.grouped_by_matter(@paper_size.document_designs.to_a)
         MATTER_ORDER.each do |group, key|
@@ -81,8 +118,18 @@ module Design
         end
       end
 
+      def table_styles_group
+        styles = @theme.table_styles.order(:name).to_a
+        return if styles.empty?
+        group_box(I18n.t("design.sidebar.table_styles")) do
+          styles.each do |ts|
+            leaf(ts.name.capitalize, helpers.edit_theme_table_style_path(@theme, ts), active: current?(:table_style, ts.id))
+          end
+        end
+      end
+
       def group_box(label_text, &leaves)
-        details(open: true, class: "group") do
+        details(open: true) do
           summary(class: "cursor-pointer select-none font-medium text-slate-700") { label_text }
           ul(class: "ml-3 mt-1 flex flex-col gap-0.5 list-none p-0", &leaves)
         end
@@ -99,6 +146,7 @@ module Design
         helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, dd)
       end
 
+      # id omitted: true for any record of that kind (used by kind-level links such as size settings)
       def current?(kind, id = nil)
         return false unless @current && @current[:kind] == kind
         id.nil? || @current[:id] == id

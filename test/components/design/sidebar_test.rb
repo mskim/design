@@ -70,7 +70,10 @@ class Design::SidebarTest < ActiveSupport::TestCase
 
   # --- matter groups ---
 
+  # Matter-group tests count/list <details> groups, so drop the table styles the theme
+  # seeds on create (Theme#seed_default_styles) — that group has its own tests below.
   def seed_designs
+    @theme.table_styles.destroy_all
     @chapter = @ps.document_designs.create!(doc_type: "chapter")
     @title   = @ps.document_designs.create!(doc_type: "title_page")
     @front   = @ps.document_designs.create!(doc_type: "front_page")
@@ -86,7 +89,7 @@ class Design::SidebarTest < ActiveSupport::TestCase
   test "every group is open and each leaf links to the design editor" do
     seed_designs
     doc = render_sidebar
-    assert_equal 3, doc.css("details[open]").size
+    assert_equal 3, doc.css("details[open]").size, "all three groups should be open"
     link = doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/#{@ps.id}/document_designs/#{@chapter.id}/edit']")
     assert link, "chapter leaf missing"
     assert_equal I18n.t("design.doc_types.chapter"), link.text.strip
@@ -99,11 +102,54 @@ class Design::SidebarTest < ActiveSupport::TestCase
     current = doc.css("[aria-current='page']")
     assert_equal 1, current.size
     assert_includes current.first.text, I18n.t("design.doc_types.chapter")
+    assert_includes current.first["class"], "bg-slate-900", "active leaf should carry the active classes"
   end
 
   test "nothing is highlighted without current" do
     seed_designs
     doc = render_sidebar
     assert_empty doc.css("[aria-current='page']")
+  end
+
+  # --- size links + table styles ---
+
+  test "editable theme shows new-size, size-settings links and the generate button" do
+    doc = render_sidebar
+    assert doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/new']"), "new size link"
+    assert doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/#{@ps.id}/edit']"), "size settings link"
+    assert doc.at_css("form[action='/themes/#{@theme.id}/generate_sizes']"), "generate sizes form"
+  end
+
+  test "read-only theme hides size links and the generate button" do
+    system_theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko") # user_id nil
+    ps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    Design.config.authoring = false
+    component = Design::Views::Sidebar.new(theme: system_theme, paper_size: ps)
+    component.define_singleton_method(:helpers) { FakeHelpers.new }
+    doc = Nokogiri::HTML.fragment(component.call)
+    assert_nil doc.at_css("a[href$='/paper_sizes/new']")
+    assert_nil doc.at_css("form[action$='/generate_sizes']")
+  end
+
+  test "size settings link is highlighted for current kind paper_size" do
+    doc = render_sidebar(current: { kind: :paper_size })
+    current = doc.css("[aria-current='page']")
+    assert_equal 1, current.size
+    assert_equal "/themes/#{@theme.id}/paper_sizes/#{@ps.id}/edit", current.first["href"]
+  end
+
+  test "table styles group lists the theme's table styles and highlights the current one" do
+    ts = @theme.table_styles.find_by!(name: "grid") # seeded by Theme#seed_default_styles on create
+    doc = render_sidebar(current: { kind: :table_style, id: ts.id })
+    summary = doc.css("details > summary").find { |s| s.text.strip == I18n.t("design.sidebar.table_styles") }
+    assert summary, "table styles group missing"
+    link = doc.at_css("a[href='/themes/#{@theme.id}/table_styles/#{ts.id}/edit']")
+    assert_equal "page", link["aria-current"]
+  end
+
+  test "table styles group is omitted when the theme has none" do
+    @theme.table_styles.destroy_all # Theme#seed_default_styles seeds them on create
+    doc = render_sidebar
+    refute_includes doc.css("details > summary").map { |s| s.text.strip }, I18n.t("design.sidebar.table_styles")
   end
 end
