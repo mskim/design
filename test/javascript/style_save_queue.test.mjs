@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { StyleSaveQueue, fieldFromName, keepsLocalValue } from "../../app/javascript/design-controllers/design/style_save_queue.js"
+import { StyleSaveQueue } from "../../app/javascript/design-controllers/design/style_save_queue.js"
 
 // send() answered by hand: each call waits in `calls` until resolved or rejected.
 function setup() {
@@ -14,13 +14,6 @@ function setup() {
 }
 const tick = () => new Promise((resolve) => setImmediate(resolve))
 const answer = async (call, result = { ok: true }) => { call.resolve(result); await tick() }
-
-test("fieldFromName accepts only paragraph_style[<field>]", () => {
-  assert.equal(fieldFromName("paragraph_style[font_size]"), "font_size")
-  for (const name of [ "preview_mode", "authenticity_token", "", undefined, null, "document_design[gutter]", "paragraph_style[a][b]" ]) {
-    assert.equal(fieldFromName(name), null, String(name))
-  }
-})
 
 test("one request in flight at a time, in the order enqueued", async () => {
   const { queue, calls } = setup()
@@ -134,8 +127,58 @@ test("isPending covers waiting and in-flight jobs", async () => {
   assert.ok(!queue.isPending("a")); assert.ok(!queue.isPending("b"))
 })
 
-test("keepsLocalValue: an unanswered save or an uncommitted (dirty) value keeps the local value", () => {
-  assert.equal(keepsLocalValue({ pending: true, dirty: false }), true)
-  assert.equal(keepsLocalValue({ pending: false, dirty: true }), true, "typing, or a scrub-drag (never focused)")
-  assert.equal(keepsLocalValue({ pending: false, dirty: false }), false, "committed: take the server's value")
+test("a barrier only blocks coalescing with jobs before it", async () => {
+  const { queue, calls } = setup()
+  queue.enqueue({ key: "tracking", value: "1" })
+  await tick() // tracking in flight
+  queue.enqueue({ key: "font_size", value: "12" })
+  queue.enqueue({ key: ":style" })
+  queue.enqueue({ key: "font_size", value: "13" })
+  queue.enqueue({ key: "font_size", value: "14" })
+  queue.enqueue({ key: "font_size", value: "15" })
+  assert.deepEqual(queue.waiting.map((j) => j.value ?? j.key), [ "12", ":style", "15" ])
+  for (let i = 0; i < 4; i++) await answer(calls[i])
+  assert.deepEqual(calls.map((c) => c.job.value ?? c.job.key), [ "1", "12", ":style", "15" ])
+})
+
+test("a field that fails and then saves in the same burst ends the burst as saved", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: "font_size", value: "x" })
+  await tick()
+  queue.enqueue({ key: "font_size", value: "12" })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  assert.equal(statuses.at(-1), "saved")
+})
+
+test("another field's success doesn't clear a failure", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: "font_size", value: "x" })
+  await tick()
+  queue.enqueue({ key: "tracking", value: "1" })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  assert.equal(statuses.at(-1), "error")
+})
+
+test("an ok result whose apply() throws counts as a failure", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: "a" }); await tick()
+  await answer(calls[0], { ok: true, apply: () => { throw new Error("no Turbo") } })
+  assert.equal(statuses.at(-1), "error")
+})
+
+test("stop(): waiting jobs are dropped, the one in flight completes, later enqueues are ignored", async () => {
+  const { queue, calls } = setup()
+  let applied = false
+  queue.enqueue({ key: "a" }); await tick()
+  queue.enqueue({ key: "b" })
+  queue.stop()
+  assert.ok(!queue.isPending("b"))
+  await answer(calls[0], { ok: true, apply: () => { applied = true } })
+  assert.ok(applied, "the in-flight response is still handed back")
+  queue.enqueue({ key: "c" }); await tick()
+  assert.deepEqual(calls.map((c) => c.job.key), [ "a" ])
+  assert.ok(!queue.busy)
+  await queue.whenIdle()
 })
