@@ -43,6 +43,27 @@ class Design::PreviewPrintModeTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#preview_frame img[src*='print=1']", 2
   end
 
+  test "only the cookie value \"1\" and print=1 turn print mode on" do
+    [ "true", "0" ].each do |value|
+      cookies["design_preview_print"] = value
+      assert_equal [ false ], capture_print_modes { get preview_path }, value
+      assert_select "img[src*='print=1']", 0
+    end
+    assert_equal [ false ], capture_print_modes { get jpg_path(print: "true") }
+  end
+
+  # Not stubbed: the service decides print mode doesn't apply to a title page.
+  test "a title page with the cookie on renders no print=1 image URLs" do
+    dd = @ps.document_designs.create!(doc_type: "title_page")
+    print_on!
+    get design.preview_theme_paper_size_document_design_path(@theme, @ps, dd)
+    assert_response :success
+    assert_select "turbo-frame#preview_frame img", minimum: 1
+    assert_select "img[src*='print=1']", 0
+  ensure
+    Design::PreviewService.new(dd, paper_size: @ps).clear_cache if dd
+  end
+
   test "POST preview (live preview) honours the cookie" do
     print_on!
     modes = capture_print_modes do

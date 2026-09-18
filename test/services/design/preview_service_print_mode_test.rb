@@ -36,6 +36,15 @@ class Design::PreviewServicePrintModeTest < ActiveSupport::TestCase
     assert_equal Design::PreviewService.new(dd, paper_size: @ps).send(:preview_dir), svc.send(:preview_dir)
   end
 
+  test "a normal clear_cache also removes the print/ folder" do
+    print = Design::PreviewService.new(@dd, paper_size: @ps, print_mode: true)
+    result = print.generate
+    assert result[:success], result[:error]
+    assert File.exist?(print.page_jpg_path(1))
+    Design::PreviewService.new(@dd, paper_size: @ps).clear_cache
+    refute File.exist?(print.page_jpg_path(1))
+  end
+
   test "print mode reaches the layout: a chapter's text starts after the binding on page 1, not on page 2" do
     @ps.update_columns(binding_margin_mm: 10)
     result = Design::PreviewService.new(@dd, paper_size: @ps, print_mode: true).generate
