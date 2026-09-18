@@ -125,9 +125,10 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     # pin a static home target for this render (test_helper restores config).
     Design.config.home_url = -> { "/" }
     # The form now renders the studio Sidebar as a child component, which calls
-    # helpers.*_path on its OWN (nil) view context in a bare unit render. Scope this
-    # render to the form body: the rail's Korean labels are covered by the
-    # request-backed sidebar tests (test/controllers/design/sidebar_pages_test.rb).
+    # helpers.*_path on its OWN (nil) view context in a bare unit render. The rail
+    # is a separate component excluded from this bare render; its localization is
+    # guarded by Design::SidebarTest ("renders Korean labels with no
+    # translation-missing leftovers", test/components/design/sidebar_test.rb).
     c.define_singleton_method(:sidebar) { nil }
     c.call
   end
