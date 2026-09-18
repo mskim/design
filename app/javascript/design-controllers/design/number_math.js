@@ -4,9 +4,11 @@ const PT_PER = { pt: 1, p: 12, in: 72, mm: 72 / 25.4, cm: 720 / 25.4 }
 const LENGTH_FIELDS = new Set(["pt", "mm"])
 const UNIT_SUFFIX = /^(.*?)\s*(pt|mm|cm|in|p)$/
 
-// "12*1.5" → 18; "5mm" in a pt field → 14.17…; null when invalid or not allowed.
+// "12*1.5" → 18; "5mm" in a pt field → 14.17…; "50%" in a percent field → 50;
+// null when invalid or not allowed.
 export function evaluate(text, fieldUnit) {
   let src = String(text ?? "").trim().toLowerCase()
+  if (fieldUnit === "percent") src = src.replace(/\s*%$/, "")
   if (src === "") return null
   let factor = 1
   const m = src.match(UNIT_SUFFIX)
@@ -79,7 +81,8 @@ export function clamp(value, min, max) {
   return v
 }
 
-// Display form: at most 2 decimals, no trailing zeros.
-export function formatNumber(value) {
-  return String(roundTo(value, 2))
+// Display form: at most `decimals` places, no trailing zeros. Callers pass
+// Math.max(2, decimalsOf(effectiveStep)) so a fine step's digits survive.
+export function formatNumber(value, decimals = 2) {
+  return String(roundTo(value, decimals))
 }

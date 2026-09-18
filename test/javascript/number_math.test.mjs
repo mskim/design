@@ -48,3 +48,19 @@ test("clamp and decimals", () => {
   assert.equal(formatNumber(14.1732), "14.17")
   assert.equal(formatNumber(10), "10")
 })
+
+test("formatNumber keeps the precision it is given", () => {
+  assert.equal(formatNumber(10.001, 3), "10.001")
+  assert.equal(formatNumber(10.001), "10")                         // default stays 2
+  assert.equal(formatNumber(1.23456, Math.max(2, decimalsOf(0.001))), "1.235")
+  assert.equal(formatNumber(1.5, Math.max(2, decimalsOf(1))), "1.5")
+})
+
+test("a percent field accepts a trailing %", () => {
+  assert.equal(evaluate("50%", "percent"), 50)
+  assert.equal(evaluate(" 50 % ", "percent"), 50)
+  assert.equal(evaluate("40+10%", "percent"), 50)
+  assert.equal(evaluate("%", "percent"), null)
+  assert.equal(evaluate("50%", "pt"), null)
+  assert.equal(evaluate("50%", "none"), null)
+})

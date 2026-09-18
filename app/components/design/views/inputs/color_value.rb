@@ -29,7 +29,8 @@ module Design
           nil
         end
 
-        def num(v) = (v.round(1) % 1).zero? ? v.round.to_s : v.round(1).to_s
+        # One decimal, trailing ".0" dropped; same rounding as color_math.js `num`.
+        def num(v) = ((v * 10).round / 10.0).to_s.delete_suffix(".0")
 
         def summary(str)
           s = str.to_s.strip

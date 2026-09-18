@@ -9,8 +9,10 @@ export function parseColor(str) {
   const s = String(str ?? "").trim()
   if (s === "") return null
   if (s.startsWith("CMYK=")) {
-    const parts = s.slice(5).split(",").map(Number)
-    if (parts.length !== 4 || parts.some(Number.isNaN)) return null
+    const raw = s.slice(5).split(",")
+    if (raw.length !== 4 || raw.some((p) => p.trim() === "")) return null // Number("") is 0; Ruby's Float("") fails
+    const parts = raw.map(Number)
+    if (parts.some(Number.isNaN)) return null
     const [c, m, y, k] = parts
     return { format: "cmyk", c, m, y, k }
   }
@@ -37,7 +39,8 @@ export function hexToCmyk(hex) {
   return { c: pct((1 - r - k) / (1 - k)), m: pct((1 - g - k) / (1 - k)), y: pct((1 - b - k) / (1 - k)), k: pct(k) }
 }
 
-const num = (v) => String(Number(Number(v).toFixed(1)))
+// One decimal, trailing ".0" dropped; same rounding as ColorValue.num in Ruby.
+const num = (v) => String(Math.round(Number(v) * 10) / 10)
 
 export function formatCmyk({ c, m, y, k }) { return `CMYK=${num(c)},${num(m)},${num(y)},${num(k)}` }
 

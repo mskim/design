@@ -8,6 +8,9 @@ test("parseColor recognises CMYK, hex, names and blank", () => {
   assert.deepEqual(parseColor("white"), { format: "named", name: "white", hex: "#ffffff" })
   assert.equal(parseColor(""), null)
   assert.equal(parseColor("CMYK=1,2"), null)
+  assert.equal(parseColor("CMYK=,,,"), null)       // Number("") would be 0
+  assert.equal(parseColor("CMYK=1,2,3,"), null)
+  assert.equal(parseColor("CMYK=1, ,3,4"), null)
 })
 
 test("conversions", () => {
@@ -21,6 +24,8 @@ test("conversions", () => {
 test("summary text matches the Ruby ColorValue.summary", () => {
   assert.equal(summaryText("CMYK=0,0,0,100"), "C0 M0 Y0 K100")
   assert.equal(summaryText("CMYK=0.0,10.0,0,43"), "C0 M10 Y0 K43")
+  assert.equal(summaryText("CMYK=0.15,0.35,1.15,5.55"), "C0.2 M0.4 Y1.2 K5.6") // Math.round(v*10)/10
+  assert.equal(summaryText("CMYK=,,,"), "CMYK=,,,")
   assert.equal(summaryText("#3B82F6"), "#3b82f6")
   assert.equal(summaryText("white"), "white")
   assert.equal(summaryText(""), "")
