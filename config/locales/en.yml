@@ -57,6 +57,14 @@ en:
       create_button: "Create Theme"
       created_notice: "Theme created: %{name}"
 
+    sidebar:
+      theme: "Theme"
+      size: "Size"
+      new_size: "＋ New size"
+      size_settings: "Size settings"
+      table_styles: "Table styles"
+      other: "Other"
+
     options:
       v_align:
         center: "Center"

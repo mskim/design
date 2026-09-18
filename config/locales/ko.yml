@@ -57,6 +57,14 @@ ko:
       create_button: "테마 만들기"
       created_notice: "테마가 생성되었습니다: %{name}"
 
+    sidebar:
+      theme: "테마"
+      size: "판형"
+      new_size: "＋ 새 판형"
+      size_settings: "판형 설정"
+      table_styles: "표 스타일"
+      other: "기타"
+
     options:
       v_align:
         center: "가운데"
