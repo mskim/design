@@ -72,4 +72,20 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "toggle(", "must define a toggle() action"
     assert_includes src, "classList.toggle", "must toggle the hidden class"
   end
+
+  # navigate-select controller (sidebar selects) — registers as design--navigate-select
+  test "design/navigate_select_controller.js exists in design-controllers" do
+    controller_path = ENGINE_JS.join("design-controllers/design/navigate_select_controller.js")
+    assert File.exist?(controller_path),
+      "Missing #{controller_path} — design--navigate-select controller will not load"
+  end
+
+  test "navigate_select controller visits the selected option's data-url" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/navigate_select_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, "export default class"
+    assert_includes src, "change(", "must define a change() action"
+    assert_includes src, "dataset.url"
+    assert_includes src, "Turbo.visit"
+  end
 end
