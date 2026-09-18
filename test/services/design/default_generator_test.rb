@@ -123,4 +123,31 @@ class Design::DefaultGeneratorTest < ActiveSupport::TestCase
     assert_equal 18.0, row.font_size.to_f
     assert_equal "red", row.text_color
   end
+
+  test "generated_value is the rule's value for one generatable field" do
+    ps = @theme.paper_sizes.create!(size_name: "국판", width_mm: 148, height_mm: 210)
+    gen = Design::DefaultGenerator.new(ps)
+    m = Design::GenerationRules.margins_for(148, 210)
+    { "left_margin_mm" => :left, "right_margin_mm" => :right, "top_margin_mm" => :top,
+      "bottom_margin_mm" => :bottom, "binding_margin_mm" => :binding }.each do |f, k|
+      assert_equal m[k], gen.generated_value(f), f
+    end
+    assert_equal Design::GenerationRules.body_line_count_for(210), gen.generated_value(:body_line_count)
+    assert_raises(ArgumentError) { gen.generated_value("width_mm") }
+    assert_equal m[:left], ps.generated_value("left_margin_mm"), "PaperSize delegates"
+  end
+
+  test "fill_layout bumps updated_at (every doc type's preview on the size re-renders)" do
+    ps = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    ps.update_columns(updated_at: 1.day.ago)
+    Design::DefaultGenerator.new(ps).fill_layout
+    assert_operator ps.reload.updated_at, :>, 1.minute.ago
+  end
+
+  test "fill_layout writes nothing, and leaves updated_at, when every field is marked" do
+    ps = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    ps.update_columns(overridden_fields: Design::PaperSize::GENERATABLE_FIELDS, updated_at: 1.day.ago)
+    Design::DefaultGenerator.new(ps.reload).fill_layout
+    assert_operator ps.reload.updated_at, :<, 1.hour.ago
+  end
 end

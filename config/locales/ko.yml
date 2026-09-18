@@ -265,6 +265,18 @@ ko:
         missing_chapter: "장 디자인이 없는 판형이 있어 반영할 수 없습니다: %{sizes}"
         name_blank: "이름을 입력해 주세요"
         name_invalid: "이 이름은 쓸 수 없습니다"
+    page_section:
+      errors:
+        required: "필수"
+        not_a_number: "숫자를 입력해 주세요"
+        not_an_integer: "정수를 입력해 주세요"
+        negative: "0 이상이어야 합니다"
+        out_of_range: "%{min}–%{max} 사이여야 합니다"
+        not_above_heading: "제목박스 줄 수(%{lines})보다 커야 합니다"
+        too_narrow: "본문 폭이 %{min} mm보다 작아집니다"
+        too_short: "본문 높이가 %{min} mm보다 작아집니다"
+        no_column_width: "단 너비가 0 이하입니다"
+        columns_elsewhere: "단 너비가 0 이하가 되는 문서 유형: %{doc_types}"
     paper_sizes:
       edit_title: "판형 편집"
       margins: "여백 (mm)"

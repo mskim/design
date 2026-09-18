@@ -134,6 +134,10 @@ module Design
 
     private
 
+    # The design's grid line (its own body_line_count, else the paper size's):
+    # the engine's master page uses it, so text, headings and the grid share it.
+    def body_line_height = document_design.body_line_height
+
     def preview_dir
       Rails.root.join("tmp", "previews", "dd_#{document_design.id}")
     end
@@ -275,7 +279,7 @@ module Design
         paper_size: ps.size_name,
         body_font: theme.base_body_font,
         body_font_size: theme.base_body_font_size,
-        body_line_height: ps.body_line_height,
+        body_line_height: body_line_height,
         heading: heading_data.to_json
       )
 
@@ -398,7 +402,7 @@ module Design
             font_style: "normal",
             color: "#000000",
             text_align: "left",
-            line_height: paper_size.body_line_height,
+            line_height: body_line_height,
             first_line_indent: 0.0,
             is_monospace: false
           }.to_json
@@ -609,7 +613,7 @@ module Design
         font_style: "normal",
         color: style.text_color || "CMYK=0,0,0,100",
         text_align: style.text_align || default_align,
-        line_height: style.text_line_spacing&.to_f || paper_size.body_line_height,
+        line_height: style.text_line_spacing&.to_f || body_line_height,
         tracking: style.tracking&.to_f,
         space_width: style.space_width&.to_f,
         text_scale: style.scale&.to_f,
@@ -648,7 +652,7 @@ module Design
       require "hexapdf"
       dd = document_design
       heading_lines = dd.heading_height_in_lines || 0
-      line_height = paper_size.body_line_height
+      line_height = body_line_height
       return if heading_lines <= 0
 
       heading_height = heading_lines * line_height
@@ -798,7 +802,7 @@ module Design
     def synthesize_toc_heading_overlay
       ps = paper_size
       dd = document_design
-      heading_h = dd.heading_height_in_lines * ps.body_line_height
+      heading_h = dd.heading_height_in_lines * body_line_height
 
       # TOC renderer always places heading at the top of the content area
       heading_x = ps.left_margin_pt
