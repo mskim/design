@@ -11,15 +11,16 @@ class Design::DocumentDesignsOverrideTest < ActionDispatch::IntegrationTest
 
   # ── override (collection POST) ──
 
-  test "override creates a document-level paragraph_style copying base attrs" do
+  test "override creates an empty document-level paragraph_style that inherits the base" do
     assert_difference -> { @dd.paragraph_styles.count }, 1 do
       post design.override_theme_paper_size_document_design_paragraph_styles_path(@theme, @ps, @dd),
            params: { name: "body" }
     end
     assert_response :success
     style = @dd.paragraph_styles.find_by!(name: "body")
-    assert_equal 10.0, style.font_size
-    assert_equal "NotoSerifKR", style.font
+    assert Design::ParagraphStyle::STYLE_FIELDS.all? { |f| style[f].nil? }
+    assert_equal 10.0, @dd.parent_values("body")["font_size"]
+    assert_equal "NotoSerifKR", @dd.parent_values("body")["font"]
   end
 
   test "override response targets properties_panel turbo-frame" do

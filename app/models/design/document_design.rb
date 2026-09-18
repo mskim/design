@@ -242,16 +242,10 @@ module Design
       end
     end
 
-    # Creates (or returns existing) a document-level override for a base style.
-    # Idempotent: if an override with the same name already exists, returns it.
-    def override_for(base_name)
-      existing = paragraph_styles.find_by(name: base_name)
-      return existing if existing
-
-      base = theme.base_paragraph_styles.find_by!(name: base_name)
-      attrs = MERGEABLE_ATTRS.index_with { |attr| base[attr] }.compact
-      paragraph_styles.create!(name: base_name, **attrs)
-    end
+    # Returns (creating if needed) this design's sparse row for a style: every
+    # field nil, so it inherits until a field is set. Kept for callers not yet
+    # migrated to the field-level operations.
+    def override_for(base_name) = paragraph_styles.find_or_create_by!(name: base_name)
 
     # Create or update a document-level paragraph style by name. Used by importers
     # and generators so authoritative values win over any already-present override

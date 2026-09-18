@@ -10,7 +10,7 @@ module Design
 
     def call
       fill_layout
-      @paper_size.document_designs.each { |dd| generate_headings_for(dd) }   # no-op until Task 4
+      @paper_size.document_designs.each { |dd| generate_headings_for(dd) }   # non-chapter is a no-op
       @paper_size
     end
 
@@ -26,16 +26,20 @@ module Design
       @paper_size.update_columns(assigns) if assigns.any?
     end
 
+    # Scaled heading sizes live on chapter only, as sparse font_size rows; every
+    # other doc type on the size resolves them through chapter (theme → chapter
+    # → doc type). A user-overridden font_size is left alone.
     def generate_headings_for(document_design)
+      return unless document_design.doc_type == "chapter"
       theme  = @paper_size.theme
       height = @paper_size.height_mm
-      scaled = GenerationRules.styles_for(document_design.doc_type) & GenerationRules::HEADING_SCALED_STYLES
-      scaled.each do |name|
+      GenerationRules::HEADING_SCALED_STYLES.each do |name|
         base = theme.base_paragraph_styles.find_by(name: name)
         next unless base&.font_size
-        override = document_design.override_for(name)
-        next if override.overridden?(:font_size)
-        override.update_columns(font_size: GenerationRules.scaled_size(base.font_size, height))
+        row = document_design.paragraph_styles.find_or_initialize_by(name: name)
+        next if row.overridden?(:font_size)
+        row.font_size = GenerationRules.scaled_size(base.font_size, height)
+        row.save!
       end
     end
   end
