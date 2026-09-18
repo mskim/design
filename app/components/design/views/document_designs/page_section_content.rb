@@ -91,9 +91,11 @@ module Design
         end
 
         # Pressed when Left = Right; afterwards client state (the autosave
-        # controller keeps aria-pressed through morphs).
+        # controller keeps aria-pressed through morphs). The stable id lets a
+        # morph match the button rather than recreate it, which would lose
+        # the pressed state.
         def link_toggle
-          button(type: "button", disabled: (true unless @editable), title: txt("link_left_right"),
+          button(id: "page-margin-link", type: "button", disabled: (true unless @editable), title: txt("link_left_right"),
                  class: "h-6 w-6 rounded text-sm leading-none text-slate-400 hover:bg-slate-200 aria-pressed:bg-slate-200 aria-pressed:text-slate-900 disabled:opacity-50",
                  aria: { pressed: (@paper_size.left_margin_mm == @paper_size.right_margin_mm).to_s, label: txt("link_left_right") },
                  data: { margin_link: true, action: "design--style-autosave#toggleLink" }) { "🔗" }

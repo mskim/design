@@ -72,6 +72,8 @@ class Design::PageSectionTest < ActiveSupport::TestCase
   test "the link toggle is pressed when Left = Right" do
     assert_equal "true", content.at_css("button[data-margin-link]")["aria-pressed"]
     assert_equal "design--style-autosave#toggleLink", content.at_css("button[data-margin-link]")["data-action"]
+    assert_equal "page-margin-link", content.at_css("button[data-margin-link]")["id"],
+                 "a stable id: a morph matches the button instead of recreating it (losing its pressed state)"
     @ps.update_columns(right_margin_mm: 20)
     assert_equal "false", content.at_css("button[data-margin-link]")["aria-pressed"]
   end
