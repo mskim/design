@@ -16,7 +16,7 @@ module Design
 
       # A fieldset box with the legend chip on the top-left of the border.
       def group_box(key, legend_text)
-        fieldset(class: "mb-2.5 rounded-lg border #{GROUP_BOX_CLASS} px-3 pb-3 pt-1.5", data: { group: key }) do
+        fieldset(class: "mb-2.5 min-w-0 rounded-lg border #{GROUP_BOX_CLASS} px-3 pb-3 pt-1.5", data: { group: key }) do
           legend(class: "ml-1 rounded px-2 py-0.5 text-sm font-semibold #{GROUP_LEGEND_CLASS}") { legend_text }
           yield
         end
