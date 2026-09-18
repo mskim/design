@@ -364,3 +364,22 @@ ko:
       left: "왼쪽"
       right: "오른쪽"
       inherited_from_chapter: "(chapter에서 상속)"
+
+    sample_contents:
+      title: "샘플 내용"
+      edit_link: "샘플 내용 편집"
+      save: "저장"
+      cancel: "취소"
+      restore_default: "기본값으로 되돌리기"
+      restore_confirm: "편집한 내용을 버리고 기본 샘플로 되돌릴까요?"
+      saved_notice: "샘플 내용을 저장했습니다."
+      restored_notice: "샘플 내용을 기본값으로 되돌렸습니다."
+      hint_heading: "```heading 블록 안에 YAML(title, subtitle, author, publisher…)을 적습니다."
+      hint_toc: "한 줄에 항목 하나: ## 수준:제목:쪽 (예: ## 2:제1장:5)"
+      hint_body: "빈 줄로 구분한 마크다운 문단. ##로 시작하는 줄은 중간제목이 됩니다."
+      errors:
+        blank: "내용이 비어 있습니다."
+        heading: "--- 사이에 YAML 매핑을 담은 ```heading 블록으로 시작해야 합니다."
+        heading_not_allowed: "이 문서 유형은 ```heading 블록이 아니라 마크다운 문단을 사용합니다."
+        yaml: "heading 블록의 YAML이 올바르지 않습니다: %{message}"
+        toc: "잘못된 차례 행: %{line} (## 수준:제목:쪽 형식이어야 합니다)"

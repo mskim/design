@@ -4,8 +4,10 @@ module Design
       class Panel < Design::Views::Base
         register_element :turbo_frame
 
+        # preview_mode: "single" on the style edit pages so a save re-renders the
+        # preview in the same mode (carried as a hidden field); nil → scroll.
         def initialize(paragraph_style:, panel_update_url:, back_url:, revert_url: nil, editable: true,
-                       document_design: nil, save_scope_shadow_count: 0)
+                       document_design: nil, save_scope_shadow_count: 0, preview_mode: nil)
           @paragraph_style = paragraph_style
           @panel_update_url = panel_update_url
           @back_url = back_url
@@ -13,6 +15,7 @@ module Design
           @editable = editable
           @document_design = document_design
           @save_scope_shadow_count = save_scope_shadow_count
+          @preview_mode = preview_mode
         end
 
         def view_template
@@ -62,6 +65,7 @@ module Design
               input(type: "hidden", name: "_method", value: "patch")
             end
             input(type: "hidden", name: "authenticity_token", value: helpers.form_authenticity_token)
+            input(type: "hidden", name: "preview_mode", value: @preview_mode) if @preview_mode
             render Design::Views::ParagraphStyles::Fields.new(paragraph_style: @paragraph_style, editable: @editable)
             render_actions
           end

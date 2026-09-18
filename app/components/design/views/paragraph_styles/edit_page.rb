@@ -34,7 +34,8 @@ module Design
                     revert_url: @revert_url,
                     editable: @editable,
                     document_design: @document_design,
-                    save_scope_shadow_count: @theme.shadow_override_doc_types(@paragraph_style.name).size
+                    save_scope_shadow_count: @theme.shadow_override_doc_types(@paragraph_style.name).size,
+                    preview_mode: "single"
                   )
                 end
               end
@@ -46,9 +47,14 @@ module Design
 
         def preview_section
           div(class: "rounded-lg border border-slate-200 bg-slate-50 p-4") do
-            h2(class: "mb-2 text-sm font-medium text-slate-700") { I18n.t("design.editor.preview") }
+            div(class: "mb-2 flex items-center justify-between") do
+              h2(class: "text-sm font-medium text-slate-700") { I18n.t("design.editor.preview") }
+              a(href: helpers.edit_theme_sample_content_path(@theme, @document_design.doc_type, return_to: @document_design.id),
+                class: "text-xs text-blue-600 hover:underline") { I18n.t("design.sample_contents.edit_link") }
+            end
+            # Page 1 only: this page is about one style, not the whole document.
             turbo_frame(id: "preview_frame",
-                        src: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),
+                        src: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, preview_mode: "single"),
                         loading: "lazy") do
               div(class: "p-8 text-center text-slate-400") { I18n.t("design.editor.loading_preview") }
             end

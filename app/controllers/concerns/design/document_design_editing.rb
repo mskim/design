@@ -7,15 +7,7 @@ module Design
     def preview
       dd = request.post? ? build_preview_design : @document_design
       result = Design::PreviewService.new(dd, paper_size: @paper_size).generate
-      component = if result[:success]
-        Design::Views::DocumentDesigns::Preview.new(
-          document_design: dd, paper_size: @paper_size,
-          jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, t: Time.now.to_i),
-          overlay_data: result[:overlay_data], page_width: result[:page_width],
-          page_height: result[:page_height], style_urls: build_style_urls)
-      else
-        Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
-      end
+      component = preview_component(result, dd)
 
       if request.post?
         render turbo_stream: turbo_stream.replace("preview_frame", html: component.call.html_safe)
@@ -26,8 +18,10 @@ module Design
 
     def preview_jpg
       result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
-      if result[:success] && File.exist?(result[:jpg_path])
-        send_file result[:jpg_path], type: "image/jpeg", disposition: "inline"
+      page = params.fetch(:page, 1).to_i
+      path = preview_pages(result)[page - 1]&.dig(:jpg_path) if result[:success] && page >= 1
+      if path && File.exist?(path)
+        send_file path, type: "image/jpeg", disposition: "inline"
       else
         head :not_found
       end
@@ -109,19 +103,41 @@ module Design
       @theme.editable_by?(Design.current_user)
     end
 
+    # "single" (style edit pages) or nil → :scroll (the design editor). Carried on the
+    # preview frame src and as a hidden field in the style Panel form.
+    def preview_mode
+      params[:preview_mode] == "single" ? :single : :scroll
+    end
+
+    # What the style Panel form should post back: "single" or nil (nothing for scroll).
+    def panel_preview_mode
+      preview_mode == :single ? "single" : nil
+    end
+
+    # Older/stubbed service results carry only the page-1 keys; normalise to pages.
+    def preview_pages(result)
+      result[:pages] || [ { jpg_path: result[:jpg_path], overlay_data: result[:overlay_data] || [] } ]
+    end
+
+    # Preview (or PreviewError) component for a service result.
+    # dd may be an unsaved live-preview copy (same id); URLs always use @document_design.
+    def preview_component(result, dd = @document_design)
+      return Design::Views::DocumentDesigns::PreviewError.new(error: result[:error]) unless result[:success]
+
+      stamp = Time.now.to_i
+      pages = preview_pages(result).each_with_index.map do |pg, i|
+        { jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, page: i + 1, t: stamp),
+          overlay_data: pg[:overlay_data] }
+      end
+      Design::Views::DocumentDesigns::Preview.new(
+        document_design: dd, paper_size: @paper_size, pages: pages, mode: preview_mode,
+        page_width: result[:page_width], page_height: result[:page_height], style_urls: build_style_urls)
+    end
+
     # Turbo-stream replacing the document preview with a freshly rendered one.
     def preview_frame_stream
       result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
-      component = if result[:success]
-        Design::Views::DocumentDesigns::Preview.new(
-          document_design: @document_design, paper_size: @paper_size,
-          jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, t: Time.now.to_i),
-          overlay_data: result[:overlay_data], page_width: result[:page_width], page_height: result[:page_height],
-          style_urls: build_style_urls)
-      else
-        Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
-      end
-      turbo_stream.replace("preview_frame", html: component.call.html_safe)
+      turbo_stream.replace("preview_frame", html: preview_component(result).call.html_safe)
     end
 
     # Turbo-stream re-rendering the style panel after a save, pointed at where the
@@ -145,7 +161,8 @@ module Design
         revert_url: document_style_revert_url(style, level),
         editable: editable?,
         document_design: @document_design,
-        save_scope_shadow_count: @theme.shadow_override_doc_types(name).size))
+        save_scope_shadow_count: @theme.shadow_override_doc_types(name).size,
+        preview_mode: panel_preview_mode))
       turbo_stream.replace("properties_panel", html: html)
     end
 
@@ -161,7 +178,8 @@ module Design
         revert_url: revert_url,
         editable: editable?,
         document_design: @document_design,
-        save_scope_shadow_count: @theme.shadow_override_doc_types(style.name).size
+        save_scope_shadow_count: @theme.shadow_override_doc_types(style.name).size,
+        preview_mode: panel_preview_mode
       ), status: status
     end
 

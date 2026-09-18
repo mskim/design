@@ -79,8 +79,9 @@ module Design
         def preview_section
           div(class: "rounded-lg border border-slate-200 bg-slate-50 p-4") do
             h2(class: "mb-2 text-sm font-medium text-slate-700") { I18n.t("design.editor.preview") }
+            # Page 1 only: this page is about one style, not the whole document.
             turbo_frame(id: "preview_frame",
-                        src: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),
+                        src: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, preview_mode: "single"),
                         loading: "lazy") do
               div(class: "p-8 text-center text-slate-400") { I18n.t("design.editor.loading_preview") }
             end

@@ -364,3 +364,22 @@ en:
       left: "Left"
       right: "Right"
       inherited_from_chapter: "(inherited from chapter)"
+
+    sample_contents:
+      title: "Sample content"
+      edit_link: "Edit sample content"
+      save: "Save"
+      cancel: "Cancel"
+      restore_default: "Restore default"
+      restore_confirm: "Replace your edits with the built-in sample?"
+      saved_notice: "Sample content saved."
+      restored_notice: "Sample content restored to the default."
+      hint_heading: "A ```heading block containing YAML front matter (title, subtitle, author, publisher…)."
+      hint_toc: "One row per entry: ## level:title:page (e.g. ## 2:Chapter 1:5)."
+      hint_body: "Markdown paragraphs separated by blank lines; a line starting with ## becomes a subheading."
+      errors:
+        blank: "Content cannot be empty."
+        heading: "Must start with a ```heading block containing a YAML mapping between --- lines."
+        heading_not_allowed: "This document type uses plain Markdown paragraphs, not a ```heading block."
+        yaml: "Invalid YAML in the heading block: %{message}"
+        toc: "Invalid TOC row: %{line} (expected ## level:title:page)"
