@@ -162,4 +162,17 @@ class Design::SampleContentTest < ActiveSupport::TestCase
       .sort
     assert_equal fenced, Design::SampleContent::HEADING_TYPES.sort
   end
+
+  test "every doc_type that has an en sample also has a ko sample" do
+    en = Dir[Design::SampleContent::GEM_CONTENT_DIR.join("en/*.md").to_s].map { |f| File.basename(f) }.sort
+    ko = Dir[Design::SampleContent::GEM_CONTENT_DIR.join("ko/*.md").to_s].map { |f| File.basename(f) }.sort
+    assert_equal en, ko, "missing ko files: #{(en - ko).inspect}"
+  end
+
+  test "every bundled sample file passes its own validation" do
+    Dir[Design::SampleContent::GEM_CONTENT_DIR.join("*/*.md").to_s].each do |f|
+      doc_type = File.basename(f, ".md")
+      assert Design::SampleContent.validate!(doc_type, File.read(f)), "#{f} should validate"
+    end
+  end
 end
