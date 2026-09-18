@@ -7,15 +7,7 @@ module Design
     def preview
       dd = request.post? ? build_preview_design : @document_design
       result = Design::PreviewService.new(dd, paper_size: @paper_size).generate
-      component = if result[:success]
-        Design::Views::DocumentDesigns::Preview.new(
-          document_design: dd, paper_size: @paper_size,
-          jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, t: Time.now.to_i),
-          overlay_data: result[:overlay_data], page_width: result[:page_width],
-          page_height: result[:page_height], style_urls: build_style_urls)
-      else
-        Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
-      end
+      component = result[:success] ? preview_component(result, dd) : Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
 
       if request.post?
         render turbo_stream: turbo_stream.replace("preview_frame", html: component.call.html_safe)
@@ -26,8 +18,10 @@ module Design
 
     def preview_jpg
       result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
-      if result[:success] && File.exist?(result[:jpg_path])
-        send_file result[:jpg_path], type: "image/jpeg", disposition: "inline"
+      page = params.fetch(:page, 1).to_i
+      path = preview_pages(result)[page - 1]&.dig(:jpg_path) if result[:success] && page >= 1
+      if path && File.exist?(path)
+        send_file path, type: "image/jpeg", disposition: "inline"
       else
         head :not_found
       end
@@ -109,18 +103,32 @@ module Design
       @theme.editable_by?(Design.current_user)
     end
 
+    # "single" (style edit pages) or nil → :scroll (the design editor). Carried on the
+    # preview frame src and as a hidden field in the style Panel form.
+    def preview_mode
+      params[:preview_mode] == "single" ? :single : :scroll
+    end
+
+    # Older/stubbed service results carry only the page-1 keys; normalise to pages.
+    def preview_pages(result)
+      result[:pages] || [ { jpg_path: result[:jpg_path], overlay_data: result[:overlay_data] || [] } ]
+    end
+
+    def preview_component(result, dd = @document_design)
+      stamp = Time.now.to_i
+      pages = preview_pages(result).each_with_index.map do |pg, i|
+        { jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, page: i + 1, t: stamp),
+          overlay_data: pg[:overlay_data] }
+      end
+      Design::Views::DocumentDesigns::Preview.new(
+        document_design: dd, paper_size: @paper_size, pages: pages, mode: preview_mode,
+        page_width: result[:page_width], page_height: result[:page_height], style_urls: build_style_urls)
+    end
+
     # Turbo-stream replacing the document preview with a freshly rendered one.
     def preview_frame_stream
       result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
-      component = if result[:success]
-        Design::Views::DocumentDesigns::Preview.new(
-          document_design: @document_design, paper_size: @paper_size,
-          jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, t: Time.now.to_i),
-          overlay_data: result[:overlay_data], page_width: result[:page_width], page_height: result[:page_height],
-          style_urls: build_style_urls)
-      else
-        Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
-      end
+      component = result[:success] ? preview_component(result) : Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
       turbo_stream.replace("preview_frame", html: component.call.html_safe)
     end
 

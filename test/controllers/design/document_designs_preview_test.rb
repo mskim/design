@@ -1,4 +1,5 @@
 require "test_helper"
+require "tmpdir"
 
 class Design::DocumentDesignsPreviewTest < ActionDispatch::IntegrationTest
   setup do
@@ -78,6 +79,52 @@ class Design::DocumentDesignsPreviewTest < ActionDispatch::IntegrationTest
 
     get design.edit_theme_paper_size_document_design_path(system_theme, ps, dd)
     assert_response :forbidden
+  end
+
+  def multi_page_fake
+    fake = Object.new
+    def fake.generate
+      pages = (1..3).map { |i| { jpg_path: "/tmp/p#{i}.jpg", overlay_data: [ { type: "paragraph", markup: "body", x: 1, y: 1, width: 5, height: 5 } ] } }
+      { success: true, page_count: 3, pages: pages, jpg_path: pages[0][:jpg_path], overlay_data: pages[0][:overlay_data],
+        page_width: 432.0, page_height: 648.0, error: nil }
+    end
+    fake
+  end
+
+  test "preview renders every page with a page-indexed jpg url" do
+    stub_preview_service(multi_page_fake) do
+      get design.preview_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    end
+    assert_response :success
+    assert_select "turbo-frame#preview_frame img", 3
+    assert_select "img[src*='page=2']"
+    assert_select "[data-page-label]", text: "3 / 3"
+  end
+
+  test "preview_mode=single renders only page 1" do
+    stub_preview_service(multi_page_fake) do
+      get design.preview_theme_paper_size_document_design_path(@theme, @ps, @dd, preview_mode: "single")
+    end
+    assert_select "turbo-frame#preview_frame img", 1
+  end
+
+  test "preview_jpg serves the requested page and 404s outside the range" do
+    Dir.mktmpdir do |dir|
+      File.binwrite(File.join(dir, "p2.jpg"), "\xFF\xD8\xFF\xD9".b)
+      fake = Object.new
+      fake.define_singleton_method(:generate) do
+        { success: true, page_count: 2,
+          pages: [ { jpg_path: File.join(dir, "missing.jpg"), overlay_data: [] }, { jpg_path: File.join(dir, "p2.jpg"), overlay_data: [] } ],
+          jpg_path: File.join(dir, "missing.jpg"), overlay_data: [], page_width: 1.0, page_height: 1.0, error: nil }
+      end
+      stub_preview_service(fake) do
+        get design.preview_jpg_theme_paper_size_document_design_path(@theme, @ps, @dd, page: 2)
+        assert_response :success
+        assert_equal "image/jpeg", response.media_type
+        get design.preview_jpg_theme_paper_size_document_design_path(@theme, @ps, @dd, page: 9)
+        assert_response :not_found
+      end
+    end
   end
 
   private

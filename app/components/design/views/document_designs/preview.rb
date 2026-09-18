@@ -4,11 +4,15 @@ module Design
       class Preview < Design::Views::Base
         register_element :turbo_frame
 
-        def initialize(document_design:, paper_size:, jpg_url: nil, overlay_data: [], page_width: nil, page_height: nil, style_urls: {})
+        # pages: [ { jpg_url:, overlay_data: }, ... ] in page order. mode: :scroll stacks
+        # them all (the design editor); :single shows page 1 (style edit pages). The
+        # legacy jpg_url/overlay_data kwargs are a one-page shorthand.
+        def initialize(document_design:, paper_size:, pages: nil, mode: :scroll, jpg_url: nil, overlay_data: [],
+                       page_width: nil, page_height: nil, style_urls: {})
           @dd = document_design
           @ps = paper_size
-          @jpg_url = jpg_url
-          @overlay_data = overlay_data || []
+          @pages = pages || (jpg_url ? [ { jpg_url: jpg_url, overlay_data: overlay_data || [] } ] : [])
+          @pages = @pages.first(1) if mode == :single
           @page_width = page_width || @ps.width_pt
           @page_height = page_height || @ps.height_pt
           @style_urls = style_urls || {}
@@ -16,8 +20,10 @@ module Design
 
         def view_template
           turbo_frame(id: "preview_frame") do
-            if @jpg_url
-              render_jpg_preview
+            if @pages.any?
+              div(class: "flex flex-col items-center gap-4") do
+                @pages.each_with_index { |page, i| render_page(page, i + 1) }
+              end
             else
               render_fallback_message
             end
@@ -26,36 +32,25 @@ module Design
 
         private
 
-        def render_jpg_preview
+        DISPLAY_WIDTH = 500
+
+        def render_page(page, number)
           aspect = @page_width / @page_height
-          display_width = 500
-
-          div(class: "flex justify-center items-start") do
-            div(
-              class: "relative bg-white shadow-lg",
-              style: "width: #{display_width}px; aspect-ratio: #{aspect};"
-            ) do
-              img(
-                src: @jpg_url,
-                class: "absolute inset-0 w-full h-full object-contain",
-                style: "pointer-events: none;",
-                alt: "Preview of #{@dd.doc_type}",
-                loading: "eager"
-              )
-
-              render_svg_overlay if @overlay_data.any?
+          div(class: "flex flex-col items-center gap-1") do
+            div(class: "relative bg-white shadow-lg", style: "width: #{DISPLAY_WIDTH}px; aspect-ratio: #{aspect};") do
+              img(src: page[:jpg_url], class: "absolute inset-0 w-full h-full object-contain",
+                  style: "pointer-events: none;", alt: "Preview of #{@dd.doc_type} page #{number}", loading: "eager")
+              render_svg_overlay(page[:overlay_data]) if page[:overlay_data].present?
+            end
+            if @pages.size > 1
+              p(class: "text-xs text-slate-500", data: { page_label: true }) { "#{number} / #{@pages.size}" }
             end
           end
         end
 
-        def render_svg_overlay
+        def render_svg_overlay(overlay_data)
           div(class: "absolute inset-0") do
-            render OverlaySvg.new(
-              overlay_data: @overlay_data,
-              page_width: @page_width,
-              page_height: @page_height,
-              style_urls: @style_urls
-            )
+            render OverlaySvg.new(overlay_data: overlay_data, page_width: @page_width, page_height: @page_height, style_urls: @style_urls)
           end
         end
 
