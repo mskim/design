@@ -3,6 +3,9 @@ Design::Engine.routes.draw do
     post :clone, on: :member
     post :generate_sizes, on: :member
     resources :theme_paragraph_styles, only: [:edit, :update], controller: "theme_paragraph_styles"
+    resources :sample_contents, only: [ :edit, :update ], param: :doc_type do
+      post :restore, on: :member
+    end
     resources :table_styles, only: [ :show, :edit, :update ] do
       member do
         get :preview, to: "table_style_previews#show", as: :preview

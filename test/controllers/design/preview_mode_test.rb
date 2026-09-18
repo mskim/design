@@ -40,6 +40,7 @@ class Design::PreviewModeTest < ActionDispatch::IntegrationTest
     assert_select "input[type=hidden][name=preview_mode][value=single]"
     get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: @style.id),
         headers: { "Turbo-Frame" => "properties_panel" }
+    assert_response :success
     assert_select "input[name=preview_mode]", false
   end
 end
