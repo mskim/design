@@ -282,6 +282,91 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
     @forewords.each { |dd| assert_nil row_of(dd, "zz_body") }
   end
 
+  test "setting chapter back to its inherited value scales the other sizes instead of reverting them" do
+    @theme.base_paragraph_styles.create!(name: "zz_title", font_size: 16)
+    @chapters[0].paragraph_styles.create!(name: "zz_title", font_size: 18)
+    @chapters[1].paragraph_styles.create!(name: "zz_title", font_size: 24)
+
+    @chapters[0].set_style_field!("zz_title", "font_size", 16)
+
+    assert_nil row_of(@chapters[0], "zz_title"), "this size equals the base → inherits (empty row deleted)"
+    b = row_of(@chapters[1], "zz_title")
+    assert_equal BigDecimal("21.33"), b.font_size, "24 × 16/18"
+    assert_includes b.overridden_fields, "font_size"
+  end
+
+  test "setting chapter to the value it already inherits leaves the other sizes alone" do
+    @theme.base_paragraph_styles.create!(name: "zz_title", font_size: 16)
+    @chapters[1].paragraph_styles.create!(name: "zz_title", font_size: 24) # generator-style, unmarked
+
+    @chapters[0].set_style_field!("zz_title", "font_size", 16)
+
+    assert_nil row_of(@chapters[0], "zz_title")
+    b = row_of(@chapters[1], "zz_title")
+    assert_equal BigDecimal("24"), b.font_size
+    assert_empty Array(b.overridden_fields), "untouched: not marked as a user change"
+  end
+
+  test "a chapter blank value still reverts the field on every size" do
+    @theme.base_paragraph_styles.create!(name: "zz_title", font_size: 16)
+    @chapters[0].set_style_field!("zz_title", "font_size", 20)
+
+    @chapters[0].set_style_field!("zz_title", "font_size", "")
+
+    @chapters.each { |dd| assert_nil row_of(dd, "zz_title") }
+  end
+
+  test "push_style! from chapter keeps the other sizes' scaled values" do
+    @theme.base_paragraph_styles.create!(name: "zz_title", font_size: 16)
+    @chapters[0].paragraph_styles.create!(name: "zz_title", font_size: 18)
+    @chapters[1].paragraph_styles.create!(name: "zz_title", font_size: 24)
+    @chapters[0].set_style_field!("zz_title", "font_size", 20)
+    assert_equal BigDecimal("26.67"), row_of(@chapters[1], "zz_title").font_size
+
+    @chapters[0].push_style!("zz_title")
+
+    assert_equal BigDecimal("20"), @theme.base_paragraph_styles.find_by(name: "zz_title").font_size
+    assert_nil row_of(@chapters[0], "zz_title"), "equals the new base → cleared"
+    b = row_of(@chapters[1], "zz_title")
+    assert_equal BigDecimal("26.67"), b.font_size, "B keeps its per-size value"
+    assert_includes b.overridden_fields, "font_size"
+  end
+
+  test "a scaled target within rounding of a 3-decimal parent is cleared" do
+    @theme.base_paragraph_styles.create!(name: "zz_title", font_size: 16)
+    # B's parent (chapter on B) has 3 decimals.
+    @chapters[1].paragraph_styles.create!(name: "zz_title", font_size: BigDecimal("16.667"))
+    @forewords[0].paragraph_styles.create!(name: "zz_title", font_size: 36, overridden_fields: [ "font_size" ])
+    @forewords[1].paragraph_styles.create!(name: "zz_title", font_size: 15, overridden_fields: [ "font_size" ])
+
+    # A: 36 → 40; B: 15 × 40/36 = 16.666… → 16.67, 0.003 from its parent.
+    @forewords[0].set_style_field!("zz_title", "font_size", 40)
+
+    assert_equal BigDecimal("40"), row_of(@forewords[0], "zz_title").font_size
+    assert_nil row_of(@forewords[1], "zz_title"), "16.67 vs parent 16.667 → within tolerance → inherits"
+  end
+
+  test "a string value goes through proportional scaling" do
+    @theme.base_paragraph_styles.create!(name: "zz_title", font_size: 16)
+    @chapters[0].paragraph_styles.create!(name: "zz_title", font_size: 18)
+    @chapters[1].paragraph_styles.create!(name: "zz_title", font_size: 24)
+
+    @chapters[0].set_style_field!("zz_title", "font_size", " 20 ")
+
+    assert_equal BigDecimal("20"), row_of(@chapters[0], "zz_title").font_size
+    assert_equal BigDecimal("26.67"), row_of(@chapters[1], "zz_title").font_size
+  end
+
+  test "a zero reference value falls back to the raw value on other sizes" do
+    @chapters[0].paragraph_styles.create!(name: "zz_body", left_indent: 0)
+    @chapters[1].paragraph_styles.create!(name: "zz_body", left_indent: 4)
+
+    @chapters[0].set_style_field!("zz_body", "left_indent", 6)
+
+    assert_equal BigDecimal("6"), row_of(@chapters[0], "zz_body").left_indent
+    assert_equal BigDecimal("6"), row_of(@chapters[1], "zz_body").left_indent
+  end
+
   test "push_style! from a doc type raises when a size lacks a chapter design" do
     ps3 = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
     design_for(ps3, "foreword")

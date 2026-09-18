@@ -32,13 +32,26 @@ module Design
 
     def doc_type_row? = styleable_type == "Design::DocumentDesign"
 
+    # Proportional values are rounded to 2 decimals, so a scaled value can land
+    # up to half a hundredth away from a parent stored with more precision.
+    SCALED_TOLERANCE = BigDecimal("0.005")
+
     # Typed comparison for "equals the parent → inherit": BigDecimal vs "10.0",
-    # stripped strings; nil and "" are equal (both mean inherit).
-    def self.same_value?(field, a, b)
+    # stripped strings; nil and "" are equal (both mean inherit). With a
+    # tolerance, numeric values within it (inclusive) are equal.
+    def self.same_value?(field, a, b, tolerance: 0)
       type = type_for_attribute(field)
-      ca = a.is_a?(String) ? a.strip.presence : a
-      cb = b.is_a?(String) ? b.strip.presence : b
-      type.cast(ca) == type.cast(cb)
+      ca = type.cast(a.is_a?(String) ? a.strip.presence : a)
+      cb = type.cast(b.is_a?(String) ? b.strip.presence : b)
+      return (ca - cb).abs <= tolerance if tolerance.positive? && ca.is_a?(Numeric) && cb.is_a?(Numeric)
+      ca == cb
+    end
+
+    # "Equals the parent → inherit" check: SCALED_FIELDS tolerate the rounding of
+    # proportional values (SCALED_TOLERANCE); every other field compares exactly.
+    def self.inherits_value?(field, value, parent_value)
+      tolerance = SCALED_FIELDS.include?(field.to_s) ? SCALED_TOLERANCE : 0
+      same_value?(field, value, parent_value, tolerance: tolerance)
     end
 
     private

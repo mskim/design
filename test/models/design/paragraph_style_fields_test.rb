@@ -59,4 +59,14 @@ class Design::ParagraphStyleFieldsTest < ActiveSupport::TestCase
     refute sv.call("text_color", "CMYK=0,0,0,100", "#000000")
     assert sv.call("font", nil, "")
   end
+
+  test "inherits_value? tolerates rounding on scaled fields only" do
+    iv = Design::ParagraphStyle.method(:inherits_value?)
+    assert iv.call("font_size", BigDecimal("16.67"), BigDecimal("16.667"))
+    assert iv.call("font_size", "16.67", BigDecimal("16.665"))
+    refute iv.call("font_size", BigDecimal("16.67"), BigDecimal("16.66"))
+    refute iv.call("tracking", BigDecimal("1.001"), BigDecimal("1"))
+    assert iv.call("font", "Shinmoon", " Shinmoon ")
+    refute iv.call("font_size", nil, BigDecimal("0"))
+  end
 end
