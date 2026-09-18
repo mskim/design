@@ -93,7 +93,8 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     src = File.read(ENGINE_JS.join("design-controllers/design/scrub_input_controller.js"))
     assert_includes src, %(import { Controller } from "@hotwired/stimulus")
     assert_includes src, %("design-controllers/design/number_math")
-    %w[scrubStart( scrubMove( scrubEnd( keydown( commit( remember(].each { |m| assert_includes src, m }
+    %w[scrubStart( scrubMove( scrubEnd( keydown( commit( remember( handleClick( disconnect(].each { |m| assert_includes src, m }
+    assert_includes src, 'dispatch("revert"', "resets must dispatch design--scrub-input:revert"
   end
 
   test "color_row controller exists and imports color_math by its importmap name" do
