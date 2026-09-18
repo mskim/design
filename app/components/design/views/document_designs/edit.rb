@@ -37,7 +37,7 @@ module Design
             div(class: "mb-2 flex items-center justify-between") do
               h2(class: "text-sm font-medium text-slate-700") { I18n.t("design.editor.preview") }
               a(href: helpers.edit_theme_sample_content_path(@theme, @document_design.doc_type, return_to: @document_design.id),
-                class: "text-xs text-blue-600 hover:underline", data: { turbo_frame: "_top" }) { I18n.t("design.sample_contents.edit_link") }
+                class: "text-xs text-blue-600 hover:underline") { I18n.t("design.sample_contents.edit_link") }
             end
             turbo_frame(id: "preview_frame",
                         src: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design),

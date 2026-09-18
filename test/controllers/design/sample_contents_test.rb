@@ -5,13 +5,17 @@ class Design::SampleContentsTest < ActionDispatch::IntegrationTest
   setup do
     sign_in :david
     @dir = Dir.mktmpdir
+    @orig_dir = Design.config.sample_content_dir
     Design.config.sample_content_dir = @dir
     @theme = Design::Theme.create!(name: "Sc #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     @ps = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     @dd = @ps.document_designs.create!(doc_type: "chapter")
   end
 
-  teardown { FileUtils.rm_rf(@dir) }
+  teardown do
+    Design.config.sample_content_dir = @orig_dir
+    FileUtils.rm_rf(@dir)
+  end
 
   test "edit shows the current (gem default) text in a textarea inside the studio shell" do
     get design.edit_theme_sample_content_path(@theme, "chapter", return_to: @dd.id)
@@ -32,6 +36,20 @@ class Design::SampleContentsTest < ActionDispatch::IntegrationTest
   test "update without return_to goes to the theme overview" do
     patch design.theme_sample_content_path(@theme, "chapter"), params: { content: "# [chapter] x\n\ny\n" }
     assert_redirected_to design.theme_path(@theme)
+  end
+
+  test "return_to is scoped to this theme's designs" do
+    other = Design::Theme.create!(name: "Other #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
+    other_dd = other.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297).document_designs.create!(doc_type: "chapter")
+    patch design.theme_sample_content_path(@theme, "chapter"), params: { content: "# [chapter] x\n\ny\n", return_to: other_dd.id }
+    assert_redirected_to design.theme_path(@theme)
+  end
+
+  test "both forms carry a CSRF token" do
+    FileUtils.mkdir_p(File.join(@dir, "ko"))
+    File.write(File.join(@dir, "ko", "chapter.md"), "# [chapter] x\n\ny\n")
+    get design.edit_theme_sample_content_path(@theme, "chapter")
+    assert_select "form[action*='sample_contents'] input[type=hidden][name=authenticity_token]", 2 # edit + restore
   end
 
   test "invalid content re-renders 422 with the error and writes nothing" do
