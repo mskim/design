@@ -210,23 +210,35 @@ module Design
       end
     end
 
-    # Merge theme base styles with doc_type overrides.
+    # The chapter design on the same paper size — the parent of every other
+    # doc type's styles. nil for chapter itself.
+    def chapter_design
+      return nil if doc_type == "chapter"
+      paper_size.document_designs.find_by(doc_type: "chapter")
+    end
+
+    # Resolved style values this design inherits for `name` (its parent):
+    # theme base for chapter; theme base → chapter for other doc types.
+    def parent_values(name)
+      layer = values_of(theme.base_paragraph_styles.find_by(name: name))
+      if (ch = chapter_design) && (ch_row = ch.paragraph_styles.find_by(name: name))
+        layer = overlay(layer, values_of(ch_row))
+      end
+      layer
+    end
+
+    # Resolve theme base → chapter (same paper size) → this doc type, field by
+    # field (nil falls back to the layer below), like book_write's renderer.
+    # Returned styles are read-only; do not mutate — a style present on a single
+    # layer is that layer's persisted row (e.g. chapter's row, seen from foreword).
     def merged_paragraph_styles
-      base_styles = paper_size.theme.base_paragraph_styles.index_by(&:name)
-      override_styles = paragraph_styles.index_by(&:name)
-
-      all_names = (base_styles.keys + override_styles.keys).uniq
-      all_names.map do |style_name|
-        base = base_styles[style_name]
-        override = override_styles[style_name]
-
-        if override && base
-          merge_style(base, override)
-        elsif override
-          override
-        else
-          base
-        end
+      base_styles = theme.base_paragraph_styles.index_by(&:name)
+      chapter = chapter_design
+      chapter_rows = chapter ? chapter.paragraph_styles.index_by(&:name) : {}
+      own_rows = paragraph_styles.index_by(&:name)
+      (base_styles.keys | chapter_rows.keys | own_rows.keys).map do |n|
+        layers = [ base_styles[n], chapter_rows[n], own_rows[n] ].compact
+        layers.drop(1).reduce(layers.first) { |acc, row| merge_style(acc, row) }
       end
     end
 
@@ -286,5 +298,9 @@ module Design
       end
       merged
     end
+
+    def values_of(row) = row ? ParagraphStyle::STYLE_FIELDS.index_with { |f| row[f] } : {}
+
+    def overlay(lower, upper) = lower.merge(upper.compact)
   end
 end
