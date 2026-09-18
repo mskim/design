@@ -200,6 +200,7 @@ en:
       padding_bottom: "Padding Bottom (pt)"
       table_cell: "Table Cell"
       vertical_align: "Vertical align"
+      theme_only_hint: "Edit in theme"
 
     doc_types:
       title_page: "Title page"
@@ -227,7 +228,8 @@ en:
       revert: "Revert to base"
       apply_to_all: "Apply to all document types"
       apply_to_all_hint: "Default: only this document type (all paper sizes)"
-      apply_to_all_confirm: "%{count} document type(s) will be reset. Continue?"
+      apply_to_all_confirm: "Only the fields you changed are applied to the theme, and those fields are reset on %{count} document type(s). Continue?"
+      stale_save: "This style was changed elsewhere. Please enter your changes again."
 
     paper_sizes:
       edit_title: "Edit Paper Size"

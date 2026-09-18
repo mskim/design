@@ -15,5 +15,54 @@ module Design
 
     validates :name, presence: true, uniqueness: { scope: [:styleable_type, :styleable_id] }
     validates :vertical_align, inclusion: { in: VERTICAL_ALIGNS }, allow_nil: true
+
+    # Fields a doc-type style can inherit/override. korean_name is a label (not an
+    # override); vertical_align is table-cell only and theme-level (no doc-type consumer).
+    STYLE_FIELDS = (Design::DocumentDesign::MERGEABLE_ATTRS - %w[korean_name]).freeze
+
+    # pt-valued, paper-size-dependent fields: an edit on one size changes the
+    # other sizes proportionally (see DocumentDesign#set_style_field!).
+    SCALED_FIELDS = %w[
+      font_size text_line_spacing space_before space_after first_line_indent
+      left_indent right_indent padding_top padding_bottom
+    ].freeze
+
+    before_validation :normalize_doc_type_blanks, if: :doc_type_row?
+    after_initialize :clear_doc_type_defaults, if: -> { new_record? && doc_type_row? }
+
+    def doc_type_row? = styleable_type == "Design::DocumentDesign"
+
+    # Proportional values are rounded to 2 decimals, so a scaled value can land
+    # up to half a hundredth away from a parent stored with more precision.
+    SCALED_TOLERANCE = BigDecimal("0.005")
+
+    # Typed comparison for "equals the parent → inherit": BigDecimal vs "10.0",
+    # stripped strings; nil and "" are equal (both mean inherit). With a
+    # tolerance, numeric values within it (inclusive) are equal.
+    def self.same_value?(field, a, b, tolerance: 0)
+      type = type_for_attribute(field)
+      ca = type.cast(a.is_a?(String) ? a.strip.presence : a)
+      cb = type.cast(b.is_a?(String) ? b.strip.presence : b)
+      return (ca - cb).abs <= tolerance if tolerance.positive? && ca.is_a?(Numeric) && cb.is_a?(Numeric)
+      ca == cb
+    end
+
+    # "Equals the parent → inherit" check: SCALED_FIELDS tolerate the rounding of
+    # proportional values (SCALED_TOLERANCE); every other field compares exactly.
+    def self.inherits_value?(field, value, parent_value)
+      tolerance = SCALED_FIELDS.include?(field.to_s) ? SCALED_TOLERANCE : 0
+      same_value?(field, value, parent_value, tolerance: tolerance)
+    end
+
+    private
+
+    def normalize_doc_type_blanks
+      STYLE_FIELDS.each { |f| self[f] = nil if self[f].is_a?(String) && self[f].strip.empty? }
+    end
+
+    # DB defaults (scale 100.0, text_color K100) are not overrides on doc-type rows.
+    def clear_doc_type_defaults
+      STYLE_FIELDS.each { |f| self[f] = nil unless attribute_came_from_user?(f) }
+    end
   end
 end

@@ -28,29 +28,19 @@ class Design::ParagraphStylesFormTest < ActionDispatch::IntegrationTest
     assert_equal 14.0, style.reload.font_size
   end
 
-  test "document level form renders + updates" do
-    style = @dd.paragraph_styles.create!(name: "caption")
-    get design.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style)
-    assert_response :success
-    patch design.theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style), params: { paragraph_style: { font_size: 9 } }
-    assert_equal 9.0, style.reload.font_size
-  end
-
-  test "doc-design-level style form renders a live preview frame; theme-level does not" do
-    style = @dd.paragraph_styles.create!(name: "body", font_size: 10)
-    get design.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style)
-    assert_response :success
-    assert_select "turbo-frame#preview_frame"
-    # theme-level: no preview frame
+  # Doc-type styles have no full Form any more (edited via panel/panel_update, whose
+  # full page carries the preview — see document_designs_panel_test).
+  test "theme-level style form renders no live preview frame" do
     tstyle = @theme.base_paragraph_styles.create!(name: "body2", font_size: 10)
     get design.edit_theme_theme_paragraph_style_path(@theme, tstyle)
     assert_response :success
     assert_select "turbo-frame#preview_frame", count: 0
   end
 
+  # vertical_align is table-cell only and theme-level.
   test "updating a table cell style persists vertical_align" do
-    style = @dd.paragraph_styles.create!(name: "table_body_cell", font_size: 9)
-    patch design.theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style),
+    style = @theme.base_paragraph_styles.find_or_create_by!(name: "table_body_cell")
+    patch design.theme_theme_paragraph_style_path(@theme, style),
           params: { paragraph_style: { vertical_align: "middle" } }
     assert_response :redirect
     assert_equal "middle", style.reload.vertical_align

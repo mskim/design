@@ -1,16 +1,15 @@
 module Design
   module Views
     module ParagraphStyles
+      # Full-page form for a theme base style or a paper-size style. Doc-type
+      # styles are edited in the studio Panel instead.
       class Form < Design::Views::Base
-        register_element :turbo_frame
-
         # theme: is required — every sidebar branch dereferences it.
-        def initialize(paragraph_style:, theme:, form_url:, cancel_url:, crumbs:, document_design: nil, paper_size: nil)
+        def initialize(paragraph_style:, theme:, form_url:, cancel_url:, crumbs:, paper_size: nil)
           @paragraph_style = paragraph_style
           @form_url = form_url
           @cancel_url = cancel_url
           @crumbs = crumbs
-          @document_design = document_design
           @paper_size = paper_size
           @theme = theme
         end
@@ -24,9 +23,6 @@ module Design
 
               div(class: "flex flex-col lg:flex-row gap-6") do
                 div(class: "flex-1 min-w-0") { form_section }
-                if @document_design
-                  div(class: "lg:w-[28rem] lg:shrink-0") { preview_section }
-                end
               end
             end
           end
@@ -34,14 +30,11 @@ module Design
 
         private
 
-        # Three callers, three rail contexts:
-        #   document-level (theme+size+design) → highlight the design, same-doc_type size switch
-        #   base/size-level (theme+size)       → highlight size settings, same-named style switch
-        #   theme-level (theme only)           → rail at the default size, nothing highlighted
+        # Two callers, two rail contexts:
+        #   base/size-level (theme+size) → highlight size settings, same-named style switch
+        #   theme-level (theme only)     → rail at the default size, nothing highlighted
         def sidebar
-          if @document_design
-            design_sidebar(@theme, @paper_size, @document_design)
-          elsif @paper_size
+          if @paper_size
             theme_sidebar(@theme, @paper_size, current: { kind: :paper_size }, size_url: base_style_size_url)
           else
             theme_sidebar(@theme, @theme.default_paper_size)
@@ -72,18 +65,6 @@ module Design
                 href: @cancel_url,
                 class: "text-sm font-medium text-blue-600 hover:underline"
               ) { I18n.t("design.shared.cancel") }
-            end
-          end
-        end
-
-        def preview_section
-          div(class: "rounded-lg border border-slate-200 bg-slate-50 p-4") do
-            h2(class: "mb-2 text-sm font-medium text-slate-700") { I18n.t("design.editor.preview") }
-            # Page 1 only: this page is about one style, not the whole document.
-            turbo_frame(id: "preview_frame",
-                        src: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, preview_mode: "single"),
-                        loading: "lazy") do
-              div(class: "p-8 text-center text-slate-400") { I18n.t("design.editor.loading_preview") }
             end
           end
         end

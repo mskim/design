@@ -36,7 +36,7 @@ class Design::DocumentDesignsTypographyFlowTest < ActionDispatch::IntegrationTes
 
   # ── Step 2: POST override creates a document-level override and renders the Panel ──
 
-  test "POST override – creates doc-level override copy of base attrs and renders Panel in properties_panel frame" do
+  test "POST override – creates an empty doc-level override and renders Panel in properties_panel frame" do
     assert_difference -> { @dd.paragraph_styles.count }, 1 do
       post design.override_theme_paper_size_document_design_paragraph_styles_path(@theme, @ps, @dd),
            params: { name: "body" }
@@ -47,10 +47,11 @@ class Design::DocumentDesignsTypographyFlowTest < ActionDispatch::IntegrationTes
     assert_select "turbo-frame#properties_panel"
     assert_select "turbo-frame#properties_panel form[data-controller~='design--panel-autosave']"
 
-    # Override carries the base attrs across
+    # Override is sparse: it stores nothing and inherits the base attrs
     override = @dd.paragraph_styles.find_by!(name: "body")
-    assert_equal 10.0, override.font_size
-    assert_equal "NotoSerifKR", override.font
+    assert_nil override.font_size
+    assert_nil override.font
+    assert_equal 10.0, @dd.parent_values("body")["font_size"]
 
     # Revert link is present (it IS a document override on an editable theme)
     assert_includes response.body, "Revert"

@@ -24,10 +24,8 @@ Design::Engine.routes.draw do
           get :panel
           patch :panel_update
         end
-        # paragraph_styles edit/update stay on ParagraphStylesController (its own scoped
-        # set_paragraph_style); the override/revert/new/create flow lives on
-        # DocumentDesignsController (alongside panel/panel_update) — hence two blocks.
-        resources :paragraph_styles, only: [:edit, :update]
+        # Doc-type styles are edited through panel/panel_update (field-level, every
+        # paper size); the override/revert/new/create flow lives alongside them.
         resources :paragraph_styles, only: [:new, :create], controller: "document_designs" do
           collection do
             post :override

@@ -33,11 +33,47 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     assert_equal src[:ps],   theme.paper_sizes.count
     assert_equal src[:dd],   theme.document_designs.count
     assert_equal src[:he],   Design::HeadingElement.where(document_design_id: theme.document_designs.ids).count
-    assert_equal src[:ddps], Design::ParagraphStyle.where(styleable_type: "Design::DocumentDesign", styleable_id: theme.document_designs.ids).count
+    # Import normalises (a doc-type row whose every field equals its parent is
+    # dropped). The fixture's 3 chapter rows (body, styled_para, title) each
+    # differ from the base in some field, so exactly those 3 remain (a generator
+    # row of the same name is overwritten by the imported one).
+    assert_equal 3, src[:ddps]
+    assert_equal %w[body styled_para title],
+      Design::ParagraphStyle.where(styleable_type: "Design::DocumentDesign", styleable_id: theme.document_designs.ids).pluck(:name).sort
 
     body = theme.base_paragraph_styles.find_by(name: "body")
     assert_in_delta 9.5, body.font_size.to_f, 0.001
     assert_equal "justify", body.text_align
+  end
+
+  test "importing a full-snapshot .book_design yields sparse doc-type rows" do
+    # The fixture's chapter `body` row repeats the theme base (font, size, align,
+    # colour) and adds first_line_indent — a full snapshot.
+    theme = Design::ThemeImportService.new(FIXTURE).import!
+
+    chapter = theme.document_designs.find_by(doc_type: "chapter")
+    body = chapter.paragraph_styles.find_by(name: "body")
+    assert_not_nil body, "row with a differing field is kept"
+    assert_in_delta 9.5, body.first_line_indent.to_f, 0.001
+    %w[font font_size text_align text_color].each do |f|
+      assert_nil body[f], "#{f} equals the theme base, so it is inherited (nil)"
+    end
+
+    theme.document_designs.each do |dd|
+      dd.paragraph_styles.each do |row|
+        parent = dd.parent_values(row.name)
+        Design::ParagraphStyle::STYLE_FIELDS.each do |f|
+          next if row[f].nil?
+          refute Design::ParagraphStyle.same_value?(f, row[f], parent[f]),
+            "#{dd.doc_type}/#{row.name}.#{f} repeats its parent"
+        end
+      end
+    end
+
+    # Resolution is unchanged: the chapter still renders the snapshot's values.
+    resolved = chapter.merged_paragraph_styles.find { |s| s.name == "body" }
+    assert_equal "smShinShinMyungjoP-30", resolved.font
+    assert_in_delta 9.5, resolved.font_size.to_f, 0.001
   end
 
   test "rejects an unsupported schema version without writing partial records" do

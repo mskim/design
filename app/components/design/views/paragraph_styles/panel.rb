@@ -6,8 +6,9 @@ module Design
 
         # preview_mode: "single" on the style edit pages so a save re-renders the
         # preview in the same mode (carried as a hidden field); nil → scroll.
+        # error: a message shown above the form (e.g. a Save that hit a stale row).
         def initialize(paragraph_style:, panel_update_url:, back_url:, revert_url: nil, editable: true,
-                       document_design: nil, save_scope_shadow_count: 0, preview_mode: nil)
+                       document_design: nil, save_scope_shadow_count: 0, preview_mode: nil, error: nil)
           @paragraph_style = paragraph_style
           @panel_update_url = panel_update_url
           @back_url = back_url
@@ -16,12 +17,14 @@ module Design
           @document_design = document_design
           @save_scope_shadow_count = save_scope_shadow_count
           @preview_mode = preview_mode
+          @error = error
         end
 
         def view_template
           turbo_frame(id: "properties_panel") do
             div(class: "design-studio flex flex-col gap-3 p-4") do
               render_header
+              render_error_message if @error
               render_errors if @paragraph_style.errors.any?
               render_form
             end
@@ -49,6 +52,12 @@ module Design
                 li(class: "text-sm text-red-700") { msg }
               end
             end
+          end
+        end
+
+        def render_error_message
+          div(class: "rounded border border-red-300 bg-red-50 p-3", role: "alert") do
+            p(class: "text-sm font-medium text-red-800") { @error }
           end
         end
 

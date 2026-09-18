@@ -52,34 +52,40 @@ module Design
       paper_sizes.order(:id).first
     end
 
-    # Write `attrs` (a permitted paragraph-style params hash) as a document-level
-    # override of `name` onto every DocumentDesign of `doc_type` across this theme's
-    # paper sizes (the current document is one of them). The theme base is untouched;
-    # because all sizes share one base, identical override attrs resolve identically.
-    def apply_paragraph_style_to_doc_type!(doc_type, name, attrs)
-      transaction do
-        document_designs.where(doc_type: doc_type).find_each do |dd|
-          dd.upsert_paragraph_style!(name, attrs)
-        end
-      end
-    end
-
-    # Write `attrs` to the theme base style `name` (creating the base row if a style
-    # of that name exists only as a document override), then destroy every same-name
-    # per-doc_type override across the theme so the base value shows everywhere.
-    def apply_paragraph_style_to_all!(name, attrs)
+    # "Apply to all": write `attrs` (only the fields the user changed) to the
+    # theme base style `name` — creating the base row if the style exists only as
+    # doc-type rows — then clear the `clear` style fields (default: attrs' keys)
+    # on the same-name doc-type rows across the theme, so the base value shows.
+    # Chapter rows carry per-size (proportionally scaled) values: there a field
+    # is cleared only where it now equals the new base, as a push to the theme
+    # does. Other doc types clear the fields outright, and so does `from` (the
+    # design whose row the edit was made on: its value is the new base). Other
+    # fields' overrides are kept; rows left empty are deleted (they now have a
+    # parent).
+    def apply_paragraph_style_to_all!(name, attrs, clear: attrs.keys, from: nil)
+      attrs = attrs.to_h.stringify_keys.except("name")
+      fields = clear.map(&:to_s) & Design::ParagraphStyle::STYLE_FIELDS
       transaction do
         base = base_paragraph_styles.find_or_initialize_by(name: name)
-        base.update!(attrs.except(:name))
-        document_designs.find_each do |dd|
-          dd.paragraph_styles.where(name: name).destroy_all
+        base.update!(attrs)
+        if fields.any?
+          document_designs.find_each do |dd|
+            if dd.doc_type == "chapter" && dd.id != from&.id
+              dd.clear_fields_matching_base!(name, fields, base)
+            else
+              dd.clear_style_fields!(name, fields)
+            end
+          end
         end
+        # Deleting rows doesn't bump the preview-cache fingerprint; touch instead.
+        document_designs.update_all(updated_at: Time.current)
         base
       end
     end
 
     # Distinct doc_types that currently have a same-name document override — i.e. the
-    # doc_types an "apply to all" save would reset. `.size` is the warning count.
+    # doc_types whose overrides an "apply to all" save may clear. `.size` is the
+    # warning count.
     def shadow_override_doc_types(name)
       document_designs
         .joins(:paragraph_styles)

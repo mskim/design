@@ -210,36 +210,42 @@ module Design
       end
     end
 
-    # Merge theme base styles with doc_type overrides.
+    # The chapter design on the same paper size — the parent of every other
+    # doc type's styles. nil for chapter itself.
+    def chapter_design
+      return nil if doc_type == "chapter"
+      paper_size.document_designs.find_by(doc_type: "chapter")
+    end
+
+    # Resolved style values this design inherits for `name` (its parent):
+    # theme base for chapter; theme base → chapter for other doc types.
+    def parent_values(name)
+      layer = values_of(theme.base_paragraph_styles.find_by(name: name))
+      if (ch = chapter_design) && (ch_row = ch.paragraph_styles.find_by(name: name))
+        layer = overlay(layer, values_of(ch_row))
+      end
+      layer
+    end
+
+    # Resolve theme base → chapter (same paper size) → this doc type, field by
+    # field (nil falls back to the layer below), like book_write's renderer.
+    # Returned styles are read-only; do not mutate — a style present on a single
+    # layer is that layer's persisted row (e.g. chapter's row, seen from foreword).
     def merged_paragraph_styles
-      base_styles = paper_size.theme.base_paragraph_styles.index_by(&:name)
-      override_styles = paragraph_styles.index_by(&:name)
-
-      all_names = (base_styles.keys + override_styles.keys).uniq
-      all_names.map do |style_name|
-        base = base_styles[style_name]
-        override = override_styles[style_name]
-
-        if override && base
-          merge_style(base, override)
-        elsif override
-          override
-        else
-          base
-        end
+      base_styles = theme.base_paragraph_styles.index_by(&:name)
+      chapter = chapter_design
+      chapter_rows = chapter ? chapter.paragraph_styles.index_by(&:name) : {}
+      own_rows = paragraph_styles.index_by(&:name)
+      (base_styles.keys | chapter_rows.keys | own_rows.keys).map do |n|
+        layers = [ base_styles[n], chapter_rows[n], own_rows[n] ].compact
+        layers.drop(1).reduce(layers.first) { |acc, row| merge_style(acc, row) }
       end
     end
 
-    # Creates (or returns existing) a document-level override for a base style.
-    # Idempotent: if an override with the same name already exists, returns it.
-    def override_for(base_name)
-      existing = paragraph_styles.find_by(name: base_name)
-      return existing if existing
-
-      base = theme.base_paragraph_styles.find_by!(name: base_name)
-      attrs = MERGEABLE_ATTRS.index_with { |attr| base[attr] }.compact
-      paragraph_styles.create!(name: base_name, **attrs)
-    end
+    # Returns (creating if needed) this design's sparse row for a style: every
+    # field nil, so it inherits until a field is set. Kept for callers not yet
+    # migrated to the field-level operations.
+    def override_for(base_name) = paragraph_styles.find_or_create_by!(name: base_name)
 
     # Create or update a document-level paragraph style by name. Used by importers
     # and generators so authoritative values win over any already-present override
@@ -250,7 +256,220 @@ module Design
       ps
     end
 
+    # ── Field-level style operations ─────────────────────────────────────────
+    # A doc type's styles are edited once for every paper size: each operation
+    # writes to this doc type's design on all of the theme's sizes, comparing
+    # against that size's own parent (theme base → chapter).
+
+    def same_doc_type_designs = theme.document_designs.where(doc_type: doc_type)
+
+    def style_state(name)
+      own = paragraph_styles.find_by(name: name)
+      parent = parent_values(name)
+      changed = own ? ParagraphStyle::STYLE_FIELDS.select { |f| !own[f].nil? } : []
+      user = own ? changed & Array(own.overridden_fields) : []
+      { own: own, parent_values: parent, changed_fields: changed, user_fields: user,
+        has_parent: parent.values.any? { |v| !v.nil? } }
+    end
+
+    class MissingChapterError < StandardError; end
+
+    # Set `field` of style `name` (edited on this size) on every size.
+    # A blank value reverts the field everywhere; so does, for doc types other
+    # than chapter, a value equal to THIS size's parent. Otherwise this size gets
+    # `value` exactly; other sizes get a proportional value for SCALED_FIELDS
+    # (their current × value / this size's current) and the same value for every
+    # other field. Wherever the target equals that size's own parent the field is
+    # cleared (inherit), never marked. Chapter keeps the per-size path even when
+    # the value equals its parent: chapter rows carry the per-size scaled values
+    # every other doc type inherits, so returning one size to the theme base
+    # must scale the others rather than wipe them.
+    def set_style_field!(name, field, value)
+      assert_style_field!(field)
+      field = field.to_s
+      value = value.strip if value.is_a?(String)
+      parent = parent_values(name)
+      if value.nil? || value == "" ||
+         (doc_type != "chapter" && ParagraphStyle.inherits_value?(field, value, parent[field]))
+        return revert_style_field!(name, field)
+      end
+
+      ref = resolved_field(name, field, parent)
+      # A scaled field set to its current value scales the other sizes by 1:
+      # nothing changes there, so leave them (and their marks) alone.
+      unchanged_elsewhere = ParagraphStyle::SCALED_FIELDS.include?(field) &&
+                            ParagraphStyle.same_value?(field, value, ref)
+      transaction do
+        same_doc_type_designs.find_each do |dd|
+          next if dd.id != id && unchanged_elsewhere
+          dd_parent = dd.id == id ? parent : dd.parent_values(name)
+          target = dd.id == id ? value : cross_size_value(field, value, ref, dd.resolved_field(name, field, dd_parent))
+          if ParagraphStyle.inherits_value?(field, target, dd_parent[field])
+            dd.clear_style_field(name, field, has_parent: dd_parent.values.any? { |v| !v.nil? })
+          else
+            row = dd.paragraph_styles.find_or_initialize_by(name: name)
+            row[field] = target
+            row.overridden_fields = (Array(row.overridden_fields) | [ field ])
+            row.save!
+          end
+        end
+        touch_inheritors!
+      end
+    end
+
+    def revert_style_field!(name, field)
+      assert_style_field!(field)
+      field = field.to_s
+      transaction do
+        same_doc_type_designs.find_each { |dd| dd.clear_style_field(name, field) }
+        touch_inheritors!
+      end
+    end
+
+    # Delete the style's rows on every size (only where a parent exists — a
+    # parentless style would vanish entirely).
+    def revert_style!(name)
+      transaction do
+        same_doc_type_designs.find_each do |dd|
+          dd.paragraph_styles.where(name: name).destroy_all if dd.style_has_parent?(name)
+        end
+        touch_inheritors!
+      end
+    end
+
+    # For each user field a push would move up, the number of sibling doc types
+    # that keep their own value for it (and so won't see the pushed value).
+    def push_preview(name)
+      fields = style_state(name)[:user_fields]
+      siblings = doc_type == "chapter" ? theme.document_designs.where.not(doc_type: "chapter") :
+                                         theme.document_designs.where.not(doc_type: [ "chapter", doc_type ])
+      fields.index_with do |f|
+        siblings.joins(:paragraph_styles)
+                .where(design_paragraph_styles: { name: name })
+                .where.not(design_paragraph_styles: { f => nil })
+                .distinct.count(:doc_type)
+      end
+    end
+
+    # Move the user-changed fields one layer up and clear them here. Generator-only
+    # values (stored but not in overridden_fields) are never pushed.
+    #
+    # Chapter → theme base: this size's values become the base; each chapter size
+    # then clears a pushed field only where it now equals the new base, and keeps
+    # its own (per-size, e.g. proportionally scaled) value otherwise.
+    #
+    # Other doc types → chapter on every size: via set_style_field! on this size's
+    # chapter (proportionally on the others), then the fields are reverted on
+    # every size of this doc type. Every size that has this doc type must
+    # therefore also have a chapter design.
+    def push_style!(name)
+      own = paragraph_styles.find_by(name: name) or return
+      fields = style_state(name)[:user_fields]
+      return if fields.empty?
+      return push_style_to_theme!(name, own, fields) if doc_type == "chapter"
+
+      assert_chapters_for_push!
+      transaction do
+        ch = chapter_design
+        fields.each { |f| ch.set_style_field!(name, f, own[f]) }
+        fields.each { |f| revert_style_field!(name, f) }
+      end
+    end
+
+    def style_has_parent?(name) = parent_values(name).values.any? { |v| !v.nil? }
+
+    # Clear `fields` on this design's row `name` (nil, unmarked); delete the row
+    # if that leaves it empty and the style has a parent. This design only.
+    def clear_style_fields!(name, fields, has_parent: nil)
+      fields.each { |f| assert_style_field!(f) }
+      row = paragraph_styles.find_by(name: name) or return
+      fields.each { |f| row[f.to_s] = nil }
+      row.overridden_fields = Array(row.overridden_fields) - fields.map(&:to_s)
+      has_parent = style_has_parent?(name) if has_parent.nil?
+      if has_parent && ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }
+        row.destroy!
+      else
+        row.save!
+      end
+    end
+
+    # Chapter rows under a changed theme base: clear each of `fields` on this
+    # design's row `name` only where it now equals the base (`base`, the saved
+    # base row); keep the other per-size (e.g. proportionally scaled) values.
+    # Used by push-to-theme and by the theme's "apply to all".
+    def clear_fields_matching_base!(name, fields, base)
+      row = paragraph_styles.find_by(name: name) or return
+      same = fields.map(&:to_s).select { |f| !row[f].nil? && ParagraphStyle.inherits_value?(f, row[f], base[f]) }
+      clear_style_fields!(name, same, has_parent: true) if same.any?
+    end
+
+    # korean_name / vertical_align of a style that has no theme base row: they
+    # live on this doc type's own rows, so write them on every size's existing
+    # row (labels, not scaled and not marked as overrides).
+    def set_base_only_fields!(name, attrs)
+      transaction do
+        same_doc_type_designs.find_each { |dd| dd.paragraph_styles.find_by(name: name)&.update!(attrs) }
+        touch_inheritors!
+      end
+    end
+
+    protected
+
+    # This design's current value for `field`: its own row's value, else the
+    # inherited one (`parent` = parent_values(name), passed to avoid re-querying).
+    def resolved_field(name, field, parent = parent_values(name))
+      own = paragraph_styles.find_by(name: name)&.[](field)
+      own.nil? ? parent[field] : own
+    end
+
+    def clear_style_field(name, field, has_parent: nil) = clear_style_fields!(name, [ field ], has_parent: has_parent)
+
+    # Deleting rows doesn't bump max(updated_at); touch every design whose preview
+    # may change (this doc type everywhere; for chapter, every doc type).
+    def touch_inheritors!
+      now = Time.current
+      scope = doc_type == "chapter" ? theme.document_designs : same_doc_type_designs
+      scope.update_all(updated_at: now)
+      self.updated_at = now # the controller renders the preview from this instance
+      clear_attribute_changes([ :updated_at ]) # already persisted by update_all
+      # Rows were written/deleted through other instances; drop stale caches.
+      paragraph_styles.reset
+      theme.base_paragraph_styles.reset
+    end
+
+    def assert_style_field!(field)
+      raise ArgumentError, "not a style field: #{field}" unless ParagraphStyle::STYLE_FIELDS.include?(field.to_s)
+    end
+
+    def assert_chapters_for_push!
+      sizes = same_doc_type_designs.pluck(:paper_size_id)
+      with_chapter = theme.document_designs.where(doc_type: "chapter").pluck(:paper_size_id)
+      missing = sizes - with_chapter
+      return if missing.empty?
+      names = Design::PaperSize.where(id: missing).map(&:display_name).join(", ")
+      raise MissingChapterError, "no chapter design on #{names}"
+    end
+
     private
+
+    def push_style_to_theme!(name, own, fields)
+      transaction do
+        base = theme.base_paragraph_styles.find_or_initialize_by(name: name)
+        fields.each { |f| base[f] = own[f] }
+        base.save!
+        same_doc_type_designs.find_each { |dd| dd.clear_fields_matching_base!(name, fields, base) }
+        touch_inheritors!
+      end
+    end
+
+    # The value another size gets when this size's field goes ref → value.
+    def cross_size_value(field, value, ref, current)
+      return value unless ParagraphStyle::SCALED_FIELDS.include?(field)
+      num = ->(v) { v.is_a?(Numeric) ? v.to_d : (v.is_a?(String) ? BigDecimal(v.strip, exception: false) : nil) }
+      new_v, ref_v, cur_v = num.(value), num.(ref), num.(current)
+      return value if new_v.nil? || ref_v.nil? || ref_v.zero? || cur_v.nil?
+      (cur_v * new_v / ref_v).round(2)
+    end
 
     def ensure_heading_style_exists(style_name)
       defaults = DEFAULT_HEADING_STYLES[style_name]
@@ -286,5 +505,9 @@ module Design
       end
       merged
     end
+
+    def values_of(row) = row ? ParagraphStyle::STYLE_FIELDS.index_with { |f| row[f] } : {}
+
+    def overlay(lower, upper) = lower.merge(upper.compact)
   end
 end

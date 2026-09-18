@@ -94,9 +94,9 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
     assert_select "header", 1
   end
 
-  test "document-level paragraph style form highlights the design" do
+  test "document-level paragraph style edit page highlights the design" do
     style = @dd.paragraph_styles.create!(name: "caption")
-    get design.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style)
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: style.id)
     assert_response :success
     assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
   end
