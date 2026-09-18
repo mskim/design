@@ -231,6 +231,33 @@ ko:
       apply_to_all_confirm: "변경한 항목만 테마에 적용되고, %{count}개 문서 유형에서 그 항목의 개별 설정이 초기화됩니다. 계속할까요?"
       stale_save: "이 스타일이 다른 곳에서 변경되었습니다. 다시 입력해 주세요."
 
+    style_panel:
+      all_sizes: "모든 판형"
+      has_changes: "이 문서 유형에서 바꾼 항목이 있음"
+      menu: "스타일 메뉴"
+      revert_all: "되돌리기 (%{count})"
+      push_to_theme: "테마에 반영…"
+      push_to_chapter: "장에 반영…"
+      all_options: "모든 옵션 편집…"
+      from_theme: "테마에서"
+      from_chapter: "장에서"
+      generated: "자동 크기 조정"
+      revert_field: "상속으로 되돌리기"
+      status:
+        saving: "저장 중…"
+        saved: "저장됨"
+        error: "오류"
+      sections:
+        type_text: "글꼴 · 텍스트"
+        bold: "굵게 · 강조"
+        space: "들여쓰기 · 간격"
+        fill: "채우기"
+        border: "테두리"
+        pad: "안쪽 여백"
+      push_confirm:
+        theme: "이 스타일에서 바꾼 %{count}개 항목을 테마에 반영합니다."
+        chapter: "이 문서 유형에서 바꾼 %{count}개 항목을 장에 반영하고, 여기서는 장의 값을 따릅니다."
+        kept: "%{field}: 자체 값이 있는 다른 문서 유형 %{count}개는 그 값을 유지합니다."
     paper_sizes:
       edit_title: "판형 편집"
       margins: "여백 (mm)"

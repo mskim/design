@@ -231,6 +231,33 @@ en:
       apply_to_all_confirm: "Only the fields you changed are applied to the theme, and those fields are reset on %{count} document type(s). Continue?"
       stale_save: "This style was changed elsewhere. Please enter your changes again."
 
+    style_panel:
+      all_sizes: "all paper sizes"
+      has_changes: "Changed for this document type"
+      menu: "Style menu"
+      revert_all: "Revert (%{count})"
+      push_to_theme: "Apply to theme…"
+      push_to_chapter: "Apply to chapter…"
+      all_options: "Edit all options…"
+      from_theme: "From theme"
+      from_chapter: "From chapter"
+      generated: "Auto-scaled"
+      revert_field: "Revert to inherited"
+      status:
+        saving: "Saving…"
+        saved: "Saved"
+        error: "Error"
+      sections:
+        type_text: "Font · Text"
+        bold: "Bold · Emphasis"
+        space: "Indents · Spacing"
+        fill: "Fill"
+        border: "Border"
+        pad: "Padding"
+      push_confirm:
+        theme: "Apply %{count} changed field(s) of this style to the theme."
+        chapter: "Apply %{count} changed field(s) to the chapter; this document type then follows the chapter."
+        kept: "%{field}: %{count} other document type(s) keep their own value."
     paper_sizes:
       edit_title: "Edit Paper Size"
       margins: "Margins (mm)"
