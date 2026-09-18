@@ -182,3 +182,44 @@ test("stop(): waiting jobs are dropped, the one in flight completes, later enque
   assert.ok(!queue.busy)
   await queue.whenIdle()
 })
+
+test("a failed linked pair is cleared by a later Left or Right success: the burst ends saved", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  await tick() // the pair in flight
+  queue.enqueue({ key: "left_margin_mm", value: "20" })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  assert.equal(statuses.at(-1), "saved")
+})
+
+test("…and a successful pair clears failed Left/Right saves", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: "right_margin_mm", value: "20" })
+  await tick()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  assert.equal(statuses.at(-1), "saved")
+})
+
+test("an unrelated success leaves a failure standing", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  await tick()
+  queue.enqueue({ key: "top_margin_mm", value: "20" })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  assert.equal(statuses.at(-1), "error")
+})
+
+test("isPending sees a field inside a job's `fields` (the linked margin pair)", async () => {
+  const { queue, calls } = setup()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  assert.equal(queue.isPending("left_margin_mm"), true, "waiting")
+  await tick()
+  assert.equal(queue.isPending("right_margin_mm"), true, "in flight")
+  assert.equal(queue.isPending("top_margin_mm"), false)
+  await answer(calls[0])
+  assert.equal(queue.isPending("left_margin_mm"), false)
+})

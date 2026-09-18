@@ -138,12 +138,26 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     refute_match(/from\s+["']\.\.?\//, src, "no relative imports (importmap)")
   end
 
-  # A save's morph would reset the ▾ menu to its server class ("hidden …") and
-  # close a menu the user just opened: keepLocalState keeps the menu's class.
-  test "style_autosave keeps the dropdown menu's class through a morph" do
+  # A save's morph must not reset the ▾ menu the user opened, a <details>' open
+  # state or the Page section's link: one pure rule (node-tested) decides.
+  test "style_autosave keeps user-set attributes through a morph via keepsUserAttribute" do
     src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
-    assert_includes src, %(const MENU = "[data-design--dropdown-target='menu']")
-    assert_match(/attributeName === "class" && el\.matches\(MENU\)/, src)
+    assert_match(/keepsUserAttribute\(el, attributeName\)/, src)
+    morph = File.read(ENGINE_JS.join("design-controllers/design/style_panel_morph.js"))
+    assert_includes morph, %(export const MENU = "[data-design--dropdown-target='menu']")
+    assert_includes morph, %(export const MARGIN_LINK = "[data-margin-link]")
+  end
+
+  test "style_autosave is configurable (prefix, panel target, required fields) and saves through saveJobs" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, %("design-controllers/design/field_save_jobs")
+    assert_includes src, "fieldPrefix: { type: String, default: FIELD_PREFIX }"
+    assert_includes src, "panelTarget: { type: String, default: PANEL_TARGET }"
+    assert_includes src, "requiredFields: Array"
+    assert_includes src, "withoutStreamsFor(html, this.panelTargetValue)"
+    assert_includes src, "getElementById(this.panelTargetValue)"
+    %w[toggleLink( mirrorPartner( enqueueAll(].each { |m| assert_includes src, m }
+    assert_includes src, "values["
   end
 
   # The morph decision is taken once per element, before Idiomorph touches its
@@ -156,7 +170,7 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "LocalValueKeeper"
   end
 
-  %w[style_save_queue style_panel_morph edge_flags].each do |mod|
+  %w[style_save_queue style_panel_morph edge_flags field_save_jobs].each do |mod|
     test "#{mod} is a pure module" do
       src = File.read(ENGINE_JS.join("design-controllers/design/#{mod}.js"))
       refute_match(/^import /, src)
