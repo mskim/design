@@ -1,34 +1,48 @@
 import { Controller } from "@hotwired/stimulus"
 import { StyleSaveQueue } from "design-controllers/design/style_save_queue"
-import { fieldFromName, LocalValueKeeper, dropStreamsFor, PANEL_TARGET } from "design-controllers/design/style_panel_morph"
+import { fieldMatcher, LocalValueKeeper, dropStreamsFor, keepsUserAttribute, PANEL_TARGET, FIELD_PREFIX, MENU, MARGIN_LINK }
+  from "design-controllers/design/style_panel_morph"
+import { saveJobs, partnerInput } from "design-controllers/design/field_save_jobs"
 
-// Autosave for the paragraph style panel (D2b). Each committed field change —
-// the `change` a NumberField commit, a select, a ColorField close or a border/
-// corner toggle emits — becomes one request; × buttons and the ▾ menu add
-// theirs. Requests run one at a time, in order (StyleSaveQueue). Responses are
-// turbo streams that morph #style-panel-content (and replace the preview); the
-// morph keeps focus, and the handlers below keep what it must not overwrite:
-// a value whose save is unanswered, an uncommitted (dirty) value — typing or a
-// scrub-drag — an open colour popover, each <details>' open state and the ▾
-// menu's open state. Whether a control keeps its value is decided once per
-// morphed element (LocalValueKeeper). When the last request of a burst fails
-// without a stream, the preview is reloaded. Once the panel is gone (the
-// frame moved to another style), waiting saves are dropped and a late
-// response renders only its preview stream, never the panel stream, which
-// would land in the next style's panel (same id).
-
-// The ▾ menu (design--dropdown shows and hides it with the `hidden` class).
-const MENU = "[data-design--dropdown-target='menu']"
+// Autosave for the paragraph style panel (D2b) and the Layout tab's Page
+// section (D3: margins, binding, body lines, columns). Each committed field
+// change — the `change` a NumberField commit, a select, a ColorField close or
+// a border/corner toggle emits — becomes one request (field_save_jobs.js);
+// × buttons and the ▾ menu add theirs. Requests run one at a time, in order
+// (StyleSaveQueue). Responses are turbo streams that morph the panel target
+// (#style-panel-content or #page-section-content) and replace the preview;
+// the morph keeps focus, and the handlers below keep what it must not
+// overwrite: a value whose save is unanswered, an uncommitted (dirty) value —
+// typing or a scrub-drag — an open colour popover, each <details>' open
+// state, the ▾ menu's open state and the 🔗 margin link's pressed state.
+// Whether a control keeps its value is decided once per morphed element
+// (LocalValueKeeper). When the last request of a burst fails without a
+// stream, the preview is reloaded. Once the panel is gone (the frame moved
+// to another style), waiting saves are dropped and a late response renders
+// only its preview stream, never the panel stream, which would land in the
+// next panel with the same id.
+//
+// Configured by data values: `field-prefix` (controls named <prefix>[<field>];
+// `paragraph_style` by default, `page` for the Page section), `panel-target`
+// (the morphed element's id; `style-panel-content` by default,
+// `page-section-content` for the Page section) and `required-fields` (never
+// reverted: emptying one PATCHes "" — the Page section's column count and
+// gutter). A `[data-margin-link]` toggle inside the element links the Left
+// and Right margins: a value sets both in one request, a revert reverts both.
 
 export default class extends Controller {
   static targets = ["status"]
   static values = { fieldUrl: String, styleUrl: String, pushUrl: String, previewUrl: String, previewMode: String,
+                    fieldPrefix: { type: String, default: FIELD_PREFIX },
+                    panelTarget: { type: String, default: PANEL_TARGET },
+                    requiredFields: Array,
                     savingText: String, savedText: String, errorText: String }
 
   connect() {
     this.disconnected = false
     this.queue = new StyleSaveQueue({ send: (job, opts) => this.send(job, opts), onStatus: (s) => this.showStatus(s) })
-    this.keeper = new LocalValueKeeper((field) => this.queue.isPending(field))
+    this.fieldOf = fieldMatcher(this.fieldPrefixValue)
+    this.keeper = new LocalValueKeeper((field) => this.queue.isPending(field), this.fieldOf)
     // Listened to here (not a data-action) so it runs for every morphed element.
     this.decideLocalValue = (event) => this.keeper.decide(event.target)
     this.element.addEventListener("turbo:before-morph-element", this.decideLocalValue)
@@ -50,24 +64,47 @@ export default class extends Controller {
     window.removeEventListener("beforeunload", this.guardUnload)
   }
 
-  // change (bubbling) on the form. Popover sub-fields have no name and other
-  // inputs aren't paragraph_style[<field>]: both ignored.
+  // change (bubbling). Popover sub-fields have no name and other inputs don't
+  // match the prefix: both ignored.
   fieldChanged(event) {
     const el = event.target
-    const field = fieldFromName(el?.name)
+    const field = this.fieldOf(el?.name)
     if (!field || el.disabled) return
     markCommitted(el)
     const value = (el.value ?? "").trim()
-    this.queue.enqueue(value === ""
-      ? { key: field, method: "DELETE", url: this.fieldUrlValue, field }
-      : { key: field, method: "PATCH", url: this.fieldUrlValue, field, value })
+    const linked = this.linked
+    if (linked && value !== "") this.mirrorPartner(field, value)
+    this.enqueueAll(saveJobs({ field, value, url: this.fieldUrlValue, linked, required: this.requiredFieldsValue }))
   }
 
-  // × on a field
+  // × on a field (with the link on, × on Left or Right reverts both).
   revert(event) {
     const field = event.currentTarget.dataset.field
-    if (field) this.queue.enqueue({ key: field, method: "DELETE", url: this.fieldUrlValue, field })
+    if (field) {
+      this.enqueueAll(saveJobs({ field, value: "", url: this.fieldUrlValue, linked: this.linked,
+                                 required: this.requiredFieldsValue }))
+    }
   }
+
+  // 🔗 between Left and Right: client-side state (kept through morphs by
+  // keepsUserAttribute); the server renders it pressed when Left = Right.
+  toggleLink(event) {
+    const button = event.currentTarget
+    button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"))
+  }
+
+  get linked() { return this.element.querySelector(MARGIN_LINK)?.getAttribute("aria-pressed") === "true" }
+
+  // The linked partner shows the committed value at once; its save is part of
+  // the pair's request, so the queue reports it pending until the answer.
+  mirrorPartner(field, value) {
+    const input = partnerInput(this.element.querySelectorAll("[name]"), this.fieldOf, field)
+    if (!input || input.value === value) return
+    input.value = value
+    markCommitted(input)
+  }
+
+  enqueueAll(jobs) { jobs.forEach((job) => this.queue.enqueue(job)) }
 
   // ▾ 되돌리기 (N) — confirmed when the button carries a confirm message.
   revertStyle(event) {
@@ -93,9 +130,8 @@ export default class extends Controller {
   keepLocalState(event) {
     const el = event.target
     const { attributeName } = event.detail
-    if (el.tagName === "DETAILS" && attributeName === "open") { event.preventDefault(); return }
-    // The server always renders the menu closed; keep a menu the user opened.
-    if (attributeName === "class" && el.matches(MENU)) { event.preventDefault(); return }
+    // <details>' open, the ▾ menu the user opened, the margin link's state.
+    if (keepsUserAttribute(el, attributeName)) { event.preventDefault(); return }
     if (attributeName !== "value" && attributeName !== "selected") return
     const control = el.tagName === "OPTION" ? el.closest("select") : el
     // Not focus-based: a scrub-drag changes the value without focusing the input.
@@ -115,6 +151,7 @@ export default class extends Controller {
     if (job.method !== "POST") body.append("_method", job.method)
     if (job.field) body.append("field", job.field)
     if (job.value !== undefined) body.append("value", job.value)
+    if (job.values) for (const [ f, v ] of Object.entries(job.values)) body.append(`values[${f}]`, v)
     if (this.previewModeValue) body.append("preview_mode", this.previewModeValue)
     body.append("render_preview", renderPreview ? "1" : "0")
     let response
@@ -152,12 +189,12 @@ export default class extends Controller {
   // is rendered only into this controller's own panel.
   renderStreams(html) {
     if (!window.Turbo) throw new Error("Turbo is not loaded")
-    const streams = this.ownsPanel ? html : withoutStreamsFor(html, PANEL_TARGET)
+    const streams = this.ownsPanel ? html : withoutStreamsFor(html, this.panelTargetValue)
     if (streams.trim() !== "") window.Turbo.renderStreamMessage(streams)
   }
 
   get ownsPanel() {
-    return !this.disconnected && this.element.contains(document.getElementById(PANEL_TARGET))
+    return !this.disconnected && this.element.contains(document.getElementById(this.panelTargetValue))
   }
 
   // Load the preview frame from its GET URL (the panel's preview mode): a

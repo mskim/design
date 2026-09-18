@@ -5,7 +5,18 @@ module Design
   module DocumentDesignPreview
     extend ActiveSupport::Concern
 
+    # 인쇄용: set by design--preview-toolbar in the browser (a per-browser view
+    # setting, like 안내선); every preview render reads it.
+    PRINT_COOKIE = "design_preview_print"
+
     private
+
+    def print_preview? = cookies[PRINT_COOKIE] == "1"
+
+    # The service for this request's preview (dd may be the live-preview copy).
+    def preview_service(dd = @document_design)
+      Design::PreviewService.new(dd, paper_size: @paper_size, print_mode: print_preview?)
+    end
 
     # Stale style link (a reverted style, or an old level/style_id link whose row
     # is gone): show the live document view instead of raising. A turbo-frame request re-renders the
@@ -48,17 +59,21 @@ module Design
 
       stamp = Time.now.to_i
       pages = preview_pages(result).each_with_index.map do |pg, i|
-        { jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, page: i + 1, t: stamp),
+        # print=1 so a browser never reuses a normal image for a print one (the
+        # helper drops the nil param).
+        { jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(
+            @theme, @paper_size, @document_design, page: i + 1, t: stamp, print: ("1" if result[:print_mode])),
           overlay_data: pg[:overlay_data] }
       end
       Design::Views::DocumentDesigns::Preview.new(
         document_design: dd, paper_size: @paper_size, pages: pages, mode: preview_mode,
-        page_width: result[:page_width], page_height: result[:page_height], style_urls: build_style_urls)
+        page_width: result[:page_width], page_height: result[:page_height], style_urls: build_style_urls,
+        print_mode: result[:print_mode] == true)
     end
 
     # Turbo-stream replacing the document preview with a freshly rendered one.
     def preview_frame_stream
-      result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
+      result = preview_service.generate
       turbo_stream.replace("preview_frame", html: preview_component(result).call.html_safe)
     end
 

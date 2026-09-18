@@ -1,6 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { fieldFromName, keepsLocalValue, isDirty, LocalValueKeeper, dropStreamsFor, PANEL_TARGET }
+import { fieldFromName, keepsLocalValue, isDirty, LocalValueKeeper, dropStreamsFor, PANEL_TARGET,
+         fieldMatcher, keepsUserAttribute, MENU, MARGIN_LINK, FIELD_PREFIX }
   from "../../app/javascript/design-controllers/design/style_panel_morph.js"
 
 // Stand-ins for the DOM pieces the rules read (no DOM in node).
@@ -86,4 +87,34 @@ test("dropStreamsFor removes only the streams aimed at the target", () => {
   assert.deepEqual(f.streams.map((s) => s.target), [ "preview_frame" ])
   assert.equal(dropStreamsFor(fragment([ "preview_frame" ]), PANEL_TARGET), 0)
   assert.equal(PANEL_TARGET, "style-panel-content")
+})
+
+test("fieldMatcher builds the name matcher for a prefix; the default is paragraph_style", () => {
+  const page = fieldMatcher("page")
+  assert.equal(page("page[top_margin_mm]"), "top_margin_mm")
+  for (const name of [ "paragraph_style[font_size]", "document_design[gutter]", "page[a][b]", "pages[x]", null ]) {
+    assert.equal(page(name), null, String(name))
+  }
+  assert.equal(FIELD_PREFIX, "paragraph_style")
+  assert.equal(fieldMatcher()("paragraph_style[font_size]"), "font_size")
+  assert.equal(fieldMatcher("a.b")("axb[c]"), null, "the prefix is literal, not a pattern")
+})
+
+test("LocalValueKeeper takes the matcher: a page[...] control is decided, a paragraph_style one isn't", () => {
+  const keeper = new LocalValueKeeper(() => false, fieldMatcher("page"))
+  const typing = input("page[top_margin_mm]", "18", "20")
+  const other = input("paragraph_style[font_size]", "10", "15")
+  keeper.decide(typing); keeper.decide(other)
+  assert.equal(keeper.keeps(typing), true)
+  assert.equal(keeper.keeps(other), false)
+})
+
+test("keepsUserAttribute: details open, the ▾ menu's class and the margin link's aria-pressed survive a morph", () => {
+  const el = (tagName, selector = null) => ({ tagName, matches: (s) => s === selector })
+  assert.equal(keepsUserAttribute(el("DETAILS"), "open"), true)
+  assert.equal(keepsUserAttribute(el("DIV", MENU), "class"), true)
+  assert.equal(keepsUserAttribute(el("BUTTON", MARGIN_LINK), "aria-pressed"), true, "the link is client state")
+  assert.equal(keepsUserAttribute(el("BUTTON", MARGIN_LINK), "disabled"), false)
+  assert.equal(keepsUserAttribute(el("BUTTON"), "aria-pressed"), false, "other toggles follow the server")
+  assert.equal(keepsUserAttribute(el("INPUT"), "value"), false, "values are LocalValueKeeper's job")
 })

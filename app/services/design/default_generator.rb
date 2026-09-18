@@ -14,16 +14,26 @@ module Design
       @paper_size
     end
 
+    MARGIN_RULE_KEYS = { "left_margin_mm" => :left, "top_margin_mm" => :top, "right_margin_mm" => :right,
+                         "bottom_margin_mm" => :bottom, "binding_margin_mm" => :binding }.freeze
+
+    # Margins and body line count from the rules, skipping fields the user (or
+    # an explicit creation value) marked. update_columns skips validations and
+    # callbacks, but updated_at is written too: every doc type's preview on
+    # this size keys on paper_size.updated_at (PreviewService#cache_fingerprint),
+    # so 기본값 다시 생성 must invalidate them.
     def fill_layout
-      m = GenerationRules.margins_for(@paper_size.width_mm, @paper_size.height_mm)
-      assigns = {
-        left_margin_mm:    m[:left],  top_margin_mm:    m[:top],
-        right_margin_mm:   m[:right], bottom_margin_mm: m[:bottom],
-        binding_margin_mm: m[:binding],
-        body_line_count:   GenerationRules.body_line_count_for(@paper_size.height_mm)
-      }
-      assigns.reject! { |attr, _| @paper_size.overridden?(attr) }
-      @paper_size.update_columns(assigns) if assigns.any?
+      assigns = PaperSize::GENERATABLE_FIELDS.reject { |f| @paper_size.overridden?(f) }.index_with { |f| generated_value(f) }
+      @paper_size.update_columns(assigns.merge("updated_at" => Time.current)) if assigns.any?
+    end
+
+    # The rule's value for one generatable field of this size: what
+    # 기본값 다시 생성 writes and what the Page section's × returns a margin to.
+    def generated_value(field)
+      field = field.to_s
+      return GenerationRules.body_line_count_for(@paper_size.height_mm) if field == "body_line_count"
+      key = MARGIN_RULE_KEYS.fetch(field) { raise ArgumentError, "not a generatable field: #{field}" }
+      GenerationRules.margins_for(@paper_size.width_mm, @paper_size.height_mm).fetch(key)
     end
 
     # Scaled heading sizes live on chapter only, as sparse font_size rows; every

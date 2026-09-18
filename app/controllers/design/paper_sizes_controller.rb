@@ -22,15 +22,18 @@ module Design
 
     def edit
       @base_styles = @paper_size.paragraph_styles.order(:name)
-      render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size, base_styles: @base_styles)
+      render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size, base_styles: @base_styles,
+                                                 return_design: return_design)
     end
 
     def regenerate
       Design::DefaultGenerator.call(@paper_size)
       Design::ThemeDbExportService.new(@theme).export!
-      redirect_to design.edit_theme_paper_size_path(@theme, @paper_size), notice: I18n.t("design.paper_sizes.regenerated_notice")
+      target = return_design ? return_url : design.edit_theme_paper_size_path(@theme, @paper_size)
+      redirect_to target, notice: I18n.t("design.paper_sizes.regenerated_notice")
     end
 
+    # Always the theme page, return_to or not: the editor's paper size is gone.
     def destroy
       @paper_size.destroy
       Design::ThemeDbExportService.new(@theme).export!
@@ -41,9 +44,11 @@ module Design
       if @paper_size.update(paper_size_params)
         @paper_size.mark_overridden_from_changes(Design::PaperSize::GENERATABLE_FIELDS)
         Design::ThemeDbExportService.new(@theme).export!
-        redirect_to design.theme_path(@theme), notice: I18n.t("design.paper_sizes.updated_notice")
+        redirect_to return_url, notice: I18n.t("design.paper_sizes.updated_notice")
       else
-        render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size, base_styles: @paper_size.paragraph_styles.order(:name)), status: :unprocessable_entity
+        render Design::Views::PaperSizes::Form.new(theme: @theme, paper_size: @paper_size,
+                                                   base_styles: @paper_size.paragraph_styles.order(:name),
+                                                   return_design: return_design), status: :unprocessable_entity
       end
     end
 
@@ -51,6 +56,20 @@ module Design
 
     def set_paper_size
       @paper_size = @theme.paper_sizes.find(params[:id])
+    end
+
+    # The design editor's 판형 편집 link carries return_to=<document design id>
+    # (the sample-content pattern, sample_contents_controller.rb:34-42). Only a
+    # design on this paper size counts, so it can never redirect elsewhere.
+    # to_s: a nested or array return_to (return_to[a]=1) is ignored.
+    def return_design
+      return @return_design if defined?(@return_design)
+      id = params[:return_to].to_s
+      @return_design = id.present? ? @paper_size.document_designs.find_by(id: id) : nil
+    end
+
+    def return_url
+      return_design ? design.edit_theme_paper_size_document_design_path(@theme, @paper_size, return_design) : design.theme_path(@theme)
     end
 
     def paper_size_params

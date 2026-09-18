@@ -48,10 +48,28 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
     assert_includes html, %(data-controller="design--heading-bg")
   end
 
-  test "renders layout fields (heading lines, columns)" do
-    html = render_panel
-    assert_includes html, %(name="document_design[heading_height_in_lines]")
-    assert_includes html, %(name="document_design[column_count]")
+  test "the Page section is the Layout tab's first box; the tabs form no longer carries its fields" do
+    doc = Nokogiri::HTML.fragment(render_panel)
+    tabs_form = doc.at_css("form[data-controller~='design--live-preview']")
+    section = tabs_form.at_css("[data-page-section]")
+    assert section, "inside the tabs form (the Layout tab)"
+    assert_nil section.previous_element, "the first box"
+    assert_equal "basic", section.next_element["data-group"]
+    names = tabs_form.css("[name^='document_design[']").map { |e| e["name"] }
+    assert_includes names, "document_design[heading_height_in_lines]"
+    %w[body_line_count column_count gutter].each { |f| refute_includes names, "document_design[#{f}]" }
+    page_controls = tabs_form.css("[name^='page[']")
+    refute_empty page_controls
+    assert page_controls.all? { |e| e["form"] == "page-section-form" }, "FormData(tabs form) skips them"
+  end
+
+  test "the Page section's empty form sits outside the tabs form, inside the frame" do
+    doc = Nokogiri::HTML.fragment(render_panel)
+    form = doc.at_css("form#page-section-form")
+    assert form
+    assert_empty form.ancestors("form")
+    assert form.ancestors("turbo-frame#properties_panel").any?
+    assert_empty form.element_children
   end
 
   # --------------- Header/Footer tab ---------------
@@ -342,6 +360,7 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
     # Stub typography URL helpers
     component.define_singleton_method(:typography_style_url) { |name| "/test/styles/#{name}" }
     component.define_singleton_method(:typography_new_style_url) { "/test/new_style" }
+    component.define_singleton_method(:page_urls) { { field: "/x/page/field", preview: "/x/preview", paper_size: "/x/ps/edit" } }
     component.call
   end
 end

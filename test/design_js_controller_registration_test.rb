@@ -138,12 +138,42 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     refute_match(/from\s+["']\.\.?\//, src, "no relative imports (importmap)")
   end
 
-  # A save's morph would reset the ▾ menu to its server class ("hidden …") and
-  # close a menu the user just opened: keepLocalState keeps the menu's class.
-  test "style_autosave keeps the dropdown menu's class through a morph" do
+  # A save's morph must not reset the ▾ menu the user opened, a <details>' open
+  # state or the Page section's link: one pure rule (node-tested) decides.
+  test "style_autosave keeps user-set attributes through a morph via keepsUserAttribute" do
     src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
-    assert_includes src, %(const MENU = "[data-design--dropdown-target='menu']")
-    assert_match(/attributeName === "class" && el\.matches\(MENU\)/, src)
+    assert_match(/keepsUserAttribute\(el, attributeName\)/, src)
+    morph = File.read(ENGINE_JS.join("design-controllers/design/style_panel_morph.js"))
+    assert_includes morph, %(export const MENU = "[data-design--dropdown-target='menu']")
+    assert_includes morph, %(export const MARGIN_LINK = "[data-margin-link]")
+  end
+
+  test "style_autosave is configurable (prefix, panel target, required fields) and saves through saveJobs" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, %("design-controllers/design/field_save_jobs")
+    assert_includes src, "fieldPrefix: { type: String, default: FIELD_PREFIX }"
+    assert_includes src, "panelTarget: { type: String, default: PANEL_TARGET }"
+    assert_includes src, "requiredFields: Array"
+    assert_includes src, "withoutStreamsFor(html, this.panelTargetValue)"
+    assert_includes src, "getElementById(this.panelTargetValue)"
+    %w[toggleLink( mirrorPartner( enqueueAll(].each { |m| assert_includes src, m }
+    assert_includes src, "values["
+  end
+
+  # fieldChanged and revert (× / emptying) build their jobs the same way.
+  test "style_autosave passes the required fields to every saveJobs call" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    calls = src.scan(/saveJobs\(\{[^}]*\}\)/)
+    assert_equal 2, calls.size
+    calls.each { |call| assert_includes call, "required: this.requiredFieldsValue" }
+  end
+
+  # A field name is never interpolated into a selector: the partner is found
+  # by matching each input's name (partnerInput, node-tested).
+  test "style_autosave finds the linked partner without building a selector from its name" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, "partnerInput("
+    refute_match(/querySelector\(`\[name=/, src)
   end
 
   # The morph decision is taken once per element, before Idiomorph touches its
@@ -156,12 +186,38 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "LocalValueKeeper"
   end
 
-  %w[style_save_queue style_panel_morph edge_flags].each do |mod|
+  %w[style_save_queue style_panel_morph edge_flags field_save_jobs page_guides].each do |mod|
     test "#{mod} is a pure module" do
       src = File.read(ENGINE_JS.join("design-controllers/design/#{mod}.js"))
       refute_match(/^import /, src)
       refute_includes src, "document."
       refute_includes src, "window."
     end
+  end
+
+  test "live_preview ignores the Page section's events (they bubble through the tabs form)" do
+    assert_includes File.read(ENGINE_JS.join("design-controllers/design/live_preview_controller.js")),
+                    %(closest?.("[data-page-section]"))
+  end
+
+  test "page_guides and preview_toolbar controllers import the pure page_guides module by its importmap name" do
+    %w[page_guides preview_toolbar].each do |c|
+      src = File.read(ENGINE_JS.join("design-controllers/design/#{c}_controller.js"))
+      assert_includes src, %(import { Controller } from "@hotwired/stimulus"), c
+      assert_includes src, %("design-controllers/design/page_guides"), c
+      refute_match(/from\s+["']\.\.?\//, src, c)
+    end
+    src = File.read(ENGINE_JS.join("design-controllers/design/preview_toolbar_controller.js"))
+    assert_includes src, "localStorage"
+    assert_includes src, "document.cookie = printCookie("
+  end
+
+  # A geometry value change (a morph that keeps the page box) redraws, and so
+  # does the preview's turbo:morph-element action (a morph empties the layer);
+  # Stimulus calls geometryValueChanged on initialize, so connect() needn't draw.
+  test "page_guides draws from geometryValueChanged, not connect" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/page_guides_controller.js"))
+    assert_match(/geometryValueChanged\(\)\s*\{\s*this\.draw\(\)\s*\}/, src)
+    refute_match(/connect\(\)/, src)
   end
 end

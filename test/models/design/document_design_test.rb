@@ -91,4 +91,19 @@ class Design::DocumentDesignTest < ActiveSupport::TestCase
     refute_includes fw.relevant_style_names, "wing_title"
     refute_includes bw.relevant_style_names, "wing_body"
   end
+
+  test "guide_kind: columns for body flow and poem, margins for other interior pages, none for covers and wings" do
+    ps = Design::Theme.create!(name: "GK #{SecureRandom.hex(3)}", locale: "ko")
+                      .paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    kind = ->(t) { ps.document_designs.new(doc_type: t).guide_kind }
+    columns = Design::DocumentDesign::BINDING_DOC_TYPES + %w[poem]
+    none = Design::DocumentDesign::COVER_PANEL_TYPES + %w[document_cover]
+    all = Design::DocumentDesign::ALL_DOC_TYPES
+    assert_empty (columns + none) - all, "every listed type is a doc type"
+    assert_includes all, "title_page"
+    all.each do |t|
+      expected = columns.include?(t) ? :columns : none.include?(t) ? :none : :margins
+      assert_equal expected, kind.(t), t
+    end
+  end
 end

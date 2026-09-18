@@ -7,6 +7,7 @@ module Design
     has_many :paragraph_styles, as: :styleable, class_name: "Design::ParagraphStyle", dependent: :destroy
     has_many :heading_elements, -> { order(:position) }, class_name: "Design::HeadingElement", dependent: :destroy
     has_one_attached :heading_bg_image
+    include Design::PageSectionFields
 
     accepts_nested_attributes_for :heading_elements, allow_destroy: true
 
@@ -28,6 +29,31 @@ module Design
     COVER_PANEL_ORDER = %w[back_wing back_page seneca front_page front_wing].freeze
     WING_PANEL_TYPES = %w[front_wing back_wing].freeze
     ALL_DOC_TYPES = (SINGLE_PAGE_TYPES + MULTI_PAGE_TYPES + COVER_PANEL_TYPES).freeze
+
+    # Doc types whose preview layout (DocLayout::Book::Chapter) passes
+    # print_mode to the body text box, so only these shift by the binding
+    # margin in print mode (doc_layout/book/chapter.rb:74). Explicit: cover
+    # panels also fall back to Chapter (PreviewService#doc_layout_class) but
+    # are never bound.
+    BINDING_DOC_TYPES = %w[chapter foreword prologue epilogue appendix help information].freeze
+
+    def binding_applies? = BINDING_DOC_TYPES.include?(doc_type)
+
+    # Preview guides (안내선): margins + columns for the body-flow layouts and
+    # poem; margins only for the other interior pages; none for covers and wings.
+    def guide_kind
+      if BINDING_DOC_TYPES.include?(doc_type) || doc_type == "poem" then :columns
+      elsif COVER_PANEL_TYPES.include?(doc_type) || doc_type == "document_cover" then :none
+      else :margins
+      end
+    end
+
+    PAGE_DESIGN_FIELDS = %w[body_line_count column_count gutter].freeze
+    MAX_COLUMNS = 6
+    MAX_BODY_LINES = 100
+
+    # Only a Page section save asks for this (save(context: :page_section)).
+    validate :page_section_fields, on: :page_section
 
     LOGO_POSITIONS = %w[left center right].freeze
     validates :logo_position, inclusion: { in: LOGO_POSITIONS }, allow_nil: true
@@ -192,6 +218,22 @@ module Design
 
     def column_width_pt(side: :single)
       (content_width_pt(side: side) - (column_count - 1) * gutter) / column_count
+    end
+
+    # The columns keep a positive width at `width_pt`: by default this design's
+    # own text width — the print width (binding off) where binding applies,
+    # the narrowest such a page gets; width - left - right elsewhere.
+    def columns_fit?(width_pt = columns_width_pt, stored: false)
+      columns_required_width(stored: stored) < width_pt
+    end
+
+    def columns_width_pt = content_width_pt(side: binding_applies? ? :print : :single)
+
+    # The width the gutters take: (count − 1) × gutter, from the current
+    # (possibly unsaved) values or, with stored: true, the saved ones.
+    def columns_required_width(stored: false)
+      count, gap = %w[column_count gutter].map { |f| stored ? attribute_in_database(f) : self[f] }
+      ([ count.to_i, 1 ].max - 1) * gap.to_d
     end
 
     def single_page?
@@ -470,6 +512,34 @@ module Design
     end
 
     private
+
+    def page_section_fields
+      fields = page_fields(PAGE_DESIGN_FIELDS)
+      return if fields.empty?
+      if fields.include?("body_line_count") && (n = typed_number("body_line_count", integer: true))
+        if !n.between?(1, MAX_BODY_LINES)
+          page_error("body_line_count", :out_of_range, min: 1, max: MAX_BODY_LINES)
+        elsif n <= heading_height_in_lines.to_i
+          page_error("body_line_count", :not_above_heading, lines: heading_height_in_lines.to_i)
+        end
+      end
+      column_fields = fields & %w[column_count gutter]
+      return if column_fields.empty?
+      count = typed_number("column_count", integer: true) if fields.include?("column_count")
+      page_error("column_count", :out_of_range, min: 1, max: MAX_COLUMNS) if count && !count.between?(1, MAX_COLUMNS)
+      gutter_value = typed_number("gutter") if fields.include?("gutter")
+      page_error("gutter", :negative) if gutter_value&.negative?
+      return if column_fields.any? { |f| errors[f].any? }
+      page_error(column_fields.last, :no_column_width) if columns_worse?
+    end
+
+    # The columns don't fit, and this save made that so (they fit with the
+    # stored values) or made it worse (the gutters take more width): an
+    # improving save on an already-broken layout is accepted, like margins.
+    def columns_worse?
+      return false if columns_fit?
+      columns_fit?(stored: true) || columns_required_width > columns_required_width(stored: true)
+    end
 
     def push_style_to_theme!(name, own, fields)
       transaction do

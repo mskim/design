@@ -182,3 +182,82 @@ test("stop(): waiting jobs are dropped, the one in flight completes, later enque
   assert.ok(!queue.busy)
   await queue.whenIdle()
 })
+
+test("a failed linked pair is not cleared by a Left success alone: Right is still unsaved", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  await tick() // the pair in flight
+  queue.enqueue({ key: "left_margin_mm", value: "20" })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  assert.equal(statuses.at(-1), "error")
+})
+
+test("a failed linked pair is cleared once Left and Right have both saved", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  await tick() // the pair in flight
+  queue.enqueue({ key: "left_margin_mm", value: "20" })
+  queue.enqueue({ key: "right_margin_mm", value: "20" })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  await answer(calls[2])
+  assert.equal(statuses.at(-1), "saved")
+})
+
+// P = a linked pair job, L = a single Left job.
+const pair = (value) => ({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ], value })
+const left = (value) => ({ key: "left_margin_mm", value })
+
+test("coalescing P, L, P2: the pairs don't swallow the Left between them; P2 is sent last", async () => {
+  const { queue, calls } = setup()
+  queue.enqueue({ key: "top_margin_mm", value: "1" })
+  await tick() // top in flight
+  queue.enqueue(pair("10")); queue.enqueue(left("20")); queue.enqueue(pair("30"))
+  for (let i = 0; i < 3; i++) await answer(calls[i])
+  assert.deepEqual(calls.slice(1).map((c) => [ c.job.key, c.job.value ]),
+                   [ [ "left_margin_mm", "20" ], [ ":linked_margins", "30" ] ],
+                   "P2 supersedes P; both sides end at 30, as the user last set them")
+})
+
+test("coalescing L1, P, L2: L2 replaces L1 and is sent after the pair", async () => {
+  const { queue, calls } = setup()
+  queue.enqueue({ key: "top_margin_mm", value: "1" })
+  await tick() // top in flight
+  queue.enqueue(left("10")); queue.enqueue(pair("20")); queue.enqueue(left("30"))
+  for (let i = 0; i < 3; i++) await answer(calls[i])
+  assert.deepEqual(calls.slice(1).map((c) => [ c.job.key, c.job.value ]),
+                   [ [ ":linked_margins", "20" ], [ "left_margin_mm", "30" ] ],
+                   "Left ends at 30, Right at 20, as the user last set them")
+})
+
+test("…and a successful pair clears failed Left/Right saves", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: "right_margin_mm", value: "20" })
+  await tick()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  assert.equal(statuses.at(-1), "saved")
+})
+
+test("an unrelated success leaves a failure standing", async () => {
+  const { queue, calls, statuses } = setup()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  await tick()
+  queue.enqueue({ key: "top_margin_mm", value: "20" })
+  await answer(calls[0], { ok: false })
+  await answer(calls[1])
+  assert.equal(statuses.at(-1), "error")
+})
+
+test("isPending sees a field inside a job's `fields` (the linked margin pair)", async () => {
+  const { queue, calls } = setup()
+  queue.enqueue({ key: ":linked_margins", fields: [ "left_margin_mm", "right_margin_mm" ] })
+  assert.equal(queue.isPending("left_margin_mm"), true, "waiting")
+  await tick()
+  assert.equal(queue.isPending("right_margin_mm"), true, "in flight")
+  assert.equal(queue.isPending("top_margin_mm"), false)
+  await answer(calls[0])
+  assert.equal(queue.isPending("left_margin_mm"), false)
+})

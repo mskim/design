@@ -11,6 +11,10 @@
 // • A failed request is reported but never stops the queue. The burst ends as
 //   "error" while some key's last result failed (a later success for the same
 //   key clears its failure), else "saved".
+// • A job may list `fields` (the linked margin pair): it is pending for each
+//   of them. Its failure is cleared by a later success for the pair, or once
+//   later successes have covered every one of its fields; a pair's success
+//   clears earlier failures of its fields.
 // • send(job, { renderPreview }) resolves to { ok, apply }; apply() (render
 //   the response) runs after the job has left the in-flight slot; a throwing
 //   apply() counts as a failure.
@@ -26,7 +30,7 @@ export class StyleSaveQueue {
     this.onStatus = onStatus
     this.waiting = []
     this.inFlight = null
-    this.failedKeys = new Set()
+    this.failedKeys = new Map()
     this.stopped = false
     this.scheduled = false
     this.idleWaiters = []
@@ -34,7 +38,9 @@ export class StyleSaveQueue {
 
   get busy() { return this.inFlight !== null || this.waiting.length > 0 }
 
-  isPending(key) { return this.inFlight?.key === key || this.waiting.some((job) => job.key === key) }
+  isPending(key) {
+    return [ this.inFlight, ...this.waiting ].some((job) => job && (job.key === key || job.fields?.includes(key)))
+  }
 
   enqueue(job) {
     if (this.stopped) return
@@ -77,9 +83,25 @@ export class StyleSaveQueue {
     this.inFlight = null
     let ok = result?.ok === true
     try { result?.apply?.() } catch { ok = false }
-    if (ok) this.failedKeys.delete(job.key)
-    else this.failedKeys.add(job.key)
+    if (ok) this.clearFailures(job)
+    else this.failedKeys.set(job.key, job.fields ?? [])
     this.next()
+  }
+
+  // A success clears its own key's failure and the failures of the fields it
+  // covers (a pair job). A single field's success takes that field off each
+  // failed job that covered it, and the failed job is cleared only once none
+  // of its fields is left: after a failed ":linked_margins" pair, a Left save
+  // alone still ends the burst "error" (Right is unsaved); Left and Right
+  // both saved end it "saved".
+  clearFailures(job) {
+    this.failedKeys.delete(job.key)
+    for (const field of job.fields ?? []) this.failedKeys.delete(field)
+    for (const [ key, fields ] of this.failedKeys) {
+      if (!fields.includes(job.key)) continue
+      const rest = fields.filter((f) => f !== job.key)
+      rest.length ? this.failedKeys.set(key, rest) : this.failedKeys.delete(key)
+    }
   }
 
   settle() {

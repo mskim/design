@@ -14,6 +14,7 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     c.define_singleton_method(:csrf_token) { "test-token" }
     c.define_singleton_method(:typography_style_url) { |n| "/x/styles/#{n}" }
     c.define_singleton_method(:typography_new_style_url) { "/x/new" }
+    c.define_singleton_method(:page_urls) { { field: "/x/page/field", preview: "/x/preview", paper_size: "/x/ps/edit" } }
     c.call
   end
 
@@ -23,9 +24,11 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     assert_includes html, %(value="center")
     assert_includes html, %(value="top")
     assert_includes html, %(value="bottom")
-    # visible labels are Korean:
-    assert_includes html, "가운데"
-    assert_includes html, "아래"
+    # visible labels are Korean — read from the heading_v_align select (the
+    # Page section's Bottom margin label is "아래" too):
+    labels = Nokogiri::HTML.fragment(html).css("select[name='document_design[heading_v_align]'] option").map(&:text)
+    assert_includes labels, "가운데"
+    assert_includes labels, "아래"
   end
 
   test "properties panel renders Korean labels, no English leftovers" do

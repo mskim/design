@@ -22,6 +22,9 @@ module Design
             div(class: "w-full border-l flex flex-col max-h-screen") do
               render_header
               render_form_body
+              # The Page section's controls point here (form=) so the tabs form
+              # above never sends them; it is never submitted itself.
+              form(id: PageSectionContent::FORM_ID, hidden: true, data: { turbo: "false" })
             end
           end
         end
@@ -87,6 +90,7 @@ module Design
 
         def render_layout_tab
           div(class: "pt-2") do
+            render PageSection.new(document_design: @document_design, urls: page_urls, editable: @editable)
             group_box("basic", I18n.t("design.properties_panel.layout")) do
               rows do
                 number_field(I18n.t("design.properties_panel.heading_lines"), :heading_height_in_lines, unit: :lines)
@@ -94,9 +98,6 @@ module Design
                 if @document_design.doc_type == "toc"
                   select_field(I18n.t("design.properties_panel.toc_v_align"), :toc_v_align, %w[bottom center top], i18n_scope: "v_align")
                 end
-                number_field(I18n.t("design.properties_panel.body_line_count"), :body_line_count, placeholder: @paper_size.body_line_count)
-                number_field(I18n.t("design.properties_panel.columns"), :column_count, min: 1)
-                number_field(I18n.t("design.properties_panel.gutter"), :gutter, step: "0.1", unit: :pt)
               end
             end
             heading_elements_section
@@ -506,6 +507,12 @@ module Design
 
         def csrf_token
           helpers.form_authenticity_token
+        end
+
+        def page_urls
+          { field: helpers.field_theme_paper_size_document_design_page_path(@theme, @paper_size, @document_design),
+            preview: preview_url,
+            paper_size: helpers.edit_theme_paper_size_path(@theme, @paper_size, return_to: @document_design.id) }
         end
       end
     end

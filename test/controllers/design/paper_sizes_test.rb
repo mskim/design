@@ -119,4 +119,52 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "aside a[href=?]", design.new_theme_paper_size_path(@theme), count: 1
   end
+
+  test "edit from the design editor carries return_to; update returns to that editor" do
+    dd = @ps.document_designs.create!(doc_type: "chapter")
+    get design.edit_theme_paper_size_path(@theme, @ps, return_to: dd.id)
+    assert_select "input[type=hidden][name=return_to][value=?]", dd.id.to_s
+    # Scoped to the form: the sidebar already links to the editor.
+    assert_select "form[action=?] a[href=?]", design.theme_paper_size_path(@theme, @ps),
+                  design.edit_theme_paper_size_document_design_path(@theme, @ps, dd)
+    patch design.theme_paper_size_path(@theme, @ps), params: { return_to: dd.id, paper_size: { top_margin_mm: 20 } }
+    assert_redirected_to design.edit_theme_paper_size_document_design_path(@theme, @ps, dd)
+  end
+
+  test "return_to only honours a design on this paper size" do
+    other = @theme.paper_sizes.create!(size_name: "국판", width_mm: 148, height_mm: 210).document_designs.create!(doc_type: "chapter")
+    patch design.theme_paper_size_path(@theme, @ps), params: { return_to: other.id, paper_size: { top_margin_mm: 20 } }
+    assert_redirected_to design.theme_path(@theme)
+  end
+
+  test "a 422 keeps return_to" do
+    dd = @ps.document_designs.create!(doc_type: "chapter")
+    patch design.theme_paper_size_path(@theme, @ps), params: { return_to: dd.id, paper_size: { size_name: "" } }
+    assert_response :unprocessable_entity
+    assert_select "input[type=hidden][name=return_to][value=?]", dd.id.to_s
+  end
+
+  test "a nested or array return_to is ignored, not a 500" do
+    dd = @ps.document_designs.create!(doc_type: "chapter")
+    [ { a: "1" }, [ dd.id ] ].each do |nested|
+      patch design.theme_paper_size_path(@theme, @ps), params: { return_to: nested, paper_size: { top_margin_mm: 20 } }
+      assert_redirected_to design.theme_path(@theme), nested.inspect
+    end
+    get design.edit_theme_paper_size_path(@theme, @ps, return_to: { a: "1" })
+    assert_response :success
+    assert_select "input[type=hidden][name=return_to]", false
+  end
+
+  test "regenerate from the design editor returns to it; delete goes to the theme page" do
+    dd = @ps.document_designs.create!(doc_type: "chapter")
+    get design.edit_theme_paper_size_path(@theme, @ps, return_to: dd.id)
+    assert_select "form[action=?] input[type=hidden][name=return_to][value=?]",
+                  design.regenerate_theme_paper_size_path(@theme, @ps), dd.id.to_s
+    post design.regenerate_theme_paper_size_path(@theme, @ps), params: { return_to: dd.id }
+    assert_redirected_to design.edit_theme_paper_size_document_design_path(@theme, @ps, dd)
+    post design.regenerate_theme_paper_size_path(@theme, @ps)
+    assert_redirected_to design.edit_theme_paper_size_path(@theme, @ps)
+    delete design.theme_paper_size_path(@theme, @ps), params: { return_to: dd.id }
+    assert_redirected_to design.theme_path(@theme), "the editor would 404: its paper size is gone"
+  end
 end
