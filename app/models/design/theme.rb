@@ -52,21 +52,6 @@ module Design
       paper_sizes.order(:id).first
     end
 
-    # Set each STYLE_FIELDS key present in `attrs` (a Hash or permitted
-    # ActionController::Parameters, string or symbol keys) on style `name` of
-    # `doc_type`, via DocumentDesign#set_style_field! on the first design of that
-    # doc type — which writes every paper size and stores only fields that differ
-    # from the parent. Non-style keys (korean_name, vertical_align) are ignored.
-    def apply_paragraph_style_to_doc_type!(doc_type, name, attrs)
-      dd = document_designs.where(doc_type: doc_type).order(:id).first or return
-      attrs = attrs.to_h.stringify_keys
-      transaction do
-        (attrs.keys & Design::ParagraphStyle::STYLE_FIELDS).each do |field|
-          dd.set_style_field!(name, field, attrs[field])
-        end
-      end
-    end
-
     # "Apply to all": write `attrs` (only the fields the user changed) to the
     # theme base style `name` — creating the base row if the style exists only as
     # doc-type rows — then clear the `clear` style fields (default: attrs' keys)

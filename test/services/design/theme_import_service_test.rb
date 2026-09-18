@@ -33,8 +33,13 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     assert_equal src[:ps],   theme.paper_sizes.count
     assert_equal src[:dd],   theme.document_designs.count
     assert_equal src[:he],   Design::HeadingElement.where(document_design_id: theme.document_designs.ids).count
-    # Import normalises: a doc-type row whose every field equals its parent is dropped.
-    assert_operator Design::ParagraphStyle.where(styleable_type: "Design::DocumentDesign", styleable_id: theme.document_designs.ids).count, :<=, src[:ddps]
+    # Import normalises (a doc-type row whose every field equals its parent is
+    # dropped). The fixture's 3 chapter rows (body, styled_para, title) each
+    # differ from the base in some field, so exactly those 3 remain (a generator
+    # row of the same name is overwritten by the imported one).
+    assert_equal 3, src[:ddps]
+    assert_equal %w[body styled_para title],
+      Design::ParagraphStyle.where(styleable_type: "Design::DocumentDesign", styleable_id: theme.document_designs.ids).pluck(:name).sort
 
     body = theme.base_paragraph_styles.find_by(name: "body")
     assert_in_delta 9.5, body.font_size.to_f, 0.001

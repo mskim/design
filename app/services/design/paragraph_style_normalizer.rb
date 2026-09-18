@@ -7,20 +7,29 @@ module Design
   # Per field: "" → nil (blank never means "no value", it means inherit), then
   # a value equal to the parent → nil. Rows left empty are deleted when a parent
   # exists; parentless rows are kept. Afterwards every design of the theme is
-  # touched (preview cache) and the theme .db is re-exported.
+  # touched (preview cache).
+  #
+  # `compact!` is the DB work only (safe inside a caller's transaction — e.g.
+  # ThemeImportService, which exports after its commit); `call` compacts in a
+  # transaction and then re-exports the theme .db (rake task, hosts).
   class ParagraphStyleNormalizer
     def self.call(theme) = new(theme).call
+    def self.compact!(theme) = new(theme).compact!
 
     def initialize(theme)
       @theme = theme
     end
 
     def call
+      compact!
+      ThemeDbExportService.new(@theme).export!
+    end
+
+    def compact!
       Design::ApplicationRecord.transaction do
         ordered_designs.each { |dd| normalize_design(dd) }
         @theme.document_designs.update_all(updated_at: Time.current)
       end
-      ThemeDbExportService.new(@theme).export!
     end
 
     private

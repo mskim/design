@@ -18,7 +18,7 @@ module Design
       db.results_as_hash = true
       validate_schema_version!(db)
 
-      Design::Theme.transaction do
+      theme = Design::Theme.transaction do
         theme = upsert_theme(db)
         reset_children(theme)
         import_base_paragraph_styles(db, theme)
@@ -28,10 +28,13 @@ module Design
         import_design_paragraph_styles(db, dd_id_map)
         Design::ThemeStyleSeeder.call(theme) # .book_design v2 has no table_styles; re-seed defaults
         # .book_design files carry full-snapshot doc-type rows; keep only the fields
-        # that differ from the parent (theme → chapter → doc type). Also re-exports the .db.
-        Design::ParagraphStyleNormalizer.call(theme)
+        # that differ from the parent (theme → chapter → doc type).
+        Design::ParagraphStyleNormalizer.compact!(theme)
         theme
       end
+      # Export only what was committed (a rollback must not leave a new .db).
+      Design::ThemeDbExportService.new(theme).export!
+      theme
     ensure
       db&.close
     end

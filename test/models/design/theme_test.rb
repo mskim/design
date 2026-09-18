@@ -55,69 +55,6 @@ class Design::ThemeTest < ActiveSupport::TestCase
     assert theme.imported?
   end
 
-  test "apply_paragraph_style_to_doc_type! writes an override to every same-doc_type design and leaves base + other doc_types alone" do
-    theme = Design::Theme.create!(name: "FT #{SecureRandom.hex(3)}", locale: "ko")
-    s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    s2 = theme.paper_sizes.create!(size_name: "사륙판", width_mm: 128, height_mm: 188)
-    ch1 = s1.document_designs.create!(doc_type: "chapter")
-    ch2 = s2.document_designs.create!(doc_type: "chapter")
-    poem = s1.document_designs.create!(doc_type: "poem")
-    theme.base_paragraph_styles.create!(name: "body", font_size: 10)
-
-    theme.apply_paragraph_style_to_doc_type!("chapter", "body", { "font_size" => "13" })
-
-    assert_equal "13.0", ch1.paragraph_styles.find_by(name: "body").font_size.to_s
-    assert_equal "13.0", ch2.paragraph_styles.find_by(name: "body").font_size.to_s
-    assert_nil poem.paragraph_styles.find_by(name: "body"), "other doc_types untouched"
-    assert_equal 10, theme.base_paragraph_styles.find_by(name: "body").font_size, "base untouched"
-  end
-
-  test "apply_paragraph_style_to_doc_type! is idempotent (upsert, no duplicate rows)" do
-    theme = Design::Theme.create!(name: "FT #{SecureRandom.hex(3)}", locale: "ko")
-    s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    ch1 = s1.document_designs.create!(doc_type: "chapter")
-    theme.apply_paragraph_style_to_doc_type!("chapter", "body", { "font_size" => "13" })
-    theme.apply_paragraph_style_to_doc_type!("chapter", "body", { "font_size" => "15" })
-    assert_equal 1, ch1.paragraph_styles.where(name: "body").count
-    assert_equal "15.0", ch1.paragraph_styles.find_by(name: "body").font_size.to_s
-  end
-
-  test "apply_paragraph_style_to_doc_type! writes only the given style fields; the rest stay nil on every size" do
-    theme = Design::Theme.create!(name: "FT #{SecureRandom.hex(3)}", locale: "ko")
-    s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    s2 = theme.paper_sizes.create!(size_name: "사륙판", width_mm: 128, height_mm: 188)
-    ch1 = s1.document_designs.create!(doc_type: "chapter")
-    ch2 = s2.document_designs.create!(doc_type: "chapter")
-    theme.base_paragraph_styles.create!(name: "body", font: "BaseFont", font_size: 10, text_align: "justify")
-
-    params = ActionController::Parameters.new(font_size: "13", korean_name: "본문", vertical_align: "top").permit!
-    theme.apply_paragraph_style_to_doc_type!("chapter", "body", params)
-
-    [ ch1, ch2 ].each do |ch|
-      row = ch.paragraph_styles.find_by(name: "body")
-      assert_not_nil row.font_size, "font_size written on #{ch.paper_size.size_name}"
-      (Design::ParagraphStyle::STYLE_FIELDS - %w[font_size]).each do |f|
-        assert_nil row[f], "#{f} untouched (inherits) on #{ch.paper_size.size_name}"
-      end
-      assert_nil row.korean_name, "non-style keys are not written"
-      assert_nil row.vertical_align, "non-style keys are not written"
-    end
-  end
-
-  test "apply_paragraph_style_to_doc_type! accepts symbol keys and clears a field equal to the parent" do
-    theme = Design::Theme.create!(name: "FT #{SecureRandom.hex(3)}", locale: "ko")
-    s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    ch1 = s1.document_designs.create!(doc_type: "chapter")
-    theme.base_paragraph_styles.create!(name: "body", font_size: 10, text_align: "justify")
-    ch1.paragraph_styles.create!(name: "body", text_align: "left")
-
-    theme.apply_paragraph_style_to_doc_type!("chapter", "body", { font_size: "12", text_align: "justify" })
-
-    row = ch1.paragraph_styles.find_by(name: "body")
-    assert_equal "12.0", row.font_size.to_s
-    assert_nil row.text_align, "equal to the theme base → inherited"
-  end
-
   test "apply_paragraph_style_to_all! touches every design (preview cache)" do
     theme = Design::Theme.create!(name: "FA #{SecureRandom.hex(3)}", locale: "ko")
     s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)

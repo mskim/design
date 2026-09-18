@@ -132,6 +132,15 @@ class Design::ParagraphStyleNormalizerTest < ActiveSupport::TestCase
     assert_equal [ [ nil, "right" ], [ nil, "right" ] ], rows, "the export carries the normalised rows"
   end
 
+  test "compact! compacts the rows but does not export (for use inside a transaction)" do
+    File.delete(db_path) if File.exist?(db_path)
+
+    Design::ParagraphStyleNormalizer.compact!(@theme)
+
+    assert_nil @forewords.first.paragraph_styles.find_by(name: "zz_body").font_size
+    refute File.exist?(db_path), "compact! must leave the export to the caller"
+  end
+
   test "design:normalize_paragraph_styles rake task is defined" do
     Rails.application.load_tasks unless Rake::Task.task_defined?("design:normalize_paragraph_styles")
     assert Rake::Task.task_defined?("design:normalize_paragraph_styles")
