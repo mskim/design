@@ -52,9 +52,9 @@ class Design::PreviewPrintModeTest < ActionDispatch::IntegrationTest
     assert_equal [ false ], capture_print_modes { get jpg_path(print: "true") }
   end
 
-  # Not stubbed: the service decides print mode doesn't apply to a title page.
-  test "a title page with the cookie on renders no print=1 image URLs" do
-    dd = @ps.document_designs.create!(doc_type: "title_page")
+  # Not stubbed: the service decides print mode doesn't apply to a blank page.
+  test "a blank page with the cookie on renders no print=1 image URLs" do
+    dd = @ps.document_designs.create!(doc_type: "blank_page")
     print_on!
     get design.preview_theme_paper_size_document_design_path(@theme, @ps, dd)
     assert_response :success

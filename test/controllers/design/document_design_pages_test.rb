@@ -196,7 +196,7 @@ class Design::DocumentDesignPagesTest < ActionDispatch::IntegrationTest
   end
 
   test "422 names another doc type whose columns a margin would break" do
-    @poem.update_columns(column_count: 3, gutter: 145) # poem (no binding): 108 mm = 306.1 pt fits; left 30 → 283.5 pt
+    @poem.update_columns(column_count: 3, gutter: 145) # poem (bound): 105 mm = 297.6 pt fits; left 30 → 97 mm = 275 pt
     exports = count_exports { stub_preview { patch field_path, params: { field: "left_margin_mm", value: "30" }, headers: STREAM } }
     assert_response :unprocessable_entity
     assert_includes stream_template("page-section-content").at_css("[data-field-error='left_margin_mm']").text,
@@ -233,7 +233,7 @@ class Design::DocumentDesignPagesTest < ActionDispatch::IntegrationTest
 
   test "a margin revert that would newly break a doc type's columns is a 422 naming it; nothing written" do
     @ps.update!(left_margin_mm: 15, overridden_fields: %w[left_margin_mm])
-    @poem.update_columns(column_count: 3, gutter: 155) # 310 pt: fits at left 15 (115 mm = 326 pt), not at the rule's 22 (306.1 pt)
+    @poem.update_columns(column_count: 3, gutter: 155) # 310 pt: fits at left 15 (112 mm = 317.5 pt), not at the rule's 22 (105 mm = 297.6 pt)
     exports = count_exports { stub_preview { delete field_path, params: { field: "left_margin_mm" }, headers: STREAM } }
     assert_response :unprocessable_entity
     assert_includes stream_template("page-section-content").at_css("[data-field-error='left_margin_mm']").text,

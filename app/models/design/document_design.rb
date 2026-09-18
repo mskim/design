@@ -30,19 +30,31 @@ module Design
     WING_PANEL_TYPES = %w[front_wing back_wing].freeze
     ALL_DOC_TYPES = (SINGLE_PAGE_TYPES + MULTI_PAGE_TYPES + COVER_PANEL_TYPES).freeze
 
-    # Doc types whose preview layout (DocLayout::Book::Chapter) passes
-    # print_mode to the body text box, so only these shift by the binding
-    # margin in print mode (doc_layout/book/chapter.rb:74). Explicit: cover
-    # panels also fall back to Chapter (PreviewService#doc_layout_class) but
-    # are never bound.
-    BINDING_DOC_TYPES = %w[chapter foreword prologue epilogue appendix help information].freeze
+    # Doc types that render with DocLayout::Book::Chapter (its heading and
+    # table pages included): the body flow.
+    BODY_FLOW_DOC_TYPES = %w[chapter foreword prologue epilogue appendix help information].freeze
+
+    # Layouts whose text box flows in columns: the body flow and Poem. Only
+    # their column_count/gutter matter, so only they get column guides and
+    # lose the binding from their column width.
+    COLUMN_DOC_TYPES = (BODY_FLOW_DOC_TYPES + %w[poem]).freeze
+
+    # Doc types whose preview layout (PreviewService#doc_layout_class) shifts
+    # everything on the page by the binding margin in print mode: Chapter,
+    # Poem, Toc, Copyright, and TitlePage with its InsideCover and PartCover
+    # subclasses (thanks and dedication render as TitlePage). Left out:
+    # - cover panels: they fall back to Chapter but are never bound;
+    # - document_cover: DocumentCover shifts only its heading, and its
+    #   background is full bleed, so a print preview isn't worth a second cache;
+    # - blank_page: BlankPage draws nothing.
+    BINDING_DOC_TYPES = (BODY_FLOW_DOC_TYPES + %w[poem toc copyright title_page thanks dedication inside_cover part_cover]).freeze
 
     def binding_applies? = BINDING_DOC_TYPES.include?(doc_type)
 
     # Preview guides (안내선): margins + columns for the body-flow layouts and
     # poem; margins only for the other interior pages; none for covers and wings.
     def guide_kind
-      if BINDING_DOC_TYPES.include?(doc_type) || doc_type == "poem" then :columns
+      if COLUMN_DOC_TYPES.include?(doc_type) then :columns
       elsif COVER_PANEL_TYPES.include?(doc_type) || doc_type == "document_cover" then :none
       else :margins
       end
@@ -221,13 +233,20 @@ module Design
     end
 
     # The columns keep a positive width at `width_pt`: by default this design's
-    # own text width — the print width (binding off) where binding applies,
-    # the narrowest such a page gets; width - left - right elsewhere.
+    # own text width — the print width (binding off) where the layout binds
+    # its columns, the narrowest such a page gets; width - left - right
+    # elsewhere.
     def columns_fit?(width_pt = columns_width_pt, stored: false)
       columns_required_width(stored: stored) < width_pt
     end
 
-    def columns_width_pt = content_width_pt(side: binding_applies? ? :print : :single)
+    def columns_width_pt = content_width_pt(side: columns_bind? ? :print : :single)
+
+    # The binding comes off the column width only for a layout that both
+    # binds and flows columns. Title page, TOC and copyright bind but have
+    # no columns: their column_count/gutter keep the binding-free width, so
+    # binding them never rejects a margin over columns they don't draw.
+    def columns_bind? = binding_applies? && COLUMN_DOC_TYPES.include?(doc_type)
 
     # The width the gutters take: (count − 1) × gutter, from the current
     # (possibly unsaved) values or, with stored: true, the saved ones.

@@ -61,9 +61,10 @@ module Design
 
     attr_reader :document_design, :paper_size
 
-    # print_mode: render as the printed book does (인쇄용): the body text box
-    # adds the binding margin on the spine side (odd pages left, even pages
-    # right; preview page 1 is odd). Only BINDING_DOC_TYPES use it; elsewhere
+    # print_mode: render as the printed book does (인쇄용): the layout shifts
+    # the page's content by the binding margin on the spine side (odd pages
+    # left, even pages right; preview page 1 is odd). Only
+    # DocumentDesign::BINDING_DOC_TYPES use it; elsewhere
     # it is off, so those doc types keep a single cache.
     # live: the design is an unsaved live-preview copy. Its cache key can't see
     # unsaved edits, so it is never read from or written to the cache: each

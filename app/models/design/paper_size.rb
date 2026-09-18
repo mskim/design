@@ -49,7 +49,7 @@ module Design
     # Text block size once margins are taken off, from the current (possibly
     # unsaved) values or, with stored: true, the saved ones. binding: whether
     # the binding margin comes off too — always for the 20 mm rule; for a
-    # design's columns only where binding applies (DocumentDesign#binding_applies?).
+    # design's columns only where the layout binds them (DocumentDesign#columns_bind?).
     def text_width_mm(binding: true, stored: false)
       m = margin_reader(stored)
       m.("width_mm") - m.("left_margin_mm") - m.("right_margin_mm") - (binding ? m.("binding_margin_mm") : 0)
@@ -71,12 +71,12 @@ module Design
     end
 
     # Doc types on this size whose columns fit at the STORED margins but not
-    # at the current (unsaved) ones — each at its own text width (binding only
-    # where it applies). A doc type already broken is never listed, so a save
-    # is rejected only for what it newly breaks.
+    # at the current (unsaved) ones — each at its own column width (binding
+    # only where the layout binds its columns). A doc type already broken is
+    # never listed, so a save is rejected only for what it newly breaks.
     def doc_types_newly_without_column_width
       document_designs.select do |dd|
-        binding = dd.binding_applies?
+        binding = dd.columns_bind?
         dd.columns_fit?(text_width_pt(binding: binding, stored: true)) && !dd.columns_fit?(text_width_pt(binding: binding))
       end.map(&:doc_type)
     end

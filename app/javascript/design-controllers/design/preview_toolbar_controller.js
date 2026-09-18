@@ -7,8 +7,8 @@ import { printCookie, GUIDES_KEY } from "design-controllers/design/page_guides"
 //   under "off"), remembered per browser in localStorage — guarded, storage
 //   can throw (private mode, blocked site data).
 // • 인쇄용: the design_preview_print cookie that every preview request reads;
-//   toggling it reloads the frame. Rendered disabled for doc types the engine
-//   never binds.
+//   toggling it reloads the frame. Rendered disabled for doc types without a
+//   print preview (DocumentDesign::BINDING_DOC_TYPES leaves them out).
 export default class extends Controller {
   static targets = ["guides", "print"]
   static values = { previewUrl: String }
