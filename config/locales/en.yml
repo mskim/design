@@ -383,3 +383,10 @@ en:
         heading_not_allowed: "This document type uses plain Markdown paragraphs, not a ```heading block."
         yaml: "Invalid YAML in the heading block: %{message}"
         toc: "Invalid TOC row: %{line} (expected ## level:title:page)"
+    inputs:
+      lines: "lines"
+      inherit: "Inherit"
+      clear: "Clear"
+      picker: "Pick…"
+      cmyk: "CMYK"
+      hex: "Hex"
