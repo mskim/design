@@ -816,12 +816,13 @@ module Design
       ]
     end
 
-    # One entry per rendered page (capped), each with that page's overlays. The DBDocument
-    # must still be open. The TOC renderer emits no heading overlay, so synthesize one on page 1.
+    # One entry per page up to the cap, each with that page's overlays (an empty array for
+    # pages the renderer wrote no rows for). The DBDocument must still be open. `generate`
+    # trims the list to what libvips actually rasterized — the PDF, not the renderer's
+    # `pages` table, is the source of truth for the page count. The TOC renderer emits no
+    # heading overlay, so synthesize one on page 1.
     def extract_pages_overlay_data(db_doc)
-      count = [ db_doc.pages(document_id: 1).size, MAX_PREVIEW_PAGES ].min
-      count = 1 if count < 1
-      (1..count).map do |page_number|
+      (1..MAX_PREVIEW_PAGES).map do |page_number|
         overlays = overlay_rows(db_doc.block_overlays(document_id: 1, page_number: page_number))
         if page_number == 1 && document_design.doc_type == "toc" && document_design.heading_height_in_lines.to_i > 0
           overlays = synthesize_toc_heading_overlay + overlays
