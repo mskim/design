@@ -154,7 +154,7 @@ module Design
         document_design.heading_elements.maximum(:updated_at),
         paper_size.theme.base_paragraph_styles.maximum(:updated_at)
       ].compact
-      "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((timestamps.map(&:to_s) + [ sample_content.raw.to_s.bytesize.to_s ]).join("-"))
+      "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((timestamps.map(&:to_s) + [ sample_content.fingerprint ]).join("-"))
     end
 
     def cache_stamp_path

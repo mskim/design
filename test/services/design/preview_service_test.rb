@@ -143,4 +143,18 @@ class Design::PreviewServiceTest < ActiveSupport::TestCase
     assert_includes doc.pages[0].contents, bleed, "page 1 bleed rect (known-good today)"
     assert_includes doc.pages[1].contents, bleed, "page 2 should carry the same background bleed rect"
   end
+
+  test "editing the sample content invalidates the preview cache" do
+    Dir.mktmpdir do |dir|
+      Design.config.sample_content_dir = dir
+      svc = Design::PreviewService.new(@dd, paper_size: @ps)
+      first = svc.generate
+      mtime = File.mtime(first[:jpg_path])
+      sleep 0.05
+      Design::SampleContent.for(doc_type: "chapter", locale: "ko").save("# [chapter] 편집\n\n짧은 본문.\n")
+      again = Design::PreviewService.new(@dd, paper_size: @ps).generate
+      assert again[:success], again[:error]
+      refute_equal mtime, File.mtime(again[:jpg_path]), "preview should regenerate after a content edit"
+    end
+  end
 end

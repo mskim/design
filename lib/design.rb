@@ -6,11 +6,17 @@ require_relative "design/action_registry"
 module Design
   class Configuration
     attr_accessor :current_user, :authorize, :authenticate, :user_class, :authoring,
-                  :home_url, :locale_for, :themes_dir, :table_style_preview
+                  :home_url, :locale_for, :themes_dir, :table_style_preview, :sample_content_dir
 
     def initialize
       @user_class = "User"
       @authoring  = false
+    end
+
+    # Host directory holding editable sample text (<locale>/<doc_type>.md). The gem's
+    # bundled db/sample_content is the read-only fallback (see Design::SampleContent).
+    def sample_content_dir
+      @sample_content_dir || Rails.root.join("db/sample_content").to_s
     end
 
     def actions = @actions ||= Design::ActionRegistry.new
