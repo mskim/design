@@ -42,6 +42,7 @@ export default class extends Controller {
         el.textContent = "\u2717"
         radius.push("0")
       }
+      el.setAttribute("aria-pressed", String(p[i] === "1"))
     })
     this.boxTarget.style.borderRadius = radius.join(" ")
   }

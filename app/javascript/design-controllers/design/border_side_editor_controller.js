@@ -42,5 +42,9 @@ export default class extends Controller {
     box.style.borderLeftWidth = p[3] === "1" ? "3px" : "1px"
     box.style.borderLeftStyle = p[3] === "1" ? "solid" : "dashed"
     box.style.borderLeftColor = p[3] === "1" ? on : "#d1d5db"
+    const index = { top: 0, right: 1, bottom: 2, left: 3 }
+    this.element.querySelectorAll("button[data-side]").forEach((b) => {
+      b.setAttribute("aria-pressed", String(p[index[b.dataset.side]] === "1"))
+    })
   }
 }
