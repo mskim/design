@@ -13,11 +13,12 @@ module Design
           # The selected size travels with the action context so host actions (e.g.
           # "Generate PDFs") can scope themselves to the size currently in view.
           shell(title: @theme.name, action_slot: :theme_show,
-                action_context: { theme: @theme, paper_size: @selected_paper_size }, sidebar: nil) do
+                action_context: { theme: @theme, paper_size: @selected_paper_size },
+                sidebar: theme_sidebar(@theme, @selected_paper_size, current: { kind: :paper_size },
+                                       size_url: ->(ps) { helpers.theme_path(@theme, paper_size_id: ps.id) })) do
             div(class: "mx-auto max-w-5xl px-6 py-10 flex flex-col gap-6") do
               header_section
               if @selected_paper_size
-                size_selector
                 doc_grid
               else
                 p(class: "text-sm text-slate-500") { I18n.t("design.themes.no_custom_themes") }
@@ -63,39 +64,6 @@ module Design
               I18n.t("design.themes.clone_to_my_theme")
             end
           end
-        end
-
-        def size_selector
-          div(class: "flex items-center gap-2 flex-wrap") do
-            span(class: "text-sm text-slate-500") { "#{I18n.t('design.themes.size_label')}:" }
-            @paper_sizes.each { |ps| size_pill(ps) }
-            if @theme.editable_by?(Design.current_user)
-              a(href: helpers.new_theme_paper_size_path(@theme), data: { turbo_frame: "_top" },
-                class: "text-sm font-medium text-blue-600 hover:underline") { "＋ #{I18n.t('design.paper_sizes.new_title')}" }
-              a(href: helpers.edit_theme_paper_size_path(@theme, @selected_paper_size), data: { turbo_frame: "_top" },
-                class: "text-sm font-medium text-blue-600 hover:underline") { I18n.t("design.shared.edit") }
-              generate_sizes_button
-            end
-          end
-        end
-
-        def size_pill(ps)
-          active = ps.id == @selected_paper_size.id
-          a(
-            href: helpers.theme_path(@theme, paper_size_id: ps.id),
-            data: { turbo_frame: "doc_grid" },
-            class: [ "rounded-full px-3 py-1 text-sm no-underline",
-                     active ? "bg-slate-900 text-white" : "border border-slate-300 text-slate-700 hover:bg-slate-100" ].join(" ")
-          ) { ps.display_name }
-        end
-
-        def generate_sizes_button
-          button_to(
-            I18n.t("design.themes.generate_sizes", size: @theme.default_paper_size&.display_name),
-            helpers.generate_sizes_theme_path(@theme),
-            method: :post, class: "text-sm text-blue-600 hover:underline",
-            data: { turbo: false, confirm: I18n.t("design.themes.generate_sizes_confirm") }
-          )
         end
 
         MATTER_SECTIONS = [

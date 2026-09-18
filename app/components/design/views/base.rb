@@ -51,6 +51,12 @@ module Design
       # consumed via yield inside Shell#view_template — a block stored at .new and
       # invoked later renders nothing in Phlex 2.4.1.
       def shell(**opts, &block) = render(Design::Views::Shell.new(**opts), &block)
+
+      # The studio's left rail (see Design::Views::Sidebar). Pass the result as
+      # shell(sidebar: ...). size_url builds the same-page-other-size URL.
+      def theme_sidebar(theme, paper_size, current: nil, size_url: nil)
+        Design::Views::Sidebar.new(theme:, paper_size:, current:, size_url:)
+      end
     end
   end
 end

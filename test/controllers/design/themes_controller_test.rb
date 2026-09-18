@@ -220,6 +220,8 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
     sps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     sdd = sps.document_designs.create!(doc_type: "chapter")
     get design.theme_path(system_theme)
-    assert_select "a[href=?]", design.edit_theme_paper_size_document_design_path(system_theme, sps, sdd), count: 0
+    # Scoped to the content region: the sidebar rail lists every design as a leaf
+    # (editable or not); only the doc-card "Edit" chip is gated on editability.
+    assert_select "aside + main a[href=?]", design.edit_theme_paper_size_document_design_path(system_theme, sps, sdd), count: 0
   end
 end
