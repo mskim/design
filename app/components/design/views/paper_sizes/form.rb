@@ -62,8 +62,8 @@ module Design
             number_field(I18n.t("design.paper_sizes.binding_margin"), :binding_margin_mm, step: "0.1")
 
             h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.paper_sizes.body_settings") }
-            number_field(I18n.t("design.paper_sizes.body_line_count"), :body_line_count, step: nil)
-            number_field(I18n.t("design.paper_sizes.toc_page_count"), :toc_page_count, step: nil)
+            number_field(I18n.t("design.paper_sizes.body_line_count"), :body_line_count, step: nil, unit: :none)
+            number_field(I18n.t("design.paper_sizes.toc_page_count"), :toc_page_count, step: nil, unit: :none)
 
             primary_label = @paper_size.persisted? ? I18n.t("design.paper_sizes.update_button") : I18n.t("design.paper_sizes.create_button")
             div(class: "flex items-center gap-3") do
@@ -99,15 +99,10 @@ module Design
           end
         end
 
-        def number_field(label_text, attr, step:)
-          div(class: "flex items-center gap-3") do
-            label(class: "text-sm text-slate-600 w-40") { label_text }
-            attrs = { type: "number", name: "paper_size[#{attr}]",
-                      value: field_value(@paper_size.public_send(attr)),
-                      class: "border border-slate-300 rounded px-2 py-1 text-sm" }
-            attrs[:step] = step if step
-            input(**attrs)
-          end
+        def number_field(label_text, attr, step:, unit: :mm)
+          render Design::Views::Inputs::NumberField.new(
+            name: "paper_size[#{attr}]", value: field_value(@paper_size.public_send(attr)),
+            label: label_text, unit: unit, step: (step || 1).to_f, min: 0, layout: :stacked)
         end
 
         def field_value(value)
