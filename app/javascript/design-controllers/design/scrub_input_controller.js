@@ -73,7 +73,7 @@ export default class extends Controller {
 
   commit() {
     const text = this.inputTarget.value.trim()
-    if (text === this.lastGood) return // untouched: keep server text such as "10.0"
+    if (text === this.lastGood) { this.inputTarget.value = text; return } // untouched: keep server text such as "10.0"
     if (text === "") { // blank = inherit
       this.lastGood = ""
       this.emit("change")
@@ -91,6 +91,16 @@ export default class extends Controller {
     const formatted = formatNumber(clamp(n, min, max), this.commitPrecision)
     if (formatted !== this.inputTarget.value) { this.inputTarget.value = formatted; this.emit("input") }
     if (formatted !== this.lastGood) { this.lastGood = formatted; this.emit("change") }
+  }
+
+  // turbo:morph-element — after a morph re-rendered this field (e.g. × reverted
+  // it), the new text becomes the baseline, unless the field is dirty (typing
+  // or a scrub-drag not yet committed): then the text differs from the
+  // committed `value` attribute and the morph left it alone.
+  resync(event) {
+    if (event.target !== this.inputTarget) return
+    const v = this.inputTarget.value
+    if (v === (this.inputTarget.getAttribute("value") ?? "")) this.lastGood = this.focusValue = v
   }
 
   scrubStart(event) {

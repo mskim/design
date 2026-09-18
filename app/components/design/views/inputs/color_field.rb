@@ -6,7 +6,8 @@ module Design
       # text lives in a hidden input with the form's original name, unchanged format.
       # formats: [:hex] for columns whose consumers only read hex (table styles, gradients).
       class ColorField < Design::Views::Base
-        def initialize(name:, value:, label:, layout: :inline, formats: [ :cmyk, :hex ], disabled: false, span: false)
+        def initialize(name:, value:, label:, layout: :inline, formats: [ :cmyk, :hex ], disabled: false, span: false,
+                       inherited_value: nil)
           @name = name
           @value = value.to_s
           @label = label
@@ -14,14 +15,17 @@ module Design
           @formats = formats
           @disabled = disabled
           @span = span
-          @uid = "cf-#{SecureRandom.hex(4)}"
+          @inherited_value = inherited_value.to_s.strip
+          # Stable when named (a morph must keep the row, its popover and focus).
+          @uid = name ? "cf-#{NumberField.dom_key(name)}" : "cf-#{SecureRandom.hex(4)}"
         end
 
         def view_template
           div(class: wrapper_class,
               data: { controller: "design--color-row",
                       "design--color-row-formats-value": @formats.join(","),
-                      "design--color-row-inherit-value": I18n.t("design.inputs.inherit") }) do
+                      "design--color-row-inherit-value": I18n.t("design.inputs.inherit"),
+                      "design--color-row-parent-value": @inherited_value.presence }) do
             span(id: label_id, class: label_class) { @label }
             div(class: "relative min-w-0 flex-1") do
               input(type: "hidden", name: @name, value: @value, disabled: (@disabled || nil),
@@ -34,6 +38,10 @@ module Design
 
         private
 
+        # Inherited (no own value) with a parent colour to show.
+        def inherited? = @value.strip.empty? && !@inherited_value.empty?
+        def shown = inherited? ? @inherited_value : @value
+
         def label_id = "#{@uid}-label"
         def summary_id = "#{@uid}-summary"
         def popover_id = "#{@uid}-popover"
@@ -44,9 +52,14 @@ module Design
                  aria: { labelledby: "#{label_id} #{summary_id}", haspopup: "dialog", controls: popover_id, expanded: "false" },
                  data: { "design--color-row-target": "trigger", action: "click->design--color-row#toggle" }) do
             span(class: "h-5 w-5 shrink-0 rounded border border-slate-300", aria: { hidden: "true" },
-                 style: ColorValue.swatch_style(@value), data: { "design--color-row-target": "swatch" })
-            span(id: summary_id, class: "truncate", data: { "design--color-row-target": "summary" }) do
-              @value.strip.empty? ? I18n.t("design.inputs.inherit") : ColorValue.summary(@value)
+                 style: ColorValue.swatch_style(shown), data: { "design--color-row-target": "swatch" })
+            span(id: summary_id, class: "truncate data-[inherited]:italic data-[inherited]:text-slate-400",
+                 data: { "design--color-row-target": "summary", inherited: (true if inherited?) }) do
+              if @value.strip.empty?
+                inherited? ? ColorValue.summary(@inherited_value) : I18n.t("design.inputs.inherit")
+              else
+                ColorValue.summary(@value)
+              end
             end
           end
         end
@@ -81,7 +94,7 @@ module Design
             div(class: "grid grid-cols-4 gap-1") do
               %w[c m y k].each do |ch|
                 render NumberField.new(name: nil, value: nil, label: ch.upcase, unit: :percent, step: 1, min: 0, max: 100,
-                                       layout: :compact, input_data: { channel: ch })
+                                       layout: :compact, id: "#{@uid}-#{ch}", input_data: { channel: ch })
               end
             end
             input(type: "range", min: 0, max: 100, step: 1, class: "mt-2 w-full", aria: { label: "K" },

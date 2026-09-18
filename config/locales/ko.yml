@@ -388,6 +388,7 @@ ko:
     inputs:
       lines: "줄"
       inherit: "상속"
+      inherit_with_value: "상속 (%{value})"
       clear: "지우기"
       picker: "선택…"
       cmyk: "CMYK"

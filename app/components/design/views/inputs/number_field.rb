@@ -29,9 +29,14 @@ module Design
           @placeholder = placeholder
           @disabled = disabled
           @span = span
-          @id = id || "nf-#{SecureRandom.hex(4)}"
+          @id = id || (name ? "nf-#{self.class.dom_key(name)}" : "nf-#{SecureRandom.hex(4)}")
           @input_data = input_data
         end
+
+        # A stable id fragment for a field name ("paragraph_style[font_size]" →
+        # "paragraph_style-font_size"): a Turbo morph reuses (and keeps focus on)
+        # a control only when its id is the same across renders.
+        def self.dom_key(name) = name.to_s.gsub(/[^A-Za-z0-9_-]+/, "-").gsub(/\A-+|-+\z/, "")
 
         def view_template
           div(class: wrapper_class, data: controller_data) do
@@ -62,6 +67,7 @@ module Design
         def controller_data
           {
             controller: "design--scrub-input",
+            action: "turbo:morph-element->design--scrub-input#resync",
             "design--scrub-input-unit-value": @unit,
             "design--scrub-input-step-value": @step,
             "design--scrub-input-min-value": @min,
@@ -110,7 +116,7 @@ module Design
         def input_class
           common = "w-full rounded border border-slate-300 bg-white text-slate-900 tabular-nums " \
                    "group-data-[invalid]/nf:border-red-500 group-data-[invalid]/nf:ring-1 group-data-[invalid]/nf:ring-red-500 " \
-                   "disabled:bg-slate-50 disabled:text-slate-400"
+                   "disabled:bg-slate-50 disabled:text-slate-400 placeholder:italic placeholder:text-slate-400"
           case @layout
           when :inline  then "#{common} h-8 px-2 text-sm #{'pr-7' if suffix}"
           when :stacked then "#{common} px-2.5 py-1 text-sm #{'pr-8' if suffix}"

@@ -95,4 +95,21 @@ class Design::NumberFieldTest < ActiveSupport::TestCase
     assert_equal suffix["id"], doc.at_css("input")["aria-describedby"]
     refute render_field(name: "x", unit: :none).at_css("input").key?("aria-describedby")
   end
+
+  test "a named field gets a stable id from its name; nameless fields stay random" do
+    a = render_field(name: "paragraph_style[font_size]").at_css("input")["id"]
+    assert_equal "nf-paragraph_style-font_size", a
+    assert_equal a, render_field(name: "paragraph_style[font_size]").at_css("input")["id"], "same name, same id (a morph matches it)"
+    refute_equal render_field(name: nil).at_css("input")["id"], render_field(name: nil).at_css("input")["id"]
+    assert_equal "given", render_field(name: "x", id: "given").at_css("input")["id"]
+  end
+
+  test "the placeholder (an inherited value) is grey italic, and the field re-syncs after a morph" do
+    doc = render_field(name: "x", placeholder: "10.0")
+    classes = doc.at_css("input")["class"].split
+    assert_includes classes, "placeholder:italic"
+    assert_includes classes, "placeholder:text-slate-400"
+    assert_includes doc.at_css("[data-controller='design--scrub-input']")["data-action"],
+                    "turbo:morph-element->design--scrub-input#resync"
+  end
 end

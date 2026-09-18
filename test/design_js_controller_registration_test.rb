@@ -102,4 +102,11 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     [ "revertField(", "rememberField(", 'addEventListener("keydown"', "showPicker" ].each { |m| assert_includes src, m }
     refute_match(/convert\s*[:=]/, src, "mode switch must not rewrite the stored value")
   end
+
+  test "scrub_input re-syncs after a morph; color_row knows the parent colour" do
+    assert_includes File.read(ENGINE_JS.join("design-controllers/design/scrub_input_controller.js")), "resync("
+    src = File.read(ENGINE_JS.join("design-controllers/design/color_row_controller.js"))
+    assert_includes src, "parent: String"
+    assert_includes src, "parentValue"
+  end
 end

@@ -388,6 +388,7 @@ en:
     inputs:
       lines: "lines"
       inherit: "Inherit"
+      inherit_with_value: "Inherit (%{value})"
       clear: "Clear"
       picker: "Pick…"
       cmyk: "CMYK"
