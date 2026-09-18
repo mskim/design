@@ -38,18 +38,11 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
       "index.js must call eagerLoadControllersFrom so ruby-ui--tabs is auto-registered"
   end
 
-  # color-field controller (ported from book_design) — registers as design--color-field
-  test "design/color_field_controller.js exists in design-controllers" do
-    controller_path = ENGINE_JS.join("design-controllers/design/color_field_controller.js")
-    assert File.exist?(controller_path),
-      "Missing #{controller_path} — design--color-field controller will not load"
-  end
-
-  test "color_field controller exports a Stimulus Controller class" do
-    src = File.read(ENGINE_JS.join("design-controllers/design/color_field_controller.js"))
-    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
-    assert_includes src, "export default class"
-    assert_includes src, "static targets"
+  # color-field / color-mode-field were replaced by design--color-row (ColorField).
+  test "the old colour controllers are gone" do
+    %w[color_field_controller.js color_mode_field_controller.js].each do |f|
+      refute File.exist?(ENGINE_JS.join("design-controllers/design", f)), "#{f} should have been removed"
+    end
   end
 
   # toggle-visibility controller (written from scratch) — registers as design--toggle-visibility
