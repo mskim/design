@@ -106,7 +106,7 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     doc_style = @dd.paragraph_styles.create!(name: "quote2", font_size: 11)
     patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: doc_style.id),
           params: { paragraph_style: { font_size: 22 } }, headers: { "Accept" => "text/vnd.turbo-stream.html" }
-    assert_response :success
+    assert_response :conflict
     assert_match %r{<turbo-stream action="replace" target="properties_panel">}, response.body
     assert_equal 11.0, doc_style.reload.font_size
   end
@@ -176,7 +176,7 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
 
   # What a browser posts for the style Panel, derived by rendering the panel (at
   # `level`, for `style`) and reading its form: disabled controls are skipped; a
-  # select posts its selected option, else its blank option, else its first; a
+  # select posts its selected option, else its first non-disabled one; a
   # checkbox posts only when checked (after any same-name hidden field, as Rails
   # emits them); other inputs post their value or "". `edits` override the
   # paragraph_style[<field>] values (as a user typing would); `extra` sets other
@@ -203,7 +203,7 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
   def browser_value(el)
     case el.name
     when "select"
-      opt = el.at_css("option[selected]") || el.css("option").find { |o| o["value"] == "" } || el.at_css("option")
+      opt = el.at_css("option[selected]") || el.css("option").find { |o| !o.key?("disabled") }
       opt && (opt["value"] || opt.text)
     when "textarea" then el.text
     else
@@ -296,9 +296,11 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     refute_match %r{/revert}, response.body, "base style has no override to revert"
   end
 
-  test "panel_update with apply_scope=all writes the base and clears overrides" do
+  test "panel_update with apply_scope=all writes the base and clears overrides (chapter keeps a differing per-size value)" do
     base = @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
     @dd.paragraph_styles.create!(name: "body", font_size: 8)
+    poem = @ps.document_designs.create!(doc_type: "poem")
+    poem.paragraph_styles.create!(name: "body", font_size: 9)
 
     patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "theme", style_id: base.id),
           params: { paragraph_style: { font_size: 22 }, apply_scope: "all" },
@@ -306,7 +308,29 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal 22, base.reload.font_size
-    assert_equal 0, @dd.paragraph_styles.where(name: "body").count, "shadow override cleared"
+    assert_equal 0, poem.paragraph_styles.where(name: "body").count, "shadow override cleared"
+    assert_equal 8, @dd.paragraph_styles.find_by!(name: "body").font_size.to_i,
+                 "a chapter's own per-size value that differs from the new base is kept"
+  end
+
+  test "apply_scope=all from one chapter size keeps the other sizes' chapter values" do
+    base = @theme.base_paragraph_styles.create!(name: "zz_title", font: "BaseFont", font_size: 16)
+    a4 = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    small = @theme.paper_sizes.create!(size_name: "사륙판", width_mm: 128, height_mm: 188)
+    ch_a4 = a4.document_designs.find_or_create_by!(doc_type: "chapter")
+    ch_small = small.document_designs.find_or_create_by!(doc_type: "chapter")
+    ch_a4.paragraph_styles.create!(name: "zz_title", font_size: 24, overridden_fields: %w[font_size])
+    row = ch_small.paragraph_styles.create!(name: "zz_title", font_size: 18, overridden_fields: %w[font_size])
+
+    params = form_params_for(row, level: "document", dd: ch_small, ps: small, font_size: 20, extra: { apply_scope: "all" })
+    stub_preview do
+      patch panel_update_path_for(row, level: "document", dd: ch_small, ps: small), params: params, headers: turbo_stream_headers
+    end
+
+    assert_response :success
+    assert_equal 20, base.reload.font_size.to_i
+    assert_nil ch_small.paragraph_styles.find_by(name: "zz_title"), "the edited size's own value moved to the base"
+    assert_equal 24, ch_a4.paragraph_styles.find_by!(name: "zz_title").font_size.to_i, "A4 keeps its per-size value"
   end
 
   # A style link can outlive its override (Revert to base, or an "apply to all"
@@ -332,7 +356,7 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#properties_panel"
   end
 
-  test "panel_update for a destroyed document override refreshes the panel to the base style (not a 404)" do
+  test "panel_update for a destroyed document override answers 409 with the base style's panel (not a 404)" do
     base = @theme.base_paragraph_styles.create!(name: "zz_gone", font_size: 10)
     override = @dd.paragraph_styles.create!(name: "zz_gone", font_size: 20)
     gone_id = override.id
@@ -341,9 +365,11 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: gone_id),
           params: { paragraph_style: { name: "zz_gone", font_size: 13 } },
           headers: turbo_stream_headers
-    assert_response :success
+    assert_response :conflict, "a stale Save must not look successful"
     assert_match %r{<turbo-stream action="replace" target="properties_panel">}, response.body
     assert_match %r{level=theme&(amp;)?style_id=#{base.id}}, response.body
+    assert_includes response.body, I18n.t("design.panel.stale_save"), "the live panel says why nothing was saved"
+    refute_includes response.body, %(target="preview_frame"), "nothing changed, so no preview refresh"
     assert_equal 10, base.reload.font_size, "a stale Save writes nothing"
     assert_nil @dd.paragraph_styles.find_by(name: "zz_gone")
   end
@@ -356,7 +382,8 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     patch design.panel_update_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: gone_id),
           params: { paragraph_style: { name: "zz_orphan", font_size: 13 } },
           headers: turbo_stream_headers
-    assert_response :success
+    assert_response :conflict
+    assert_includes response.body, I18n.t("design.panel.stale_save")
     assert_match %r{<turbo-stream action="replace" target="properties_panel">}, response.body
     assert_includes response.body, "design--live-preview", "the design's own properties panel"
   end
@@ -494,6 +521,72 @@ class Design::DocumentDesignsPanelTest < ActionDispatch::IntegrationTest
     params = form_params_for(row, level: "document")
     refute params["paragraph_style"].key?("korean_name")
     refute params["paragraph_style"].key?("vertical_align")
+  end
+
+  test "korean_name and vertical_align are editable on a style with no theme base row, and a Save writes them on every size" do
+    s2 = @theme.paper_sizes.create!(size_name: "사륙판", width_mm: 128, height_mm: 188)
+    ch2 = s2.document_designs.find_or_create_by!(doc_type: "chapter")
+    @theme.base_paragraph_styles.where(name: "table_body_cell").destroy_all
+    row = @dd.paragraph_styles.find_or_create_by!(name: "table_body_cell")
+    row2 = ch2.paragraph_styles.find_or_create_by!(name: "table_body_cell")
+
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: row.id),
+        headers: { "Turbo-Frame" => "properties_panel" }
+    assert_select "input[name='paragraph_style[korean_name]']:not([disabled])"
+    assert_select "select[name='paragraph_style[vertical_align]']:not([disabled])"
+    refute_includes response.body, I18n.t("design.fields.theme_only_hint")
+
+    params = form_params_for(row, level: "document", korean_name: "표 본문", vertical_align: "bottom")
+    stub_preview do
+      patch panel_update_path_for(row, level: "document"), params: params, headers: turbo_stream_headers
+    end
+
+    assert_response :success
+    [ row, row2 ].each do |r|
+      r.reload
+      assert_equal "표 본문", r.korean_name
+      assert_equal "bottom", r.vertical_align
+    end
+    assert_nil @theme.base_paragraph_styles.find_by(name: "table_body_cell"), "no base row is created by a default-scope Save"
+  end
+
+  test "a level=theme default-scope Save writes korean_name and vertical_align to the base row" do
+    base = @theme.base_paragraph_styles.find_or_create_by!(name: "table_body_cell")
+    base.update!(font_size: 10, korean_name: "셀", vertical_align: "top")
+
+    params = form_params_for(base, level: "theme", korean_name: "표 셀", vertical_align: "middle", font_size: 12)
+    stub_preview do
+      patch panel_update_path_for(base, level: "theme"), params: params, headers: turbo_stream_headers
+    end
+
+    assert_response :success
+    base.reload
+    assert_equal "표 셀", base.korean_name
+    assert_equal "middle", base.vertical_align
+    assert_equal 10, base.font_size.to_i, "the style field still goes to the doc-type rows, not the base"
+    assert_equal 12, @dd.paragraph_styles.find_by!(name: "table_body_cell").font_size.to_i
+  end
+
+  test "a level=theme apply-to-all Save writes korean_name to the base row" do
+    base = @theme.base_paragraph_styles.create!(name: "zz_body", font_size: 10, korean_name: "본문")
+
+    params = form_params_for(base, level: "theme", korean_name: "새 본문", extra: { apply_scope: "all" })
+    stub_preview do
+      patch panel_update_path_for(base, level: "theme"), params: params, headers: turbo_stream_headers
+    end
+
+    assert_response :success
+    assert_equal "새 본문", base.reload.korean_name
+  end
+
+  test "the new-style form keeps korean_name editable, and create saves it" do
+    get design.new_theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd),
+        headers: { "Turbo-Frame" => "properties_panel" }
+    assert_select "input[name='paragraph_style[korean_name]']:not([disabled])"
+
+    post design.theme_paper_size_document_design_paragraph_styles_path(@theme, @ps, @dd),
+         params: { paragraph_style: { name: "zz_new", korean_name: "새 스타일", font_size: 11 } }
+    assert_equal "새 스타일", @dd.paragraph_styles.find_by!(name: "zz_new").korean_name
   end
 
   test "korean_name stays editable at level=theme" do

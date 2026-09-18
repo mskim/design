@@ -71,7 +71,7 @@ class Design::ThemeTest < ActiveSupport::TestCase
     assert_operator poem.reload.updated_at, :>, before[1]
   end
 
-  test "apply_paragraph_style_to_all! upserts the base (creating it when absent) and clears same-name overrides theme-wide" do
+  test "apply_paragraph_style_to_all! upserts the base (creating it when absent) and clears same-name overrides theme-wide (chapter keeps differing values)" do
     theme = Design::Theme.create!(name: "FA #{SecureRandom.hex(3)}", locale: "ko")
     s1 = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     ch1 = s1.document_designs.create!(doc_type: "chapter")
@@ -84,8 +84,9 @@ class Design::ThemeTest < ActiveSupport::TestCase
     base = theme.base_paragraph_styles.find_by(name: "wing_left")
     assert_not_nil base, "base row created when none existed"
     assert_equal "20.0", base.font_size.to_s
-    assert_equal 0, ch1.paragraph_styles.where(name: "wing_left").count, "shadowing overrides cleared"
-    assert_equal 0, poem.paragraph_styles.where(name: "wing_left").count
+    assert_equal 0, poem.paragraph_styles.where(name: "wing_left").count, "shadowing overrides cleared"
+    assert_equal 8, ch1.paragraph_styles.find_by!(name: "wing_left").font_size.to_i,
+                 "a chapter's per-size value that differs from the new base is kept"
   end
 
   test "apply_paragraph_style_to_all! writes only the given fields and keeps other overrides" do
@@ -118,6 +119,41 @@ class Design::ThemeTest < ActiveSupport::TestCase
 
     assert_equal "BaseFont", base.reload.font
     assert_nil poem.paragraph_styles.find_by(name: "zz_body"), "emptied row with a parent is deleted"
+  end
+
+  test "apply_paragraph_style_to_all! keeps chapter per-size values that differ from the new base" do
+    theme = Design::Theme.create!(name: "FA #{SecureRandom.hex(3)}", locale: "ko")
+    a4 = theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    small = theme.paper_sizes.create!(size_name: "사륙판", width_mm: 128, height_mm: 188)
+    ch_a4 = a4.document_designs.create!(doc_type: "chapter")
+    ch_small = small.document_designs.create!(doc_type: "chapter")
+    poem = small.document_designs.create!(doc_type: "poem")
+    base = theme.base_paragraph_styles.create!(name: "zz_title", font: "BaseFont", font_size: 16)
+    ch_a4.paragraph_styles.create!(name: "zz_title", font_size: 24, overridden_fields: %w[font_size])
+    ch_small.paragraph_styles.create!(name: "zz_title", font_size: 18, overridden_fields: %w[font_size])
+    poem.paragraph_styles.create!(name: "zz_title", font_size: 30, overridden_fields: %w[font_size])
+
+    theme.apply_paragraph_style_to_all!("zz_title", { "font_size" => 20 }, from: ch_small)
+
+    assert_equal 20, base.reload.font_size.to_i
+    assert_nil ch_small.paragraph_styles.find_by(name: "zz_title"), "the edited size's value is the new base"
+    assert_equal 24, ch_a4.paragraph_styles.find_by!(name: "zz_title").font_size.to_i, "A4 keeps its own value"
+    assert_nil poem.paragraph_styles.find_by(name: "zz_title"), "other doc types clear the field outright"
+  end
+
+  test "apply_paragraph_style_to_all! clears a chapter value that equals the new base" do
+    theme = Design::Theme.create!(name: "FA #{SecureRandom.hex(3)}", locale: "ko")
+    a4 = theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    ch_a4 = a4.document_designs.create!(doc_type: "chapter")
+    theme.base_paragraph_styles.create!(name: "zz_title", font_size: 16)
+    ch_a4.paragraph_styles.create!(name: "zz_title", font_size: 20, text_align: "center",
+                                   overridden_fields: %w[font_size text_align])
+
+    theme.apply_paragraph_style_to_all!("zz_title", { "font_size" => 20 })
+
+    row = ch_a4.paragraph_styles.find_by!(name: "zz_title")
+    assert_nil row.font_size
+    assert_equal [ "text_align" ], row.overridden_fields
   end
 
   test "shadow_override_doc_types returns distinct doc_types (one per doc_type, not per row)" do

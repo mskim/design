@@ -381,6 +381,7 @@ module Design
     # Clear `fields` on this design's row `name` (nil, unmarked); delete the row
     # if that leaves it empty and the style has a parent. This design only.
     def clear_style_fields!(name, fields, has_parent: nil)
+      fields.each { |f| assert_style_field!(f) }
       row = paragraph_styles.find_by(name: name) or return
       fields.each { |f| row[f.to_s] = nil }
       row.overridden_fields = Array(row.overridden_fields) - fields.map(&:to_s)
@@ -389,6 +390,26 @@ module Design
         row.destroy!
       else
         row.save!
+      end
+    end
+
+    # Chapter rows under a changed theme base: clear each of `fields` on this
+    # design's row `name` only where it now equals the base (`base`, the saved
+    # base row); keep the other per-size (e.g. proportionally scaled) values.
+    # Used by push-to-theme and by the theme's "apply to all".
+    def clear_fields_matching_base!(name, fields, base)
+      row = paragraph_styles.find_by(name: name) or return
+      same = fields.map(&:to_s).select { |f| !row[f].nil? && ParagraphStyle.inherits_value?(f, row[f], base[f]) }
+      clear_style_fields!(name, same, has_parent: true) if same.any?
+    end
+
+    # korean_name / vertical_align of a style that has no theme base row: they
+    # live on this doc type's own rows, so write them on every size's existing
+    # row (labels, not scaled and not marked as overrides).
+    def set_base_only_fields!(name, attrs)
+      transaction do
+        same_doc_type_designs.find_each { |dd| dd.paragraph_styles.find_by(name: name)&.update!(attrs) }
+        touch_inheritors!
       end
     end
 
@@ -436,13 +457,7 @@ module Design
         base = theme.base_paragraph_styles.find_or_initialize_by(name: name)
         fields.each { |f| base[f] = own[f] }
         base.save!
-        same_doc_type_designs.find_each do |dd|
-          row = dd.paragraph_styles.find_by(name: name) or next
-          fields.each do |f|
-            next if row[f].nil? || !ParagraphStyle.inherits_value?(f, row[f], base[f])
-            dd.clear_style_field(name, f, has_parent: true)
-          end
-        end
+        same_doc_type_designs.find_each { |dd| dd.clear_fields_matching_base!(name, fields, base) }
         touch_inheritors!
       end
     end

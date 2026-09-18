@@ -68,6 +68,12 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { @foreword.revert_style_field!("zz_body", "korean_name") }
   end
 
+  test "clear_style_fields! rejects non-style fields" do
+    @foreword.paragraph_styles.create!(name: "zz_body", korean_name: "본문", font_size: 12)
+    assert_raises(ArgumentError) { @foreword.clear_style_fields!("zz_body", %w[font_size korean_name]) }
+    assert_equal 12, row_of(@foreword, "zz_body").font_size.to_i, "nothing cleared"
+  end
+
   test "revert_style_field! clears on all sizes and unmarks" do
     @foreword.set_style_field!("zz_body", "font_size", 11)
     @foreword.set_style_field!("zz_body", "text_align", "center")

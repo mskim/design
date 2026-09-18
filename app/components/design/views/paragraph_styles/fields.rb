@@ -125,9 +125,10 @@ module Design
 
         # ── Field helpers (box/row/control helpers come from FieldGroups) ──
 
-        # theme_only: a theme-level field (korean_name, vertical_align) that a
-        # doc-type row can't store — shown read-only there, and (being disabled)
-        # not submitted, so it can't look saved while being dropped.
+        # theme_only: a base-row field (korean_name, vertical_align) — shown
+        # read-only on a doc-type row whose style has a theme base row (see
+        # theme_only?), and (being disabled) not submitted, so it can't look
+        # saved while being dropped.
         def text_field(label_text, attr, span: false, theme_only: false)
           field_row(label_text, span: span) do
             input(type: "text", name: "paragraph_style[#{attr}]", value: field_value(@paragraph_style.public_send(attr)),
@@ -165,7 +166,15 @@ module Design
           current.present? && !options.include?(current) ? options + [ current ] : options
         end
 
-        def theme_only? = @paragraph_style.doc_type_row?
+        # A saved doc-type row of a style the theme has a base row for: the base
+        # row owns korean_name/vertical_align. A new style, or one with no base
+        # row, keeps them on its own rows (editable here).
+        def theme_only?
+          return @theme_only if defined?(@theme_only)
+          ps = @paragraph_style
+          @theme_only = ps.doc_type_row? && ps.persisted? &&
+                        ps.styleable.theme.base_paragraph_styles.exists?(name: ps.name_was || ps.name)
+        end
 
         def theme_only_hint
           return unless theme_only?

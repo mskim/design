@@ -1,4 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
+import { saveResponseOutcome } from "design-controllers/design/panel_save_response"
 
 export default class extends Controller {
   static targets = ["status"]
@@ -47,13 +48,15 @@ export default class extends Controller {
         body: formData
       })
 
-      if (response.ok) {
-        const html = await response.text()
-        window.Turbo.renderStreamMessage(html)
-        this._showStatus("Saved")
-      } else {
-        this._showStatus("Error")
-      }
+      // A non-ok response still carries the panel to show (a stale Save's 409,
+      // a 422 with validation errors): swap it in, then report "Error".
+      const html = await response.text()
+      const outcome = saveResponseOutcome({
+        ok: response.ok, contentType: response.headers.get("Content-Type"), body: html
+      })
+      if (outcome.render === "stream") window.Turbo.renderStreamMessage(html)
+      else if (outcome.render === "frame") this._replacePanel(html)
+      this._showStatus(outcome.status)
     } catch {
       this._showStatus("Error")
     } finally {
@@ -64,6 +67,12 @@ export default class extends Controller {
         previewFrame.style.pointerEvents = "auto"
       }
     }
+  }
+
+  _replacePanel(html) {
+    const fresh = new DOMParser().parseFromString(html, "text/html").getElementById("properties_panel")
+    const current = document.getElementById("properties_panel")
+    if (fresh && current) current.replaceWith(document.importNode(fresh, true))
   }
 
   _showStatus(text) {

@@ -55,16 +55,28 @@ module Design
     # "Apply to all": write `attrs` (only the fields the user changed) to the
     # theme base style `name` — creating the base row if the style exists only as
     # doc-type rows — then clear the `clear` style fields (default: attrs' keys)
-    # on every same-name doc-type row across the theme, so the base value shows
-    # everywhere. Other fields' overrides are kept; rows left empty are deleted
-    # (they now have a parent).
-    def apply_paragraph_style_to_all!(name, attrs, clear: attrs.keys)
+    # on the same-name doc-type rows across the theme, so the base value shows.
+    # Chapter rows carry per-size (proportionally scaled) values: there a field
+    # is cleared only where it now equals the new base, as a push to the theme
+    # does. Other doc types clear the fields outright, and so does `from` (the
+    # design whose row the edit was made on: its value is the new base). Other
+    # fields' overrides are kept; rows left empty are deleted (they now have a
+    # parent).
+    def apply_paragraph_style_to_all!(name, attrs, clear: attrs.keys, from: nil)
       attrs = attrs.to_h.stringify_keys.except("name")
       fields = clear.map(&:to_s) & Design::ParagraphStyle::STYLE_FIELDS
       transaction do
         base = base_paragraph_styles.find_or_initialize_by(name: name)
         base.update!(attrs)
-        document_designs.find_each { |dd| dd.clear_style_fields!(name, fields) } if fields.any?
+        if fields.any?
+          document_designs.find_each do |dd|
+            if dd.doc_type == "chapter" && dd.id != from&.id
+              dd.clear_fields_matching_base!(name, fields, base)
+            else
+              dd.clear_style_fields!(name, fields)
+            end
+          end
+        end
         # Deleting rows doesn't bump the preview-cache fingerprint; touch instead.
         document_designs.update_all(updated_at: Time.current)
         base

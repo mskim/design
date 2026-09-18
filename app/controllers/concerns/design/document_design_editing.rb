@@ -57,7 +57,16 @@ module Design
     end
 
     def panel_update
-      style = find_panel_style(params[:level], params[:style_id])
+      style = begin
+        find_panel_style(params[:level], params[:style_id])
+      rescue ActiveRecord::RecordNotFound
+        # Same as `panel`: a valid-level link to a row that is gone (reverted, or
+        # cleared by "apply to all"). Nothing is saved: answer 409 with the
+        # style's live panel and a "changed elsewhere" message, so the Save
+        # can't look successful. An unknown level still 404s.
+        raise unless KNOWN_STYLE_LEVELS.include?(params[:level])
+        return render_stale_panel_update
+      end
       style.assign_attributes(paragraph_style_params) # validate without persisting the clicked record
       if style.valid?
         name = style.name_was || style.name
@@ -81,22 +90,13 @@ module Design
           revert_url: document_style_revert_url(style, params[:level]),
           status: :unprocessable_entity)
       end
-    rescue ActiveRecord::RecordNotFound
-      # Same as `panel`: a valid-level link to a row that is gone (reverted, or
-      # cleared by "apply to all") refreshes the panel to the style's live state
-      # instead of failing; an unknown level still 404s. Nothing is saved.
-      raise unless KNOWN_STYLE_LEVELS.include?(params[:level])
-      if request.format.turbo_stream?
-        render turbo_stream: live_panel_stream(params.dig(:paragraph_style, :name).presence)
-      else
-        fall_back_to_document_view
-      end
     end
 
     private
 
     KNOWN_STYLE_LEVELS = %w[theme paper document].freeze
-    # Base-row fields the panel shows but doc-type rows don't store.
+    # Labels, not per-size style overrides (not in STYLE_FIELDS): kept on the
+    # theme base row, or on the doc-type rows of a style with no base row.
     BASE_ONLY_STYLE_KEYS = %w[korean_name vertical_align].freeze
 
     # Fields (of `among`) the user changed, compared against what the form
@@ -111,28 +111,62 @@ module Design
 
     # Default-scope Save: each changed style field goes through set_style_field!,
     # which writes this doc type on every size and clears the field where it
-    # equals the parent. Non-style keys (korean_name, vertical_align) are
-    # theme-level and not written here.
+    # equals the parent. The base-only keys (korean_name, vertical_align) are
+    # written where the style keeps them (write_base_only_fields).
     def write_changed_style_fields(style, name)
       fields = changed_panel_fields(style, Design::ParagraphStyle::STYLE_FIELDS)
+      base_only = changed_panel_fields(style, BASE_ONLY_STYLE_KEYS).index_with { |f| stripped(style[f]) }
       @document_design.transaction do
         fields.each { |f| @document_design.set_style_field!(name, f, style[f]) }
+        write_base_only_fields(style, name, base_only) if base_only.any?
       end
     end
+
+    # korean_name / vertical_align live on the theme base row when there is one:
+    # at level=theme the panel edits that row, so they're written to it (a fresh
+    # instance, so the style fields assigned to `style` aren't persisted with
+    # them). A doc-type row of a style with a base row shows them read-only, so
+    # they're not posted; with no base row they're this doc type's own, written
+    # on its rows on every size. A paper-level row keeps its own.
+    def write_base_only_fields(style, name, attrs)
+      case params[:level]
+      when "theme" then @theme.base_paragraph_styles.find(style.id).update!(attrs)
+      when "paper" then @paper_size.paragraph_styles.find(style.id).update!(attrs)
+      else
+        @document_design.set_base_only_fields!(name, attrs) unless @theme.base_paragraph_styles.exists?(name: name)
+      end
+    end
+
+    def stripped(value) = value.is_a?(String) ? value.strip.presence : value
 
     # "Apply to all" Save: only the changed fields move to the theme base; those
     # fields are cleared on every doc-type row of the style (other overrides
     # stay). At level=document/paper a blank means "inherit", so it clears the
     # overrides without blanking the base; at level=theme the form is the base
-    # row itself, so a blank is written as nil. korean_name/vertical_align are
-    # base fields and are written too (disabled, so never posted, on doc rows).
+    # row itself, so a blank is written as nil. Chapter rows keep per-size
+    # values that differ from the new base, except the row edited here (its
+    # value is the new base). korean_name/vertical_align are base fields and
+    # are written too (disabled, so never posted, on doc rows with a base row).
     def apply_changed_fields_to_all(style, name)
       fields = changed_panel_fields(style, Design::ParagraphStyle::STYLE_FIELDS + BASE_ONLY_STYLE_KEYS)
       return if fields.empty?
-      attrs = fields.index_with { |f| style[f].is_a?(String) ? style[f].strip.presence : style[f] }
+      attrs = fields.index_with { |f| stripped(style[f]) }
       attrs = attrs.compact unless params[:level] == "theme"
-      @theme.apply_paragraph_style_to_all!(name, attrs, clear: fields)
+      @theme.apply_paragraph_style_to_all!(name, attrs, clear: fields,
+                                           from: (@document_design if params[:level] == "document"))
       @document_design.reload
+    end
+
+    # A Save posted to a style row that is gone: 409 + the style's live panel
+    # (or the design's view) carrying the "changed elsewhere" message.
+    def render_stale_panel_update
+      if request.format.turbo_stream?
+        render turbo_stream: live_panel_stream(params.dig(:paragraph_style, :name).presence,
+                                               error: I18n.t("design.panel.stale_save")),
+               status: :conflict
+      else
+        fall_back_to_document_view
+      end
     end
 
     # Stale style link (reverted, or cleared by an "apply to all" save): show the
@@ -200,19 +234,21 @@ module Design
     # "document", revert shown); if a save cleared its last override (the row is
     # gone), the theme base (level "theme"); with neither, the design's view.
     # A panel left pointing at a destroyed row would 404 on its next Save.
-    def live_panel_stream(name)
+    # `error`: a message shown at the top of the re-rendered panel.
+    def live_panel_stream(name, error: nil)
       if name && (style = @document_design.paragraph_styles.find_by(name: name))
-        panel_stream(style, "document")
+        panel_stream(style, "document", error: error)
       elsif name && (style = @theme.base_paragraph_styles.find_by(name: name))
-        panel_stream(style, "theme")
+        panel_stream(style, "theme", error: error)
       else
         html = render_to_string(Design::Views::DocumentDesigns::PropertiesPanel.new(
-          theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: editable?))
+          theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: editable?,
+          error: error))
         turbo_stream.replace("properties_panel", html: html)
       end
     end
 
-    def panel_stream(style, level)
+    def panel_stream(style, level, error: nil)
       html = render_to_string(Design::Views::ParagraphStyles::Panel.new(
         paragraph_style: style,
         panel_update_url: helpers.panel_update_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: level, style_id: style.id),
@@ -221,7 +257,8 @@ module Design
         editable: editable?,
         document_design: @document_design,
         save_scope_shadow_count: @theme.shadow_override_doc_types(style.name).size,
-        preview_mode: panel_preview_mode))
+        preview_mode: panel_preview_mode,
+        error: error))
       turbo_stream.replace("properties_panel", html: html)
     end
 
