@@ -150,7 +150,10 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     epilogue = @ps.document_designs.create!(doc_type: "epilogue")
     cover    = @ps.document_designs.create!(doc_type: "front_page") # must be excluded
     get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd) # @dd = chapter
-    body = response.body
+    # Scope to the switcher menu: the sidebar rail also links every design (cover
+    # included) and its size select carries the chapter editor URL.
+    menu_selector = "[data-design--dropdown-target='menu']"
+    menu = css_select(menu_selector).first.to_html
 
     title_path    = design.edit_theme_paper_size_document_design_path(@theme, @ps, title)
     chapter_path  = design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
@@ -158,11 +161,13 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     cover_path    = design.edit_theme_paper_size_document_design_path(@theme, @ps, cover)
 
     # reading order: title_page (front) < chapter (body) < epilogue (rear)
-    assert body.index(title_path) < body.index(chapter_path), "title_page before chapter"
-    assert body.index(chapter_path) < body.index(epilogue_path), "chapter before epilogue"
-    # cover panel excluded from the switcher
-    assert_select "a[href=?]", cover_path, count: 0
-    # current doc design highlighted
-    assert_select "a.bg-blue-50[href=?]", chapter_path
+    assert menu.index(title_path) < menu.index(chapter_path), "title_page before chapter"
+    assert menu.index(chapter_path) < menu.index(epilogue_path), "chapter before epilogue"
+    assert_select menu_selector do
+      # cover panel excluded from the switcher
+      assert_select "a[href=?]", cover_path, count: 0
+      # current doc design highlighted
+      assert_select "a.bg-blue-50[href=?]", chapter_path
+    end
   end
 end

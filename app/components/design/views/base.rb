@@ -57,6 +57,16 @@ module Design
       def theme_sidebar(theme, paper_size, current: nil, size_url: nil)
         Design::Views::Sidebar.new(theme:, paper_size:, current:, size_url:)
       end
+
+      # size_url for pages scoped to one document design: the same doc_type's editor
+      # on the other size when it exists, else that size's theme overview.
+      def design_size_url(theme, document_design)
+        lambda do |ps|
+          other = ps.document_designs.find_by(doc_type: document_design.doc_type)
+          other ? helpers.edit_theme_paper_size_document_design_path(theme, ps, other)
+                : helpers.theme_path(theme, paper_size_id: ps.id)
+        end
+      end
     end
   end
 end

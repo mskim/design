@@ -25,4 +25,24 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
     get design.theme_path(@theme, paper_size_id: @ps.id)
     assert_select "aside select[data-sidebar='size'] option[data-url=?]", design.theme_path(@theme, paper_size_id: @a4.id)
   end
+
+  test "design editor highlights its design and switches size to the same doc_type" do
+    a4_chapter = @a4.document_designs.create!(doc_type: "chapter")
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    assert_response :success
+    assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    assert_select "aside option[data-url=?]", design.edit_theme_paper_size_document_design_path(@theme, @a4, a4_chapter)
+  end
+
+  test "design editor falls back to the overview when the other size lacks that doc_type" do
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+    assert_select "aside option[data-url=?]", design.theme_path(@theme, paper_size_id: @a4.id)
+  end
+
+  test "paragraph style edit page highlights the parent design" do
+    style = @dd.paragraph_styles.create!(name: "body")
+    get design.panel_theme_paper_size_document_design_path(@theme, @ps, @dd, level: "document", style_id: style.id)
+    assert_response :success
+    assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+  end
 end
