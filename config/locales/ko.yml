@@ -37,7 +37,6 @@ ko:
       rearmatter: "후반부"
       cover: "표지"
       edit_theme_button: "테마 편집"
-      size_label: "크기"
       read_only: "읽기 전용"
       clone_to_my_theme: "이 테마로 복제하기"
       gallery_close: "닫기"

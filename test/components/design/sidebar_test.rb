@@ -66,6 +66,14 @@ class Design::SidebarTest < ActiveSupport::TestCase
     assert_nil doc.at_css("select[data-sidebar='size'] option[selected]")
   end
 
+  test "a theme with no paper sizes shows the theme select and the new-size link, no size select" do
+    bare = Design::Theme.create!(name: "Bare #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
+    doc = render_sidebar(theme: bare, paper_size: nil)
+    assert doc.at_css("select[data-sidebar='theme']")
+    assert_nil doc.at_css("select[data-sidebar='size']"), "no size select without sizes"
+    assert doc.at_css("a[href='/themes/#{bare.id}/paper_sizes/new']"), "new size link"
+  end
+
   # --- matter groups ---
 
   def seed_designs

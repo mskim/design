@@ -37,7 +37,6 @@ en:
       rearmatter: "Rear Matter"
       cover: "Book cover"
       edit_theme_button: "Edit Theme"
-      size_label: "Size"
       read_only: "Read-only"
       clone_to_my_theme: "Clone this theme"
       gallery_close: "Close"

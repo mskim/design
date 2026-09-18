@@ -2,7 +2,8 @@ module Design
   module Views
     # Left rail for every studio page inside a theme: theme + paper size selects on
     # top, then (for editable themes) the size actions — new size, size settings,
-    # generate other sizes — then the book structure (표지/머리/본문/꼬리) with one
+    # generate other sizes — then the book structure (표지/전반부/본문/후반부, the
+    # studio's existing matter labels; cover first like bookcheego's tree) with one
     # leaf per doc_type design, and finally the theme's table styles group.
     # On a read-only theme the structure is listed as plain text (spans, no links):
     # every editor action answers 403 there (ApplicationController#ensure_theme_editable).
@@ -25,7 +26,7 @@ module Design
       def view_template
         nav(class: "flex flex-col gap-3 p-3 text-sm", aria_label: "Studio") do
           theme_select
-          size_select
+          size_select if @theme.paper_sizes.any? # a theme with no sizes gets just "new size"
           size_links if editable?
           matter_groups if @paper_size
           table_styles_group
