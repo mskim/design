@@ -9,6 +9,9 @@ module Design
     # - Heading elements (title, subtitle, author, publisher, quote): font size proportional to height
     # - Body sub-headings (h2-h6): font size proportional to body_line_count ratio
     # - Spacing values: proportional to height ratio
+    # - Values are read from the default chapter's RESOLVED styles (theme base →
+    #   chapter). Target chapter rows store only fields that differ from the theme
+    #   base; other doc types copy only the default size's own non-nil fields.
     #
     # Usage:
     #   Design::SizeGenerationService.new(theme).generate!
@@ -30,7 +33,10 @@ module Design
       default_chapter_dd = default_ps.document_designs.find_by(doc_type: "chapter")
       raise "No chapter document design on default paper size" unless default_chapter_dd
 
-      default_chapter_styles = default_chapter_dd.paragraph_styles.index_by(&:name)
+      # Resolved (theme base → chapter) so a sparse chapter row still yields its
+      # inherited values (e.g. body font_size from the theme).
+      default_chapter_styles = default_chapter_dd.merged_paragraph_styles.index_by(&:name)
+      base_styles = @theme.base_paragraph_styles.index_by(&:name)
       default_body_style = default_chapter_styles["body"]
       default_body_line_count = default_ps.body_line_count
 
@@ -73,65 +79,30 @@ module Design
           )
         end
 
-        # Generate proportional paragraph styles
+        # Chapter: scale every resolved style, then store only the fields that
+        # differ from the theme base (the rest inherit).
         default_chapter_styles.each do |name, default_style|
-          target_style = target_chapter_dd.paragraph_styles.find_or_initialize_by(name: name)
-
-          # Copy all attributes from default
-          copy_style_attrs(target_style, default_style)
-
-          # Apply proportional rules based on style category
-          if HEADING_STYLES.include?(name)
-            # Heading: font size proportional to height
-            target_style.font_size = (default_style.font_size * ratio_h).round(2) if default_style.font_size
-          elsif BODY_SUBHEADING_STYLES.include?(name)
-            # Sub-headings: font size proportional to body_line_count ratio
-            target_style.font_size = (default_style.font_size * line_count_ratio).round(2) if default_style.font_size
-          elsif BODY_STYLES.include?(name)
-            # Body: font size stays SAME
-            target_style.font_size = default_style.font_size
-          else
-            # Other (caption, footnote, toc_*, cover_*): proportional to height
-            target_style.font_size = (default_style.font_size * ratio_h).round(2) if default_style.font_size
+          values = scaled_values(name, default_style, ratio_h, line_count_ratio)
+          base = base_styles[name]
+          sparse = values.to_h do |f, v|
+            [ f, base && ParagraphStyle.same_value?(f, v, base[f]) ? nil : v ]
           end
-
-          # Spacing values proportional to height ratio
-          SPACING_ATTRS.each do |attr|
-            val = default_style.send(attr)
-            target_style.send("#{attr}=", (val * ratio_h).round(2)) if val && val > 0
-          end
-
-          target_style.save!
+          write_sparse_row(target_chapter_dd, name, sparse, has_parent: base.present?,
+                           korean_name: default_style.korean_name)
         end
 
-        # Copy other doc type designs from default (they inherit from chapter via Part 1)
+        # Other doc types: copy only the default size's own (non-nil) fields,
+        # scaled by the same rules; everything else inherits through chapter.
         default_ps.document_designs.where.not(doc_type: "chapter").each do |default_dd|
           target_dd = target_ps.document_designs.find_or_create_by!(doc_type: default_dd.doc_type) do |dd|
             copy_document_design_attrs(dd, default_dd)
           end
 
-          # Copy doc-type-specific style overrides
           default_dd.paragraph_styles.each do |default_style|
-            target_style = target_dd.paragraph_styles.find_or_initialize_by(name: default_style.name)
-            copy_style_attrs(target_style, default_style)
-
-            # Apply same proportional rules
-            if default_style.font_size
-              if HEADING_STYLES.include?(default_style.name)
-                target_style.font_size = (default_style.font_size * ratio_h).round(2)
-              elsif BODY_SUBHEADING_STYLES.include?(default_style.name)
-                target_style.font_size = (default_style.font_size * line_count_ratio).round(2)
-              elsif !BODY_STYLES.include?(default_style.name)
-                target_style.font_size = (default_style.font_size * ratio_h).round(2)
-              end
-            end
-
-            SPACING_ATTRS.each do |attr|
-              val = default_style.send(attr)
-              target_style.send("#{attr}=", (val * ratio_h).round(2)) if val && val > 0
-            end
-
-            target_style.save!
+            values = scaled_values(default_style.name, default_style, ratio_h, line_count_ratio)
+            write_sparse_row(target_dd, default_style.name, values,
+                             has_parent: target_dd.style_has_parent?(default_style.name),
+                             korean_name: default_style.korean_name)
           end
         end
       end
@@ -156,20 +127,39 @@ module Design
       target.show_header_footer_on_first_page = source.show_header_footer_on_first_page
     end
 
-    COPYABLE_STYLE_ATTRS = %i[
-      korean_name font font_size text_color text_align tracking space_width scale
-      first_line_indent text_line_spacing space_before space_after
-      space_before_in_lines space_after_in_lines left_indent right_indent
-      bold_font bold_text_color emphasis_color emphasis_font
-      fill_type fill_color fill_ending_color fill_gradient_direction
-      border_thickness border_color border_side rounded_corners corner_radius
-      padding_top padding_bottom
-    ].freeze
-
-    def copy_style_attrs(target, source)
-      COPYABLE_STYLE_ATTRS.each do |attr|
-        target.send("#{attr}=", source.send(attr))
+    # STYLE_FIELDS of `style` with font_size and spacing scaled for the target
+    # size: headings and "other" styles by height, h2–h6 by the body_line_count
+    # ratio, body unchanged; spacing (when > 0) by height.
+    def scaled_values(name, style, ratio_h, line_count_ratio)
+      values = ParagraphStyle::STYLE_FIELDS.index_with { |f| style[f] }
+      if (size = values["font_size"])
+        values["font_size"] =
+          if BODY_STYLES.include?(name) then size
+          elsif BODY_SUBHEADING_STYLES.include?(name) then (size * line_count_ratio).round(2)
+          else (size * ratio_h).round(2) # HEADING_STYLES and other styles
+          end
       end
+      SPACING_ATTRS.each do |attr|
+        val = values[attr.to_s]
+        values[attr.to_s] = (val * ratio_h).round(2) if val && val > 0
+      end
+      values
+    end
+
+    # Write `values` (STYLE_FIELD => value or nil) as `name`'s row on `dd`. A row
+    # left all-nil is removed (not created) when the style inherits from a parent;
+    # a parentless style keeps its row so the style still exists on this size.
+    def write_sparse_row(dd, name, values, has_parent:, korean_name: nil)
+      row = dd.paragraph_styles.find_by(name: name)
+      if has_parent && values.values.all?(&:nil?)
+        row&.destroy!
+        return
+      end
+      row ||= dd.paragraph_styles.build(name: name)
+      row.assign_attributes(values)
+      row.korean_name ||= korean_name unless has_parent
+      row.overridden_fields = Array(row.overridden_fields) & values.compact.keys
+      row.save!
     end
   end
 end
