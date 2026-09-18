@@ -45,4 +45,26 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
   end
+
+  test "table style editor highlights the table style; size select changes tree context only" do
+    ts = @theme.table_styles.find_by!(name: "grid")
+    get design.edit_theme_table_style_path(@theme, ts)
+    assert_response :success
+    assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_table_style_path(@theme, ts)
+    assert_select "aside option[data-url=?]", design.theme_path(@theme, paper_size_id: @a4.id)
+  end
+
+  test "paper size edit highlights size settings and switches to the other size's edit page" do
+    get design.edit_theme_paper_size_path(@theme, @ps)
+    assert_response :success
+    assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_path(@theme, @ps)
+    assert_select "aside option[data-url=?]", design.edit_theme_paper_size_path(@theme, @a4)
+  end
+
+  test "new paper size page renders the rail at the default size with nothing highlighted" do
+    get design.new_theme_paper_size_path(@theme)
+    assert_response :success
+    assert_select "aside select[data-sidebar='size']"
+    assert_select "aside [aria-current='page']", false
+  end
 end
