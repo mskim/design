@@ -95,4 +95,11 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, %("design-controllers/design/number_math")
     %w[scrubStart( scrubMove( scrubEnd( keydown( commit( remember(].each { |m| assert_includes src, m }
   end
+
+  test "color_row controller exists and imports color_math by its importmap name" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/color_row_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, %("design-controllers/design/color_math")
+    %w[toggle( close( selectMode( fromChannels( fromSlider( fromHex( fromPicker( clear( keydown(].each { |m| assert_includes src, m }
+  end
 end
