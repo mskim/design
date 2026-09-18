@@ -27,15 +27,23 @@ class Design::PreviewToolbarTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#preview_frame button", 0
   end
 
+  test "인쇄용 is enabled on the non-chapter layouts the engine binds" do
+    cookies["design_preview_print"] = "1"
+    %w[poem title_page toc copyright].each do |t|
+      get edit_path(@ps.document_designs.create!(doc_type: t))
+      assert_select "button[data-design--preview-toolbar-target='print'][aria-pressed='true']:not([disabled]):not([title])", 1, t
+    end
+  end
+
   test "the print cookie presses 인쇄용" do
     cookies["design_preview_print"] = "1"
     get edit_path
     assert_select "button[data-design--preview-toolbar-target='print'][aria-pressed='true']"
   end
 
-  test "인쇄용 is disabled with the reason on doc types the engine never binds" do
+  test "인쇄용 is disabled with the reason on doc types without a print preview" do
     cookies["design_preview_print"] = "1"
-    %w[title_page poem].each do |t|
+    %w[blank_page front_page document_cover].each do |t|
       get edit_path(@ps.document_designs.create!(doc_type: t))
       assert_select "button[data-design--preview-toolbar-target='print'][disabled][aria-pressed='false'][title=?]",
                     I18n.t("design.preview.print_unavailable")

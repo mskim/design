@@ -69,20 +69,20 @@ class Design::PageSectionValidationTest < ActiveSupport::TestCase
     assert_equal [ err(:too_narrow, min: 20) ], @ps.errors[:right_margin_mm]
   end
 
-  # Poem never gets the binding, so its text width is width - left - right
-  # (108 mm = 306.1 pt today); chapter's is the print width (105 mm = 297.6 pt).
+  # Poem binds like chapter, so its column width is the print width
+  # (width - left - right - binding: 105 mm = 297.6 pt today).
   test "a width change is checked against every doc type's columns on the size, naming the doc type" do
-    @poem.update_columns(column_count: 3, gutter: 145) # 290 pt of gutters: fits in 306.1 pt
-    refute set_margin(left_margin_mm: "30")            # poem: 100 mm = 283.5 pt
+    @poem.update_columns(column_count: 3, gutter: 145) # 290 pt of gutters: fits in 297.6 pt
+    refute set_margin(left_margin_mm: "30")            # poem: 97 mm = 275 pt
     assert_equal [ err(:columns_elsewhere, doc_types: I18n.t("design.doc_types.poem")) ], @ps.errors[:left_margin_mm]
     @ps.reload
-    assert set_margin(left_margin_mm: "25")            # poem: 105 mm = 297.6 pt
+    assert set_margin(left_margin_mm: "24")            # poem: 103 mm = 292 pt
   end
 
   test "only newly broken doc types block a width save; one already broken never does" do
     @poem.update_columns(column_count: 3, gutter: 145)
-    @ps.update_columns(left_margin_mm: 40)             # poem: 90 mm = 255.1 pt < 290 pt — already broken
-    assert set_margin(left_margin_mm: "35"), "improving (poem 95 mm), not a full fix: accepted"
+    @ps.update_columns(left_margin_mm: 40)             # poem: 87 mm = 246.6 pt < 290 pt — already broken
+    assert set_margin(left_margin_mm: "35"), "improving (poem 92 mm), not a full fix: accepted"
     @ps.reload
     assert set_margin(right_margin_mm: "30"), "poem was broken at the stored width: not newly broken"
     @ps.reload
@@ -92,11 +92,14 @@ class Design::PageSectionValidationTest < ActiveSupport::TestCase
                  "only the newly broken doc type is named"
   end
 
-  # Chapter's text width counts the binding; poem's never does.
-  test "a binding save that breaks chapter's columns but not poem's is rejected, naming chapter only" do
-    [ @chapter, @poem ].each { |dd| dd.update_columns(column_count: 2, gutter: 280) }
-    refute set_margin(binding_margin_mm: "10")         # chapter: 152 - 44 - 10 = 98 mm = 277.8 pt < 280; poem: 306.1 pt
-    assert_equal [ err(:columns_elsewhere, doc_types: I18n.t("design.doc_types.chapter")) ], @ps.errors[:binding_margin_mm]
+  # Chapter's and poem's column widths count the binding; a title page's
+  # never does (it binds, but draws no columns).
+  test "a binding save that breaks chapter's and poem's columns is rejected, naming those only" do
+    title = @ps.document_designs.create!(doc_type: "title_page")
+    [ @chapter, @poem, title ].each { |dd| dd.update_columns(column_count: 2, gutter: 280) }
+    refute set_margin(binding_margin_mm: "10")         # 152 - 44 - 10 = 98 mm = 277.8 pt < 280; title page: 306.1 pt
+    labels = %w[chapter poem].map { |t| I18n.t("design.doc_types.#{t}") }.join(", ")
+    assert_equal [ err(:columns_elsewhere, doc_types: labels) ], @ps.errors[:binding_margin_mm]
   end
 
   test "the linked pair reports columns_elsewhere on both fields" do
@@ -183,11 +186,13 @@ class Design::PageSectionValidationTest < ActiveSupport::TestCase
     assert set_design(body_line_count: "7")
   end
 
-  test "columns_fit? uses the print width only where binding applies; margin_changed?" do
+  test "columns_fit? uses the print width only where the layout binds its columns; margin_changed?" do
     assert @chapter.columns_fit?
-    [ @chapter, @poem ].each { |dd| dd.column_count = 2; dd.gutter = 300 }
+    title = @ps.document_designs.create!(doc_type: "title_page")
+    [ @chapter, @poem, title ].each { |dd| dd.column_count = 2; dd.gutter = 300 }
     refute @chapter.columns_fit?, "chapter: print width 105 mm = 297.6 pt < 300 pt"
-    assert @poem.columns_fit?, "poem: no binding, 108 mm = 306.1 pt > 300 pt"
+    refute @poem.columns_fit?, "poem binds too: 105 mm = 297.6 pt < 300 pt"
+    assert title.columns_fit?, "title page: bound, but no columns — 108 mm = 306.1 pt > 300 pt"
     ps = @theme.paper_sizes.create!(size_name: "X", width_mm: 152, height_mm: 225, left_margin_mm: 22, top_margin_mm: 30)
     assert ps.overridden?(:left_margin_mm), "an explicit creation value is marked"
     refute ps.margin_changed?("left_margin_mm"), "…but equals the rule: no dot"
@@ -199,5 +204,21 @@ class Design::PageSectionValidationTest < ActiveSupport::TestCase
     assert_empty @ps.margin_problems
     @ps.update_columns(left_margin_mm: 70, right_margin_mm: 70, top_margin_mm: 190)
     assert_equal [ err(:too_narrow, min: 20), err(:too_short, min: 20) ], @ps.margin_problems
+  end
+
+  # Title page, TOC and copyright bind in print mode but flow no columns, so
+  # their column_count/gutter keep the binding-free width: widening the
+  # binding set must not newly reject a margin because of them.
+  test "a margin save isn't rejected for the columns of a bound doc type without columns" do
+    %w[title_page toc copyright].each do |t|
+      dd = @ps.document_designs.create!(doc_type: t)
+      dd.update_columns(column_count: 2, gutter: 295) # left 24: 106 mm = 300.5 pt fits; the print width 103 mm = 292 pt wouldn't
+      assert set_margin(left_margin_mm: "24"), "#{t}: #{@ps.errors.full_messages}"
+      @ps.reload
+      dd.destroy!
+    end
+    @chapter.update_columns(column_count: 2, gutter: 295)
+    refute set_margin(left_margin_mm: "24"), "control: the chapter's columns lose the binding"
+    assert_equal [ err(:columns_elsewhere, doc_types: I18n.t("design.doc_types.chapter")) ], @ps.errors[:left_margin_mm]
   end
 end

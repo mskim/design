@@ -96,11 +96,13 @@ class Design::DocumentDesignTest < ActiveSupport::TestCase
     ps = Design::Theme.create!(name: "GK #{SecureRandom.hex(3)}", locale: "ko")
                       .paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     kind = ->(t) { ps.document_designs.new(doc_type: t).guide_kind }
-    columns = Design::DocumentDesign::BINDING_DOC_TYPES + %w[poem]
+    columns = %w[chapter foreword prologue epilogue appendix help information poem]
     none = Design::DocumentDesign::COVER_PANEL_TYPES + %w[document_cover]
     all = Design::DocumentDesign::ALL_DOC_TYPES
     assert_empty (columns + none) - all, "every listed type is a doc type"
     assert_includes all, "title_page"
+    assert_equal columns.sort, Design::DocumentDesign::COLUMN_DOC_TYPES.sort
+    assert_empty %w[title_page toc copyright] & columns, "bound, but no columns to guide"
     all.each do |t|
       expected = columns.include?(t) ? :columns : none.include?(t) ? :none : :margins
       assert_equal expected, kind.(t), t

@@ -10,6 +10,10 @@ module Design
     PREVIEW_DPI = 150
     MAX_PREVIEW_PAGES = 4
     CACHE_VERSION = "v4" # bump when the stamp/JPG layout changes; old stamps become misses
+    # The print key's own part: bump when only print-mode output changes
+    # (normal caches stay warm). v2: doc_processor_rb cf4eb37 shifts every
+    # margin-relative element by the binding, not just the body text box.
+    PRINT_CACHE_VERSION = "print-v2"
     FALLBACK_HEADING = {
       "title" => "첫번째 이야기",
       "subtitle" => "부제목은 여기에",
@@ -61,9 +65,10 @@ module Design
 
     attr_reader :document_design, :paper_size
 
-    # print_mode: render as the printed book does (인쇄용): the body text box
-    # adds the binding margin on the spine side (odd pages left, even pages
-    # right; preview page 1 is odd). Only BINDING_DOC_TYPES use it; elsewhere
+    # print_mode: render as the printed book does (인쇄용): the layout shifts
+    # the page's content by the binding margin on the spine side (odd pages
+    # left, even pages right; preview page 1 is odd). Only
+    # DocumentDesign::BINDING_DOC_TYPES use it; elsewhere
     # it is off, so those doc types keep a single cache.
     # live: the design is an unsaved live-preview copy. Its cache key can't see
     # unsaved edits, so it is never read from or written to the cache: each
@@ -184,7 +189,7 @@ module Design
 
     # Styles resolve theme base → chapter → this design, so the chapter layer is
     # part of the key. Row counts catch deletions, which don't bump max(updated_at).
-    def cache_fingerprint
+    def cache_fingerprint_parts
       chapter = document_design.chapter_design
       timestamps = [
         document_design.updated_at,
@@ -200,8 +205,10 @@ module Design
       # Sub-second precision: two edits within the same second must not collide.
       parts = timestamps.map { |t| t.respond_to?(:iso8601) ? t.iso8601(6) : t.to_s }
       # The normal key is unchanged (existing caches stay warm); print mode adds a part.
-      "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((parts + [ sample_content.fingerprint, ("print" if @print_mode) ].compact).join("-"))
+      parts + [ sample_content.fingerprint, (PRINT_CACHE_VERSION if @print_mode) ].compact
     end
+
+    def cache_fingerprint = "#{CACHE_VERSION}:" + Digest::MD5.hexdigest(cache_fingerprint_parts.join("-"))
 
     def cache_stamp_path
       File.join(preview_dir, "cache_stamp.json")
