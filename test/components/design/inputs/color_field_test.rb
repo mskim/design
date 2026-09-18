@@ -36,6 +36,44 @@ class Design::ColorFieldTest < ActiveSupport::TestCase
     assert_equal "hex", hex_only.at_css("[data-controller]")["data-design--color-row-formats-value"]
   end
 
+  test "trigger is labelled by the label and summary and controls the dialog popover" do
+    doc = render_field(value: "#3b82f6")
+    trigger = doc.at_css("[data-design--color-row-target='trigger']")
+    label_id, summary_id = trigger["aria-labelledby"].split
+    assert_equal "색", doc.at_css("##{label_id}").text.strip
+    assert_equal doc.at_css("[data-design--color-row-target='summary']"), doc.at_css("##{summary_id}")
+    assert_equal "dialog", trigger["aria-haspopup"]
+    assert_equal "false", trigger["aria-expanded"]
+    popover = doc.at_css("##{trigger['aria-controls']}")
+    assert_equal popover, doc.at_css("[data-design--color-row-target='popover']")
+    assert_equal "dialog", popover["role"]
+    assert_equal "색", popover["aria-label"]
+    assert_equal "true", doc.at_css("[data-design--color-row-target='swatch']")["aria-hidden"]
+    assert_equal "K", doc.at_css("[data-design--color-row-target='kSlider']")["aria-label"]
+    assert_equal "Hex", doc.at_css("[data-design--color-row-target='hexInput']")["aria-label"]
+    assert(doc.css("[data-mode]").all? { |b| b["aria-pressed"] == "false" })
+  end
+
+  test "ids are unique per instance" do
+    a = render_field(value: "").at_css("[data-design--color-row-target='popover']")["id"]
+    b = render_field(value: "").at_css("[data-design--color-row-target='popover']")["id"]
+    refute_equal a, b
+  end
+
+  test "cmyk panel remembers the stored value on focus and reverts it on a channel revert" do
+    actions = render_field(value: "").at_css("[data-design--color-row-target='cmykPanel']")["data-action"].split
+    assert_includes actions, "focusin->design--color-row#rememberField"
+    assert_includes actions, "design--scrub-input:revert->design--color-row#revertField"
+    assert_includes actions, "change->design--color-row#commitChannels"
+  end
+
+  test "picker commits on input and change; Escape is handled at document level, not the root" do
+    doc = render_field(value: "")
+    assert_equal "input->design--color-row#fromPicker change->design--color-row#fromPicker",
+                 doc.at_css("[data-design--color-row-target='picker']")["data-action"]
+    assert_nil doc.at_css("[data-controller]")["data-action"]
+  end
+
   test "disabled disables the trigger and the hidden input" do
     doc = render_field(value: "#000000", disabled: true)
     assert doc.at_css("button[data-design--color-row-target='trigger']").key?("disabled")

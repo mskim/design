@@ -102,4 +102,10 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, %("design-controllers/design/color_math")
     %w[toggle( close( selectMode( fromChannels( fromSlider( fromHex( fromPicker( clear( keydown(].each { |m| assert_includes src, m }
   end
+
+  test "color_row controller reverts the stored colour and closes on a document-level Escape" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/color_row_controller.js"))
+    [ "revertField(", "rememberField(", 'addEventListener("keydown"', "showPicker" ].each { |m| assert_includes src, m }
+    refute_match(/convert\s*[:=]/, src, "mode switch must not rewrite the stored value")
+  end
 end
