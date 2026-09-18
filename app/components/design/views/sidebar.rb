@@ -19,12 +19,27 @@ module Design
         nav(class: "flex flex-col gap-3 p-3 text-sm", aria_label: "Studio") do
           theme_select
           size_select
+          matter_groups if @paper_size
         end
       end
 
       private
 
       SELECT_CLASS = "w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+
+      # Reading order for the rail — cover first, matching bookcheego's
+      # 표지/머리/본문/꼬리. (The theme overview grid is frontmatter-first on purpose;
+      # do not align one to the other.)
+      MATTER_ORDER = [
+        [ :cover,       "design.themes.cover" ],
+        [ :frontmatter, "design.themes.frontmatter" ],
+        [ :bodymatter,  "design.themes.bodymatter" ],
+        [ :rearmatter,  "design.themes.rearmatter" ],
+        [ :other,       "design.sidebar.other" ]
+      ].freeze
+
+      LEAF_CLASS   = "block truncate rounded px-2 py-0.5 no-underline hover:bg-slate-200"
+      ACTIVE_CLASS = "block truncate rounded px-2 py-0.5 no-underline bg-slate-900 text-white"
 
       def theme_select
         labelled_select("theme", I18n.t("design.sidebar.theme")) do
@@ -53,6 +68,40 @@ module Design
 
       def url_for_size(ps)
         @size_url ? @size_url.call(ps) : helpers.theme_path(@theme, paper_size_id: ps.id)
+      end
+
+      def matter_groups
+        grouped = Design::DocumentDesign.grouped_by_matter(@paper_size.document_designs.to_a)
+        MATTER_ORDER.each do |group, key|
+          designs = grouped[group]
+          next if designs.blank?
+          group_box(I18n.t(key)) do
+            designs.each { |dd| leaf(doc_type_label(dd.doc_type), design_href(dd), active: current?(:document_design, dd.id)) }
+          end
+        end
+      end
+
+      def group_box(label_text, &leaves)
+        details(open: true, class: "group") do
+          summary(class: "cursor-pointer select-none font-medium text-slate-700") { label_text }
+          ul(class: "ml-3 mt-1 flex flex-col gap-0.5 list-none p-0", &leaves)
+        end
+      end
+
+      def leaf(label_text, href, active:)
+        li do
+          a(href: href, title: label_text, class: active ? ACTIVE_CLASS : LEAF_CLASS,
+            aria_current: (active ? "page" : nil)) { label_text }
+        end
+      end
+
+      def design_href(dd)
+        helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, dd)
+      end
+
+      def current?(kind, id = nil)
+        return false unless @current && @current[:kind] == kind
+        id.nil? || @current[:id] == id
       end
     end
   end

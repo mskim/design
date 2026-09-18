@@ -14,6 +14,7 @@ class Design::SidebarTest < ActiveSupport::TestCase
   end
 
   setup do
+    sign_in :david # Design.current_user → editable_by? true for a theme owned by david
     @theme = Design::Theme.create!(name: "Sb #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     @ps    = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     @other = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
@@ -65,5 +66,44 @@ class Design::SidebarTest < ActiveSupport::TestCase
     doc = Nokogiri::HTML.fragment(component.call)
     assert doc.at_css("select[data-sidebar='theme']")
     assert_nil doc.at_css("select[data-sidebar='size'] option[selected]")
+  end
+
+  # --- matter groups ---
+
+  def seed_designs
+    @chapter = @ps.document_designs.create!(doc_type: "chapter")
+    @title   = @ps.document_designs.create!(doc_type: "title_page")
+    @front   = @ps.document_designs.create!(doc_type: "front_page")
+  end
+
+  test "renders matter groups cover-first, omitting empty groups" do
+    seed_designs
+    doc = render_sidebar
+    summaries = doc.css("details > summary").map { |s| s.text.strip }
+    assert_equal [ I18n.t("design.themes.cover"), I18n.t("design.themes.frontmatter"), I18n.t("design.themes.bodymatter") ], summaries
+  end
+
+  test "every group is open and each leaf links to the design editor" do
+    seed_designs
+    doc = render_sidebar
+    assert_equal 3, doc.css("details[open]").size
+    link = doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/#{@ps.id}/document_designs/#{@chapter.id}/edit']")
+    assert link, "chapter leaf missing"
+    assert_equal I18n.t("design.doc_types.chapter"), link.text.strip
+    assert_equal I18n.t("design.doc_types.chapter"), link["title"]
+  end
+
+  test "highlights only the current document design" do
+    seed_designs
+    doc = render_sidebar(current: { kind: :document_design, id: @chapter.id })
+    current = doc.css("[aria-current='page']")
+    assert_equal 1, current.size
+    assert_includes current.first.text, I18n.t("design.doc_types.chapter")
+  end
+
+  test "nothing is highlighted without current" do
+    seed_designs
+    doc = render_sidebar
+    assert_empty doc.css("[aria-current='page']")
   end
 end
