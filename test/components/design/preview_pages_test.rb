@@ -38,5 +38,7 @@ class Design::PreviewPagesTest < ActiveSupport::TestCase
       Design::Views::DocumentDesigns::Preview.new(document_design: @dd, paper_size: @ps, jpg_url: "/one.jpg", overlay_data: []).call
     )
     assert_equal 1, doc.css("img").size
+    assert_equal "/one.jpg", doc.at_css("img")["src"]
+    assert_empty doc.css("[data-page-label]")
   end
 end

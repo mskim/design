@@ -7,7 +7,7 @@ module Design
     def preview
       dd = request.post? ? build_preview_design : @document_design
       result = Design::PreviewService.new(dd, paper_size: @paper_size).generate
-      component = result[:success] ? preview_component(result, dd) : Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
+      component = preview_component(result, dd)
 
       if request.post?
         render turbo_stream: turbo_stream.replace("preview_frame", html: component.call.html_safe)
@@ -119,7 +119,11 @@ module Design
       result[:pages] || [ { jpg_path: result[:jpg_path], overlay_data: result[:overlay_data] || [] } ]
     end
 
+    # Preview (or PreviewError) component for a service result.
+    # dd may be an unsaved live-preview copy (same id); URLs always use @document_design.
     def preview_component(result, dd = @document_design)
+      return Design::Views::DocumentDesigns::PreviewError.new(error: result[:error]) unless result[:success]
+
       stamp = Time.now.to_i
       pages = preview_pages(result).each_with_index.map do |pg, i|
         { jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, page: i + 1, t: stamp),
@@ -133,8 +137,7 @@ module Design
     # Turbo-stream replacing the document preview with a freshly rendered one.
     def preview_frame_stream
       result = Design::PreviewService.new(@document_design, paper_size: @paper_size).generate
-      component = result[:success] ? preview_component(result) : Design::Views::DocumentDesigns::PreviewError.new(error: result[:error])
-      turbo_stream.replace("preview_frame", html: component.call.html_safe)
+      turbo_stream.replace("preview_frame", html: preview_component(result).call.html_safe)
     end
 
     # Turbo-stream re-rendering the style panel after a save, pointed at where the

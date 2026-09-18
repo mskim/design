@@ -105,6 +105,7 @@ class Design::DocumentDesignsPreviewTest < ActionDispatch::IntegrationTest
     stub_preview_service(multi_page_fake) do
       get design.preview_theme_paper_size_document_design_path(@theme, @ps, @dd, preview_mode: "single")
     end
+    assert_response :success
     assert_select "turbo-frame#preview_frame img", 1
   end
 
@@ -122,6 +123,11 @@ class Design::DocumentDesignsPreviewTest < ActionDispatch::IntegrationTest
         assert_response :success
         assert_equal "image/jpeg", response.media_type
         get design.preview_jpg_theme_paper_size_document_design_path(@theme, @ps, @dd, page: 9)
+        assert_response :not_found
+        # Listed in the result but missing on disk.
+        get design.preview_jpg_theme_paper_size_document_design_path(@theme, @ps, @dd, page: 1)
+        assert_response :not_found
+        get design.preview_jpg_theme_paper_size_document_design_path(@theme, @ps, @dd, page: "abc")
         assert_response :not_found
       end
     end
