@@ -13,7 +13,7 @@ class Design::ParagraphStylesFormTest < ActionDispatch::IntegrationTest
     get design.edit_theme_theme_paragraph_style_path(@theme, style)
     assert_response :success
     assert_select "body.design-studio"
-    assert_select "[data-controller='design--color-mode-field']"
+    assert_select "[data-controller='design--color-row']"
     patch design.theme_theme_paragraph_style_path(@theme, style), params: { paragraph_style: { font_size: 12 } }
     assert_response :redirect
     assert_equal 12.0, style.reload.font_size
@@ -23,7 +23,7 @@ class Design::ParagraphStylesFormTest < ActionDispatch::IntegrationTest
     style = @ps.paragraph_styles.create!(name: "h2")
     get design.edit_theme_paper_size_base_paragraph_style_path(@theme, @ps, style)
     assert_response :success
-    assert_select "[data-controller='design--color-mode-field']"
+    assert_select "[data-controller='design--color-row']"
     patch design.theme_paper_size_base_paragraph_style_path(@theme, @ps, style), params: { paragraph_style: { font_size: 14 } }
     assert_equal 14.0, style.reload.font_size
   end
