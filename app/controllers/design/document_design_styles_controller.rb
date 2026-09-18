@@ -7,6 +7,8 @@ module Design
   class DocumentDesignStylesController < Design::ApplicationController
     include Design::DocumentDesignPreview
 
+    RESERVED_STYLE_NAMES = %w[new].freeze # styles/new is the form
+
     before_action :set_theme
     before_action :set_paper_size
     before_action :set_document_design
@@ -25,6 +27,28 @@ module Design
           theme: @theme, paper_size: @paper_size, document_design: @document_design, style_name: style_name,
           urls: style_urls(preview_mode: "single"), back_url: editor_url, editable: editable?)
       end
+    end
+
+    # GET styles/new
+    def new
+      render new_style_form
+    end
+
+    # POST styles (name, korean_name). A name no layer defines becomes an empty
+    # row on every size of this doc type; an existing one just opens.
+    def create
+      name = params[:name].to_s.strip
+      korean = params[:korean_name].to_s.strip.presence
+      if (error = new_style_error(name))
+        return render turbo_stream: turbo_stream.replace("properties_panel", new_style_form(name: name, korean_name: korean, error: error)),
+                      status: :unprocessable_entity
+      end
+      unless @document_design.style_exists?(name)
+        @document_design.create_style!(name, korean_name: korean)
+        Design::ThemeDbExportService.new(@theme).export!
+      end
+      @style_name = name
+      render turbo_stream: turbo_stream.replace("properties_panel", embedded_panel)
     end
 
     # PATCH styles/:name/field (field, value). The value is validated on the
@@ -129,6 +153,19 @@ module Design
         document_design: @document_design, style_name: style_name, urls: style_urls, editable: editable?,
         preview_mode: panel_preview_mode, back_frame: "properties_panel",
         back_url: helpers.properties_panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, tab: "typography"))
+    end
+
+    def new_style_form(name: nil, korean_name: nil, error: nil)
+      Design::Views::ParagraphStyles::NewStyleForm.new(
+        url: helpers.theme_paper_size_document_design_styles_path(@theme, @paper_size, @document_design),
+        back_url: helpers.properties_panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, tab: "typography"),
+        name: name, korean_name: korean_name, error: error)
+    end
+
+    def new_style_error(name)
+      if name.empty? then I18n.t("design.style_panel.errors.name_blank")
+      elsif name.include?("/") || RESERVED_STYLE_NAMES.include?(name) then I18n.t("design.style_panel.errors.name_invalid")
+      end
     end
 
     def editor_url

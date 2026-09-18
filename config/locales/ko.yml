@@ -243,6 +243,8 @@ ko:
       from_chapter: "장에서"
       generated: "자동 크기 조정"
       revert_field: "상속으로 되돌리기"
+      create: "만들기"
+      korean_name_optional: "한글 이름 (선택)"
       status:
         saving: "저장 중…"
         saved: "저장됨"
@@ -262,6 +264,8 @@ ko:
         not_a_number: "숫자를 입력해 주세요"
         negative: "0 이상이어야 합니다"
         missing_chapter: "장 디자인이 없는 판형이 있어 반영할 수 없습니다: %{sizes}"
+        name_blank: "이름을 입력해 주세요"
+        name_invalid: "이 이름은 쓸 수 없습니다"
     paper_sizes:
       edit_title: "판형 편집"
       margins: "여백 (mm)"

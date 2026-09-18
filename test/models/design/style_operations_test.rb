@@ -108,6 +108,21 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
     end
   end
 
+  test "create_style! adds an empty row on every size of the doc type, kept though parentless" do
+    @foreword.create_style!("zz_new", korean_name: "새")
+
+    @forewords.each do |dd|
+      row = row_of(dd, "zz_new")
+      assert row, "foreword on #{dd.paper_size.size_name} should have a row"
+      assert_equal "새", row.korean_name
+      assert Design::ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }, "no field stored"
+    end
+    @chapters.each { |dd| assert_nil row_of(dd, "zz_new"), "chapter must stay untouched" }
+
+    @foreword.revert_style!("zz_new")
+    @forewords.each { |dd| assert row_of(dd, "zz_new"), "parentless row survives revert_style!" }
+  end
+
   test "push_style! from chapter writes user fields to the theme base and clears them on every chapter" do
     @chapter.set_style_field!("zz_body", "font_size", 11)
     # generator-only value: stored but not user-marked

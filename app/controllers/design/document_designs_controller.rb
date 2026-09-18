@@ -10,7 +10,7 @@ module Design
 
     def edit
       @paragraph_styles = @document_design.paragraph_styles.order(:name)
-      render Design::Views::DocumentDesigns::Edit.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, paragraph_styles: @paragraph_styles, editable: editable?)
+      render Design::Views::DocumentDesigns::Edit.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, paragraph_styles: @paragraph_styles, editable: editable?, tab: params[:tab])
     end
 
     def update

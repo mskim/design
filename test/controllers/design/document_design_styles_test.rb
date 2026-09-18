@@ -216,6 +216,52 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     post push_path(dd)
     assert_response :forbidden
+    get design.new_theme_paper_size_document_design_style_path(theme, ps, dd), headers: FRAME
+    assert_response :forbidden
+    post styles_path(dd), params: { name: "zz_new" }, headers: STREAM
+    assert_response :forbidden
     assert_nil row_of(dd)
+    assert_nil row_of(dd, "zz_new")
+  end
+
+  # ── 새 스타일 ──
+
+  def styles_path(dd = @fw) = design.theme_paper_size_document_design_styles_path(dd.theme, dd.paper_size, dd)
+
+  test "GET new renders the 새 스타일 form in the frame" do
+    get design.new_theme_paper_size_document_design_style_path(@theme, @ps, @fw), headers: FRAME
+    assert_response :success
+    assert_select "turbo-frame#properties_panel form[action=?] input[name=name]", styles_path
+    assert_select "input[name=korean_name]"
+  end
+
+  test "create makes a parentless style on every size of the doc type and answers with its panel" do
+    exports = count_exports { post styles_path, params: { name: "zz_new", korean_name: "새것" }, headers: STREAM }
+    assert_response :success
+    @forewords.each do |dd|
+      row = row_of(dd, "zz_new")
+      assert row, "row on #{dd.paper_size.size_name}"
+      assert_equal "새것", row.korean_name
+      assert Design::ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }
+    end
+    @chapters.each { |dd| assert_nil row_of(dd, "zz_new") }
+    assert_includes stream_attrs, { "action" => "replace", "target" => "properties_panel" }
+    assert stream_template("properties_panel").at_css("form[data-controller~='design--style-autosave']")
+    assert_equal 1, exports
+  end
+
+  test "create with an existing name opens that style and creates nothing" do
+    exports = count_exports { post styles_path, params: { name: "zz_body" }, headers: STREAM }
+    assert_response :success
+    assert_nil row_of(@fw)
+    assert_equal 0, exports
+  end
+
+  test "create rejects a blank, reserved or slash name with 422" do
+    [ "", "  ", "new", "a/b" ].each do |name|
+      post styles_path, params: { name: name }, headers: STREAM
+      assert_response :unprocessable_entity, name.inspect
+      assert stream_template("properties_panel").at_css("[role=alert]"), name.inspect
+    end
   end
 end

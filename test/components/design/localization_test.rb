@@ -12,8 +12,7 @@ class Design::LocalizationTest < ActiveSupport::TestCase
     c.define_singleton_method(:form_action_url) { "/x" }
     c.define_singleton_method(:preview_url) { "/x/preview" }
     c.define_singleton_method(:csrf_token) { "test-token" }
-    c.define_singleton_method(:typography_panel_url) { |o| "/x/panel/#{o.id}" }
-    c.define_singleton_method(:typography_override_url) { |_n| "/x/override" }
+    c.define_singleton_method(:typography_style_url) { |n| "/x/styles/#{n}" }
     c.define_singleton_method(:typography_new_style_url) { "/x/new" }
     c.call
   end

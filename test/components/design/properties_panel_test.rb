@@ -270,21 +270,14 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
 
   # --------------- Typography tab ---------------
 
-  test "renders merged styles: base-only style shows (base) marker" do
+  test "a style changed on this doc type shows +; an inherited one doesn't; no (base) marker" do
     @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
-    html = render_panel
-    assert_includes html, "body"
-    assert_includes html, "(base)"
-  end
-
-  test "renders merged styles: overridden style does NOT show (base) marker immediately after its name span" do
-    @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
-    @dd.paragraph_styles.create!(name: "body", font_size: 12)
-    html = render_panel
-    assert_includes html, "body"
-    # When overridden, the name span is immediately followed by </div> (no (base) span in-between)
-    assert_includes html, %(<span class="text-sm font-medium">body</span></div>)
-    refute_includes html, %(<span class="text-sm font-medium">body</span><span class="text-[10px] text-slate-400 ml-1">(base)</span>)
+    @theme.base_paragraph_styles.create!(name: "caption", font_size: 8)
+    @dd.set_style_field!("body", "font_size", 12)
+    doc = Nokogiri::HTML.fragment(render_panel)
+    assert doc.at_css("[data-style-row='body'] [data-changed-marker]")
+    assert_nil doc.at_css("[data-style-row='caption'] [data-changed-marker]")
+    refute_includes doc.to_html, "(base)"
   end
 
   test "renders korean_name when present" do
@@ -293,19 +286,12 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
     assert_includes html, "본문"
   end
 
-  test "Edit link for base-only style uses override POST path" do
+  test "Edit links open the name-keyed style panel in the properties_panel frame (no POST override)" do
     @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
     html = render_panel(editable: true)
-    assert_includes html, "/test/override"
-    assert_includes html, %(data-turbo-method="post")
-  end
-
-  test "Edit link for overridden style uses panel GET path with level and style_id" do
-    @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
-    override = @dd.paragraph_styles.create!(name: "body", font_size: 12)
-    html = render_panel(editable: true)
-    assert_includes html, "/test/panel/#{override.id}"
+    assert_includes html, %(href="/test/styles/body")
     assert_includes html, %(data-turbo-frame="properties_panel")
+    refute_includes html, %(data-turbo-method="post")
   end
 
   test "Add Style button present when editable: true" do
@@ -316,13 +302,15 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
 
   test "No Edit links and no Add Style button when editable: false" do
     @theme.base_paragraph_styles.create!(name: "body", font_size: 10)
-    override = @dd.paragraph_styles.create!(name: "body", font_size: 12)
     html = render_panel(editable: false)
-    # Style names still render
     assert_includes html, "body"
-    # But no Edit links or Add Style button
-    refute_includes html, "Edit"
-    refute_includes html, "Add Style"
+    refute_includes html, "/test/styles/"
+    refute_includes html, "/test/new_style"
+  end
+
+  test "tab: typography opens the 단락정의 tab; anything else opens 레이아웃" do
+    assert_includes render_panel(tab: "typography"), %(data-ruby-ui--tabs-active-value="typography")
+    assert_includes render_panel(tab: "bogus"), %(data-ruby-ui--tabs-active-value="layout")
   end
 
   test "styles sorted in canonical order (title before body)" do
@@ -339,20 +327,20 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
   private
 
   # Build and render the panel, stubbing out the URL helpers that need a request context.
-  def render_panel(editable: true)
+  def render_panel(editable: true, tab: nil)
     component = Design::Views::DocumentDesigns::PropertiesPanel.new(
       theme: @theme,
       paper_size: @ps,
       document_design: @dd,
-      editable: editable
+      editable: editable,
+      tab: tab
     )
     # Stub URL helpers that require a view context (no request in unit tests)
     component.define_singleton_method(:form_action_url) { "/design/themes/1/paper_sizes/1/document_designs/1" }
     component.define_singleton_method(:preview_url) { "/design/themes/1/paper_sizes/1/document_designs/1/preview" }
     component.define_singleton_method(:csrf_token) { "test-token" }
     # Stub typography URL helpers
-    component.define_singleton_method(:typography_panel_url) { |override| "/test/panel/#{override.id}" }
-    component.define_singleton_method(:typography_override_url) { |_name| "/test/override" }
+    component.define_singleton_method(:typography_style_url) { |name| "/test/styles/#{name}" }
     component.define_singleton_method(:typography_new_style_url) { "/test/new_style" }
     component.call
   end

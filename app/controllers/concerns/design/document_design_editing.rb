@@ -29,7 +29,7 @@ module Design
     end
 
     def properties_panel
-      render Design::Views::DocumentDesigns::PropertiesPanel.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: editable?)
+      render Design::Views::DocumentDesigns::PropertiesPanel.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: editable?, tab: params[:tab])
     end
 
     def panel

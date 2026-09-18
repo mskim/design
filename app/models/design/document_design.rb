@@ -353,6 +353,17 @@ module Design
       end
     end
 
+    # 새 스타일: a style with no parent — an empty row on every size of this
+    # doc type (never auto-deleted: it has no parent to fall back to).
+    def create_style!(name, korean_name: nil)
+      transaction do
+        same_doc_type_designs.find_each do |dd|
+          dd.paragraph_styles.find_or_create_by!(name: name) { |row| row.korean_name = korean_name }
+        end
+        touch_inheritors!
+      end
+    end
+
     # For each user field a push would move up, the number of sibling doc types
     # that keep their own value for it (and so won't see the pushed value).
     def push_preview(name)

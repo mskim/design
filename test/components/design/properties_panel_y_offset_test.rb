@@ -12,8 +12,7 @@ class Design::PropertiesPanelYOffsetTest < ActiveSupport::TestCase
     component.define_singleton_method(:form_action_url) { "/design/themes/1/paper_sizes/1/document_designs/1" }
     component.define_singleton_method(:preview_url) { "/design/themes/1/paper_sizes/1/document_designs/1/preview" }
     component.define_singleton_method(:csrf_token) { "test-token" }
-    component.define_singleton_method(:typography_panel_url) { |override| "/test/panel/#{override.id}" }
-    component.define_singleton_method(:typography_override_url) { |_name| "/test/override" }
+    component.define_singleton_method(:typography_style_url) { |name| "/test/styles/#{name}" }
     component.define_singleton_method(:typography_new_style_url) { "/test/new_style" }
     component.call
   end

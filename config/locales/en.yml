@@ -243,6 +243,8 @@ en:
       from_chapter: "From chapter"
       generated: "Auto-scaled"
       revert_field: "Revert to inherited"
+      create: "Create"
+      korean_name_optional: "Korean name (optional)"
       status:
         saving: "Saving…"
         saved: "Saved"
@@ -262,6 +264,8 @@ en:
         not_a_number: "Enter a number"
         negative: "Must be 0 or more"
         missing_chapter: "Can't apply: no chapter design on %{sizes}"
+        name_blank: "Enter a name"
+        name_invalid: "This name can't be used"
     paper_sizes:
       edit_title: "Edit Paper Size"
       margins: "Margins (mm)"

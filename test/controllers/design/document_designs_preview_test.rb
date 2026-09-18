@@ -45,8 +45,8 @@ class Design::DocumentDesignsPreviewTest < ActionDispatch::IntegrationTest
       get design.preview_theme_paper_size_document_design_path(@theme, @ps, @dd)
     end
     assert_response :success
-    assert_includes response.body, "/panel"          # panel URL, not edit
-    assert_includes response.body, "level=theme"      # body is a theme-base style
+    assert_includes response.body, design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, "body")
+    refute_includes response.body, "level=", "no more level/style_id links"
     # Navigates via the controller (no SVG <a href> — Turbo's link handler throws on those).
     assert_includes response.body, "design--overlay-link#navigate"
     refute_includes response.body, %(data-turbo-frame="properties_panel")

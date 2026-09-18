@@ -5,14 +5,19 @@ module Design
         include Design::Views::FieldGroups
         register_element :turbo_frame
 
+        TABS = %w[layout typography header_footer].freeze
+
         # error: a message shown under the header (e.g. a style Save that hit a
         # row that no longer exists).
-        def initialize(theme:, paper_size:, document_design:, editable: true, error: nil)
+        # tab: the tab open on render (Back from a style panel → "typography");
+        # anything unknown opens 레이아웃.
+        def initialize(theme:, paper_size:, document_design:, editable: true, error: nil, tab: nil)
           @theme = theme
           @paper_size = paper_size
           @document_design = document_design
           @editable = editable
           @error = error
+          @tab = TABS.include?(tab) ? tab : "layout"
         end
 
         def view_template
@@ -56,7 +61,7 @@ module Design
             input(type: "hidden", name: "authenticity_token", value: csrf_token)
 
             div(class: "p-4 space-y-3") do
-              render RubyUI::Tabs.new(default: "layout") do
+              render RubyUI::Tabs.new(default: @tab) do
                 render RubyUI::TabsList.new(class: "w-full") do
                   render RubyUI::TabsTrigger.new(value: "layout") { I18n.t("design.properties_panel.layout") }
                   render RubyUI::TabsTrigger.new(value: "typography") { I18n.t("design.properties_panel.typography") }
@@ -242,13 +247,13 @@ module Design
 
         def render_typography_tab
           style_order = %w[title subtitle author publisher h2 h3 h4 h5 h6 body]
-          override_by_name = @document_design.paragraph_styles.index_by(&:name)
+          own_by_name = @document_design.paragraph_styles.index_by(&:name)
           # Scope the list to the styles this doc_type actually uses (e.g. a TOC
           # doesn't show wing_*/cover_*/seneca_*). Always keep styles that already
-          # have a per-size override so existing edits stay visible.
+          # have a row on this doc type so existing edits stay visible.
           relevant = @document_design.relevant_style_names
           merged = @document_design.merged_paragraph_styles.select { |s|
-            relevant.include?(s.name) || override_by_name.key?(s.name)
+            relevant.include?(s.name) || own_by_name.key?(s.name)
           }.sort_by { |s|
             idx = style_order.index(s.name)
             idx ? [ 0, idx ] : [ 1, s.name ]
@@ -256,34 +261,20 @@ module Design
 
           div(class: "space-y-3 pt-4") do
             merged.each do |style|
-              override = override_by_name[style.name]
-              is_base = override.nil?
-
-              div(class: "flex items-center justify-between py-1.5 border-b") do
+              own = own_by_name[style.name]
+              changed = own && Design::ParagraphStyle::STYLE_FIELDS.any? { |f| !own[f].nil? }
+              div(class: "flex items-center justify-between py-1.5 border-b", data: { style_row: style.name }) do
                 div do
                   span(class: "text-sm font-medium") { style.name }
-                  if style.korean_name.present?
-                    span(class: "text-xs text-slate-500 ml-2") { style.korean_name }
+                  if changed
+                    span(class: "ml-0.5 text-sm font-semibold text-blue-600", title: I18n.t("design.style_panel.has_changes"),
+                         data: { changed_marker: true }) { "+" }
                   end
-                  if is_base
-                    span(class: "text-[10px] text-slate-400 ml-1") { "(base)" }
-                  end
+                  span(class: "text-xs text-slate-500 ml-2") { style.korean_name } if style.korean_name.present?
                 end
-
                 if @editable
-                  if override
-                    a(
-                      href: typography_panel_url(override),
-                      data: { turbo_frame: "properties_panel" },
-                      class: "text-xs text-blue-600 hover:underline"
-                    ) { I18n.t("design.properties_panel.edit") }
-                  else
-                    a(
-                      href: typography_override_url(style.name),
-                      data: { turbo_method: "post", turbo_frame: "properties_panel" },
-                      class: "text-xs text-blue-600 hover:underline"
-                    ) { I18n.t("design.properties_panel.edit") }
-                  end
+                  a(href: typography_style_url(style.name), data: { turbo_frame: "properties_panel" },
+                    class: "text-xs text-blue-600 hover:underline") { I18n.t("design.properties_panel.edit") }
                 end
               end
             end
@@ -296,24 +287,12 @@ module Design
           end
         end
 
-        def typography_panel_url(override)
-          helpers.panel_theme_paper_size_document_design_path(
-            @theme, @paper_size, @document_design,
-            level: "document", style_id: override.id
-          )
-        end
-
-        def typography_override_url(style_name)
-          helpers.override_theme_paper_size_document_design_paragraph_styles_path(
-            @theme, @paper_size, @document_design,
-            name: style_name
-          )
+        def typography_style_url(name)
+          helpers.theme_paper_size_document_design_style_path(@theme, @paper_size, @document_design, name)
         end
 
         def typography_new_style_url
-          helpers.new_theme_paper_size_document_design_paragraph_style_path(
-            @theme, @paper_size, @document_design
-          )
+          helpers.new_theme_paper_size_document_design_style_path(@theme, @paper_size, @document_design)
         end
 
         # --------------- Header/Footer Tab ---------------

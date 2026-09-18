@@ -9,11 +9,13 @@ module Design
 
     # Stale style link (reverted, or cleared by an "apply to all" save): show the
     # live document view instead of raising. A turbo-frame request re-renders the
-    # properties panel in place; a full navigation redirects to the editor.
+    # properties panel in place, on the 단락정의 tab the style link came from; a
+    # full navigation redirects to the editor.
     def fall_back_to_document_view
       if turbo_frame_request?
         render Design::Views::DocumentDesigns::PropertiesPanel.new(
-          theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: editable?)
+          theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: editable?,
+          tab: "typography")
       else
         redirect_to helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @document_design)
       end
@@ -60,18 +62,12 @@ module Design
       turbo_stream.replace("preview_frame", html: preview_component(result).call.html_safe)
     end
 
+    # Preview-overlay zones → the style's full-page editor (name-keyed; every
+    # style the preview can show resolves through merged_paragraph_styles).
     def build_style_urls
-      urls = {}
-      @theme.base_paragraph_styles.each do |s|
-        urls[s.name] = helpers.panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: "theme", style_id: s.id)
+      @document_design.merged_paragraph_styles.map(&:name).index_with do |name|
+        helpers.theme_paper_size_document_design_style_path(@theme, @paper_size, @document_design, name)
       end
-      @paper_size.paragraph_styles.each do |s|
-        urls[s.name] = helpers.panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: "paper", style_id: s.id)
-      end
-      @document_design.paragraph_styles.each do |s|
-        urls[s.name] = helpers.panel_theme_paper_size_document_design_path(@theme, @paper_size, @document_design, level: "document", style_id: s.id)
-      end
-      urls
     end
   end
 end
