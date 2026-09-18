@@ -2,10 +2,13 @@ module Design
   module Views
     module PaperSizes
       class Form < Design::Views::Base
-        def initialize(theme:, paper_size:, base_styles: [])
+        # return_design: the design whose editor's 판형 편집 link opened this
+        # page — Save and Cancel go back to it.
+        def initialize(theme:, paper_size:, base_styles: [], return_design: nil)
           @theme = theme
           @paper_size = paper_size
           @base_styles = base_styles
+          @return_design = return_design
         end
 
         def view_template
@@ -43,6 +46,7 @@ module Design
           form(action: url, method: "post", class: "flex flex-col gap-6") do
             input(type: "hidden", name: "_method", value: method) if method == "patch"
             input(type: "hidden", name: "authenticity_token", value: helpers.form_authenticity_token)
+            input(type: "hidden", name: "return_to", value: @return_design.id) if @return_design
 
             h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.paper_sizes.page_size") }
             div(class: "grid grid-cols-1 gap-3 sm:grid-cols-2") do
@@ -68,11 +72,15 @@ module Design
             primary_label = @paper_size.persisted? ? I18n.t("design.paper_sizes.update_button") : I18n.t("design.paper_sizes.create_button")
             div(class: "flex items-center gap-3") do
               render RubyUI::Button.new(variant: :primary, type: :submit) { primary_label }
-              a(href: helpers.theme_path(@theme)) { render RubyUI::Button.new(variant: :outline) { I18n.t("design.shared.cancel") } }
+              a(href: cancel_url) { render RubyUI::Button.new(variant: :outline) { I18n.t("design.shared.cancel") } }
             end
           end
 
           secondary_actions if @paper_size.persisted?
+        end
+
+        def cancel_url
+          @return_design ? helpers.edit_theme_paper_size_document_design_path(@theme, @paper_size, @return_design) : helpers.theme_path(@theme)
         end
 
         # Regenerate + Delete are separate forms (own method/confirm) so they don't nest in the main form.
