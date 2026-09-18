@@ -65,19 +65,33 @@ module Design
     # adds the binding margin on the spine side (odd pages left, even pages
     # right; preview page 1 is odd). Only BINDING_DOC_TYPES use it; elsewhere
     # it is off, so those doc types keep a single cache.
-    def initialize(document_design, paper_size: nil, print_mode: false)
+    # live: the design is an unsaved live-preview copy. Its cache key can't see
+    # unsaved edits, so it is never read from or written to the cache: each
+    # render goes to its own live/<token> folder (served by token, never
+    # re-rendered), leaving the saved design's cache alone.
+    def initialize(document_design, paper_size: nil, print_mode: false, live: false)
       @document_design = document_design
       @paper_size = paper_size || document_design.paper_size
       @print_mode = print_mode == true && document_design.binding_applies?
+      @live_token = SecureRandom.hex(8) if live
     end
 
     def print_mode? = @print_mode
+
+    LIVE_TOKEN = /\A[0-9a-f]{16}\z/
+    LIVE_TTL = 10.minutes
+
+    # A live render's page JPG, or nil for a malformed token.
+    def self.live_jpg_path(document_design_id, token, page)
+      return nil unless token.to_s.match?(LIVE_TOKEN) && page.to_i.positive?
+      Rails.root.join("tmp", "previews", "dd_#{document_design_id.to_i}", "live", token, "preview_#{page.to_i}.jpg").to_s
+    end
 
     # Generate preview: PDF → up to MAX_PREVIEW_PAGES JPGs + per-page overlay data
     # Returns { success:, page_count:, pages: [{ jpg_path:, overlay_data: }], page_width:, page_height:, print_mode:, error: }
     # jpg_path/overlay_data are also present as page-1 aliases for callers that only show the first page.
     def generate
-      cached = load_cached_preview
+      cached = load_cached_preview unless @live_token
       return cached if cached
 
       FileUtils.mkdir_p(preview_dir)
@@ -117,7 +131,7 @@ module Design
         # DB page rows and the PDF can disagree (wings never save_page); trust what was actually rasterized.
         pages = pages.first(rendered)
         publish_pages(work, pages.size)
-        save_cache_stamp(pages)
+        @live_token ? prune_live_renders : save_cache_stamp(pages)
 
         result_hash(pages)
       rescue => e
@@ -149,7 +163,16 @@ module Design
     # never sees the other mode's pages, and a normal clear_cache removes both.
     def preview_dir
       base = Rails.root.join("tmp", "previews", "dd_#{document_design.id}")
+      return base.join("live", @live_token) if @live_token
       @print_mode ? base.join("print") : base
+    end
+
+    # Older live renders: a replaced preview frame no longer shows them.
+    def prune_live_renders
+      Dir[File.join(File.dirname(preview_dir), "*")].each do |dir|
+        next if dir == preview_dir.to_s
+        FileUtils.rm_rf(dir) if File.mtime(dir) < LIVE_TTL.ago
+      end
     end
 
     # Private per-call working dir (unique per generation) so concurrent renders of
@@ -217,6 +240,7 @@ module Design
         page_width: preview_page_width_pt,
         page_height: paper_size.height_pt,
         print_mode: @print_mode,
+        live_token: @live_token,
         error: nil
       }
     end

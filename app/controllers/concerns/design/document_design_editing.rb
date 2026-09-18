@@ -6,7 +6,7 @@ module Design
 
     def preview
       dd = request.post? ? build_preview_design : @document_design
-      result = preview_service(dd).generate
+      result = preview_service(dd, live: request.post?).generate
       component = preview_component(result, dd)
 
       if request.post?
@@ -20,6 +20,8 @@ module Design
     # theme page's cards and design_preview_img call this without it and must
     # stay normal, so the cookie is not read here.
     def preview_jpg
+      return send_live_jpg if params[:live].present?
+
       result = Design::PreviewService.new(@document_design, paper_size: @paper_size, print_mode: params[:print] == "1").generate
       page = params.fetch(:page, 1).to_i
       path = preview_pages(result)[page - 1]&.dig(:jpg_path) if result[:success] && page >= 1
@@ -49,6 +51,14 @@ module Design
     private
 
     KNOWN_STYLE_LEVELS = %w[theme paper document].freeze
+
+    # A live-preview render's page, exactly as rendered (never re-rendered: the
+    # saved design would come back instead of the unsaved edits).
+    def send_live_jpg
+      path = Design::PreviewService.live_jpg_path(@document_design.id, params[:live], params.fetch(:page, 1))
+      return head(:not_found) unless path && File.exist?(path)
+      send_file path, type: "image/jpeg", disposition: "inline"
+    end
 
     def find_panel_style(level, id)
       case level
