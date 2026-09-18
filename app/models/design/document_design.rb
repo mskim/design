@@ -262,6 +262,126 @@ module Design
       ps
     end
 
+    # ── Field-level style operations ─────────────────────────────────────────
+    # A doc type's styles are edited once for every paper size: each operation
+    # writes to this doc type's design on all of the theme's sizes, comparing
+    # against that size's own parent (theme base → chapter).
+
+    def same_doc_type_designs = theme.document_designs.where(doc_type: doc_type)
+
+    def style_state(name)
+      own = paragraph_styles.find_by(name: name)
+      parent = parent_values(name)
+      changed = own ? ParagraphStyle::STYLE_FIELDS.select { |f| !own[f].nil? } : []
+      user = own ? changed & Array(own.overridden_fields) : []
+      { own: own, parent_values: parent, changed_fields: changed, user_fields: user,
+        has_parent: parent.values.any? { |v| !v.nil? } }
+    end
+
+    # Set `field` of style `name` on every size. A blank value or one equal to the
+    # parent clears the field (inherit) and is never marked as a user override.
+    def set_style_field!(name, field, value)
+      assert_style_field!(field)
+      field = field.to_s
+      transaction do
+        same_doc_type_designs.find_each do |dd|
+          parent = dd.parent_values(name)[field]
+          if value.nil? || (value.is_a?(String) && value.strip.empty?) || ParagraphStyle.same_value?(field, value, parent)
+            dd.clear_style_field(name, field)
+          else
+            row = dd.paragraph_styles.find_or_initialize_by(name: name)
+            row[field] = value
+            row.overridden_fields = (Array(row.overridden_fields) | [ field ])
+            row.save!
+          end
+        end
+        touch_inheritors!
+      end
+    end
+
+    def revert_style_field!(name, field)
+      assert_style_field!(field)
+      field = field.to_s
+      transaction do
+        same_doc_type_designs.find_each { |dd| dd.clear_style_field(name, field) }
+        touch_inheritors!
+      end
+    end
+
+    # Delete the style's rows on every size (only where a parent exists — a
+    # parentless style would vanish entirely).
+    def revert_style!(name)
+      transaction do
+        same_doc_type_designs.find_each do |dd|
+          dd.paragraph_styles.where(name: name).destroy_all if dd.style_has_parent?(name)
+        end
+        touch_inheritors!
+      end
+    end
+
+    # For each user field a push would move up, the number of sibling doc types
+    # that keep their own value for it (and so won't see the pushed value).
+    def push_preview(name)
+      fields = style_state(name)[:user_fields]
+      siblings = doc_type == "chapter" ? theme.document_designs.where.not(doc_type: "chapter") :
+                                         theme.document_designs.where.not(doc_type: [ "chapter", doc_type ])
+      fields.index_with do |f|
+        siblings.joins(:paragraph_styles)
+                .where(design_paragraph_styles: { name: name })
+                .where.not(design_paragraph_styles: { f => nil })
+                .distinct.count(:doc_type)
+      end
+    end
+
+    # Move the user-changed fields one layer up (chapter → theme base; other doc
+    # types → chapter on every size) and clear them here. Generator-only values
+    # (stored but not in overridden_fields) stay put.
+    def push_style!(name)
+      own = paragraph_styles.find_by(name: name) or return
+      fields = style_state(name)[:user_fields]
+      return if fields.empty?
+      transaction do
+        if doc_type == "chapter"
+          base = theme.base_paragraph_styles.find_or_initialize_by(name: name)
+          fields.each { |f| base[f] = own[f] }
+          base.save!
+        else
+          ch = chapter_design or raise "no chapter design on #{paper_size.display_name}"
+          fields.each { |f| ch.set_style_field!(name, f, own[f]) }
+        end
+        fields.each { |f| revert_style_field!(name, f) }
+      end
+    end
+
+    def style_has_parent?(name) = parent_values(name).values.any? { |v| !v.nil? }
+
+    protected
+
+    def clear_style_field(name, field)
+      row = paragraph_styles.find_by(name: name) or return
+      row[field] = nil
+      row.overridden_fields = Array(row.overridden_fields) - [ field ]
+      if style_has_parent?(name) && ParagraphStyle::STYLE_FIELDS.all? { |f| row[f].nil? }
+        row.destroy!
+      else
+        row.save!
+      end
+    end
+
+    # Deleting rows doesn't bump max(updated_at); touch every design whose preview
+    # may change (this doc type everywhere; for chapter, every doc type).
+    def touch_inheritors!
+      now = Time.current
+      scope = doc_type == "chapter" ? theme.document_designs : same_doc_type_designs
+      scope.update_all(updated_at: now)
+      self.updated_at = now # the controller renders the preview from this instance
+      clear_attribute_changes([ :updated_at ]) # already persisted by update_all
+    end
+
+    def assert_style_field!(field)
+      raise ArgumentError, "not a style field: #{field}" unless ParagraphStyle::STYLE_FIELDS.include?(field.to_s)
+    end
+
     private
 
     def ensure_heading_style_exists(style_name)

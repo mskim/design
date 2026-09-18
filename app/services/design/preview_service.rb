@@ -145,14 +145,20 @@ module Design
       Rails.root.join("tmp", "previews", ".work", "dd_#{document_design.id}_#{SecureRandom.hex(8)}")
     end
 
+    # Styles resolve theme base → chapter → this design, so the chapter layer is
+    # part of the key. Row counts catch deletions, which don't bump max(updated_at).
     def cache_fingerprint
+      chapter = document_design.chapter_design
       timestamps = [
         document_design.updated_at,
         paper_size.updated_at,
         paper_size.theme.updated_at,
         document_design.paragraph_styles.maximum(:updated_at),
         document_design.heading_elements.maximum(:updated_at),
-        paper_size.theme.base_paragraph_styles.maximum(:updated_at)
+        paper_size.theme.base_paragraph_styles.maximum(:updated_at),
+        chapter&.paragraph_styles&.maximum(:updated_at),
+        document_design.paragraph_styles.count,
+        chapter&.paragraph_styles&.count
       ].compact
       "#{CACHE_VERSION}:" + Digest::MD5.hexdigest((timestamps.map(&:to_s) + [ sample_content.fingerprint ]).join("-"))
     end
