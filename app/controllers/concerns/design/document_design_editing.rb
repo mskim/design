@@ -109,6 +109,11 @@ module Design
       params[:preview_mode] == "single" ? :single : :scroll
     end
 
+    # What the style Panel form should post back: "single" or nil (nothing for scroll).
+    def panel_preview_mode
+      preview_mode == :single ? "single" : nil
+    end
+
     # Older/stubbed service results carry only the page-1 keys; normalise to pages.
     def preview_pages(result)
       result[:pages] || [ { jpg_path: result[:jpg_path], overlay_data: result[:overlay_data] || [] } ]
@@ -153,7 +158,8 @@ module Design
         revert_url: document_style_revert_url(style, level),
         editable: editable?,
         document_design: @document_design,
-        save_scope_shadow_count: @theme.shadow_override_doc_types(name).size))
+        save_scope_shadow_count: @theme.shadow_override_doc_types(name).size,
+        preview_mode: panel_preview_mode))
       turbo_stream.replace("properties_panel", html: html)
     end
 
@@ -169,7 +175,8 @@ module Design
         revert_url: revert_url,
         editable: editable?,
         document_design: @document_design,
-        save_scope_shadow_count: @theme.shadow_override_doc_types(style.name).size
+        save_scope_shadow_count: @theme.shadow_override_doc_types(style.name).size,
+        preview_mode: panel_preview_mode
       ), status: status
     end
 
