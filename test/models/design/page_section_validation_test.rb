@@ -92,6 +92,53 @@ class Design::PageSectionValidationTest < ActiveSupport::TestCase
                  "only the newly broken doc type is named"
   end
 
+  # Chapter's text width counts the binding; poem's never does.
+  test "a binding save that breaks chapter's columns but not poem's is rejected, naming chapter only" do
+    [ @chapter, @poem ].each { |dd| dd.update_columns(column_count: 2, gutter: 280) }
+    refute set_margin(binding_margin_mm: "10")         # chapter: 152 - 44 - 10 = 98 mm = 277.8 pt < 280; poem: 306.1 pt
+    assert_equal [ err(:columns_elsewhere, doc_types: I18n.t("design.doc_types.chapter")) ], @ps.errors[:binding_margin_mm]
+  end
+
+  test "the linked pair reports columns_elsewhere on both fields" do
+    @chapter.update_columns(column_count: 2, gutter: 280)
+    refute set_margin(left_margin_mm: "26", right_margin_mm: "26") # chapter: 152 - 52 - 3 = 97 mm = 275 pt < 280
+    expected = [ err(:columns_elsewhere, doc_types: I18n.t("design.doc_types.chapter")) ]
+    assert_equal expected, @ps.errors[:left_margin_mm]
+    assert_equal expected, @ps.errors[:right_margin_mm]
+  end
+
+  test "a raw value that is neither String nor Numeric is not a number, never a NoMethodError" do
+    [ true, [ 1 ], { "a" => 1 } ].each do |v|
+      refute set_margin(top_margin_mm: v), v.inspect
+      assert_equal [ err(:not_a_number) ], @ps.errors[:top_margin_mm], v.inspect
+      @ps.reload
+      refute set_design(gutter: v), v.inspect
+      assert_equal [ err(:not_a_number) ], @chapter.errors[:gutter], v.inspect
+      @chapter.reload
+      refute set_design(column_count: v), v.inspect
+      assert_equal [ err(:not_an_integer) ], @chapter.errors[:column_count], "#{v.inspect}: integer fields say so, as for \"abc\""
+      @chapter.reload
+    end
+  end
+
+  # Chapter's column width here is the print width, 105 mm = 297.6 pt.
+  test "columns: only a save that makes things worse is rejected" do
+    @chapter.update_columns(column_count: 3, gutter: 160) # 320 pt of gutters: already broken
+    assert set_design(gutter: "155"), "310 pt: better, though still broken"
+    @chapter.reload
+    refute set_design(gutter: "165"), "330 pt: worse"
+    assert_equal [ err(:no_column_width) ], @chapter.errors[:gutter]
+    @chapter.reload
+    assert set_design(column_count: "2"), "160 pt: fewer columns, fixed"
+    @chapter.reload
+    refute set_design(column_count: "4"), "480 pt: more columns, worse"
+    assert_equal [ err(:no_column_width) ], @chapter.errors[:column_count]
+    @chapter.reload
+    @chapter.update_columns(column_count: 3, gutter: 12) # fits
+    refute set_design(gutter: "150"), "300 pt: a fitting layout newly broken"
+    assert_equal [ err(:no_column_width) ], @chapter.errors[:gutter]
+  end
+
   test "nothing is checked outside the :page_section context, or without page_field" do
     @ps.top_margin_mm = "abc"
     @ps.page_field = %w[top_margin_mm]

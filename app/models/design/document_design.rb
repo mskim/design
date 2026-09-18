@@ -214,8 +214,17 @@ module Design
     # The columns keep a positive width at `width_pt`: by default this design's
     # own text width — the print width (binding off) where binding applies,
     # the narrowest such a page gets; width - left - right elsewhere.
-    def columns_fit?(width_pt = content_width_pt(side: binding_applies? ? :print : :single))
-      ([ column_count.to_i, 1 ].max - 1) * gutter.to_d < width_pt
+    def columns_fit?(width_pt = columns_width_pt, stored: false)
+      columns_required_width(stored: stored) < width_pt
+    end
+
+    def columns_width_pt = content_width_pt(side: binding_applies? ? :print : :single)
+
+    # The width the gutters take: (count − 1) × gutter, from the current
+    # (possibly unsaved) values or, with stored: true, the saved ones.
+    def columns_required_width(stored: false)
+      count, gap = %w[column_count gutter].map { |f| stored ? attribute_in_database(f) : self[f] }
+      ([ count.to_i, 1 ].max - 1) * gap.to_d
     end
 
     def single_page?
@@ -512,7 +521,15 @@ module Design
       gutter_value = typed_number("gutter") if fields.include?("gutter")
       page_error("gutter", :negative) if gutter_value&.negative?
       return if column_fields.any? { |f| errors[f].any? }
-      page_error(column_fields.last, :no_column_width) unless columns_fit?
+      page_error(column_fields.last, :no_column_width) if columns_worse?
+    end
+
+    # The columns don't fit, and this save made that so (they fit with the
+    # stored values) or made it worse (the gutters take more width): an
+    # improving save on an already-broken layout is accepted, like margins.
+    def columns_worse?
+      return false if columns_fit?
+      columns_fit?(stored: true) || columns_required_width > columns_required_width(stored: true)
     end
 
     def push_style_to_theme!(name, own, fields)
