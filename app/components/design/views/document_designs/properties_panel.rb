@@ -14,7 +14,7 @@ module Design
 
         def view_template
           turbo_frame(id: "properties_panel") do
-            div(class: "w-96 border-l flex flex-col max-h-screen") do
+            div(class: "w-full border-l flex flex-col max-h-screen") do
               render_header
               render_form_body
             end
