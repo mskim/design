@@ -84,10 +84,13 @@ module Design
         end
 
         # Regenerate + Delete are separate forms (own method/confirm) so they don't nest in the main form.
+        # Regenerate returns to the design editor it came from; Delete never
+        # does (the editor's paper size is gone), so it carries no return_to.
         def secondary_actions
           div(class: "flex items-center gap-3 border-t border-slate-200 pt-4") do
             form(action: helpers.regenerate_theme_paper_size_path(@theme, @paper_size), method: "post", class: "inline") do
               input(type: "hidden", name: "authenticity_token", value: helpers.form_authenticity_token)
+              input(type: "hidden", name: "return_to", value: @return_design.id) if @return_design
               render RubyUI::Button.new(variant: :outline, type: :submit) { I18n.t("design.paper_sizes.regenerate") }
             end
             form(action: helpers.theme_paper_size_path(@theme, @paper_size), method: "post", class: "inline",

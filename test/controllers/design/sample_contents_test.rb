@@ -45,6 +45,15 @@ class Design::SampleContentsTest < ActionDispatch::IntegrationTest
     assert_redirected_to design.theme_path(@theme)
   end
 
+  test "a nested or array return_to is ignored, not a 500" do
+    [ { a: "1" }, [ @dd.id ] ].each do |nested|
+      patch design.theme_sample_content_path(@theme, "chapter"), params: { content: "# [chapter] x\n\ny\n", return_to: nested }
+      assert_redirected_to design.theme_path(@theme), nested.inspect
+    end
+    get design.edit_theme_sample_content_path(@theme, "chapter", return_to: { a: "1" })
+    assert_response :success
+  end
+
   test "both forms carry a CSRF token" do
     FileUtils.mkdir_p(File.join(@dir, "ko"))
     File.write(File.join(@dir, "ko", "chapter.md"), "# [chapter] x\n\ny\n")

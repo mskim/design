@@ -30,9 +30,11 @@ module Design
       @content = Design::SampleContent.for(doc_type: @doc_type, locale: @theme.locale)
     end
 
+    # to_s: a nested or array return_to (return_to[a]=1) is ignored.
     def return_design
       return @return_design if defined?(@return_design)
-      @return_design = params[:return_to].present? ? @theme.document_designs.find_by(id: params[:return_to]) : nil
+      id = params[:return_to].to_s
+      @return_design = id.present? ? @theme.document_designs.find_by(id: id) : nil
     end
 
     def return_url

@@ -29,9 +29,11 @@ module Design
     def regenerate
       Design::DefaultGenerator.call(@paper_size)
       Design::ThemeDbExportService.new(@theme).export!
-      redirect_to design.edit_theme_paper_size_path(@theme, @paper_size), notice: I18n.t("design.paper_sizes.regenerated_notice")
+      target = return_design ? return_url : design.edit_theme_paper_size_path(@theme, @paper_size)
+      redirect_to target, notice: I18n.t("design.paper_sizes.regenerated_notice")
     end
 
+    # Always the theme page, return_to or not: the editor's paper size is gone.
     def destroy
       @paper_size.destroy
       Design::ThemeDbExportService.new(@theme).export!
@@ -59,9 +61,11 @@ module Design
     # The design editor's 판형 편집 link carries return_to=<document design id>
     # (the sample-content pattern, sample_contents_controller.rb:34-42). Only a
     # design on this paper size counts, so it can never redirect elsewhere.
+    # to_s: a nested or array return_to (return_to[a]=1) is ignored.
     def return_design
       return @return_design if defined?(@return_design)
-      @return_design = params[:return_to].present? ? @paper_size.document_designs.find_by(id: params[:return_to]) : nil
+      id = params[:return_to].to_s
+      @return_design = id.present? ? @paper_size.document_designs.find_by(id: id) : nil
     end
 
     def return_url
