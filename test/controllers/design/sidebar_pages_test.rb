@@ -67,4 +67,35 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
     assert_select "aside select[data-sidebar='size']"
     assert_select "aside [aria-current='page']", false
   end
+
+  test "base paragraph style form highlights size settings and switches to the same-named style" do
+    style    = @ps.paragraph_styles.create!(name: "h2")
+    a4_style = @a4.paragraph_styles.create!(name: "h2")
+    get design.edit_theme_paper_size_base_paragraph_style_path(@theme, @ps, style)
+    assert_response :success
+    assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_path(@theme, @ps)
+    assert_select "aside option[data-url=?]", design.edit_theme_paper_size_base_paragraph_style_path(@theme, @a4, a4_style)
+  end
+
+  test "base paragraph style form falls back to the size edit page when the other size lacks the style" do
+    style = @ps.paragraph_styles.create!(name: "h3")
+    get design.edit_theme_paper_size_base_paragraph_style_path(@theme, @ps, style)
+    assert_select "aside option[data-url=?]", design.edit_theme_paper_size_path(@theme, @a4)
+  end
+
+  test "theme-level paragraph style form renders the rail with nothing highlighted" do
+    style = @theme.base_paragraph_styles.create!(name: "body")
+    get design.edit_theme_theme_paragraph_style_path(@theme, style)
+    assert_response :success
+    assert_select "aside select[data-sidebar='size']"
+    assert_select "aside [aria-current='page']", false
+    assert_select "header", 1
+  end
+
+  test "document-level paragraph style form highlights the design" do
+    style = @dd.paragraph_styles.create!(name: "caption")
+    get design.edit_theme_paper_size_document_design_paragraph_style_path(@theme, @ps, @dd, style)
+    assert_response :success
+    assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+  end
 end

@@ -67,6 +67,14 @@ module Design
                 : helpers.theme_path(theme, paper_size_id: ps.id)
         end
       end
+
+      # Rail for pages scoped to one document design: that design highlighted, and
+      # size switching via design_size_url.
+      def design_sidebar(theme, paper_size, document_design)
+        theme_sidebar(theme, paper_size,
+                      current: { kind: :document_design, id: document_design.id },
+                      size_url: design_size_url(theme, document_design))
+      end
     end
   end
 end
