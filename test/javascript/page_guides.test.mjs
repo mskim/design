@@ -35,6 +35,20 @@ test("columns: count boxes split by the gutter inside the content box", () => {
   assert.deepEqual(guideRects(page({ columnCount: 3, gutter: 400 })).columns, [], "no width: no column guides")
 })
 
+test("print mode columns: an odd page starts them past the binding, an even page at the left margin", () => {
+  // Content width net of the binding (10): 432 - 60 - 40 - 10 = 322; two columns and a 12 gutter.
+  const colW = (432 - 60 - 40 - 10 - 12) / 2
+  const odd = guideRects(page({ binding: 10, parity: "odd", columnCount: 2 })).columns
+  assert.equal(odd.length, 2)
+  near(odd[0].left, pct(60 + 10, 432)); near(odd[0].width, pct(colW, 432))
+  near(odd[1].left, pct(60 + 10 + colW + 12, 432)); near(odd[1].width, pct(colW, 432))
+  near(odd[0].top, pct(50, 648)); near(odd[0].height, pct(648 - 50 - 80, 648))
+  const even = guideRects(page({ binding: 10, parity: "even", columnCount: 2 })).columns
+  assert.equal(even.length, 2)
+  near(even[0].left, pct(60, 432)); near(even[0].width, pct(colW, 432))
+  near(even[1].left, pct(60 + colW + 12, 432))
+})
+
 test("kinds: margins only draws no columns; none draws nothing", () => {
   assert.deepEqual(guideRects(page({ kind: "margins", columnCount: 2 })).columns, [])
   assert.equal(guideRects(page({ kind: "none" })), null)

@@ -25,12 +25,20 @@ class Design::PreviewGuidesTest < ActiveSupport::TestCase
     assert_in_delta mm_pt(@ps.left_margin_mm), g1["left"], 0.01
     assert_in_delta mm_pt(@ps.top_margin_mm), g1["top"], 0.01
     assert_in_delta mm_pt(@ps.bottom_margin_mm), g1["bottom"], 0.01
+    assert_in_delta mm_pt(@ps.right_margin_mm), g1["right"], 0.01
+    assert_in_delta 648.0, g1["height"], 0.001
     assert_equal 0.0, g1["binding"], "not in print mode"
     assert_equal 2, g1["columnCount"]
     assert_in_delta 12.0, g1["gutter"], 0.001
     layer = doc.at_css("[data-design--page-guides-target='layer']")
     assert_includes layer["class"].split, "group-data-[guides=off]/preview:hidden"
     assert_includes layer["class"].split, "pointer-events-none"
+  end
+
+  test "each page box redraws its guides after a morph" do
+    boxes = render.css("[data-controller~='design--page-guides']")
+    assert_equal 2, boxes.size
+    boxes.each { |b| assert_includes b["data-action"].to_s.split, "turbo:morph-element->design--page-guides#draw" }
   end
 
   test "print mode puts the binding (pt) into every page's geometry" do

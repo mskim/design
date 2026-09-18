@@ -64,6 +64,23 @@ class Design::PreviewPrintModeTest < ActionDispatch::IntegrationTest
     Design::PreviewService.new(dd, paper_size: @ps).clear_cache if dd
   end
 
+  # Not stubbed: the frame's first page box carries the binding (pt) only when
+  # the service rendered the chapter in print mode.
+  test "a chapter's guide geometry carries the binding only with the cookie on" do
+    assert_operator @ps.binding_margin_pt, :>, 0
+    geometry = -> { JSON.parse(css_select("[data-design--page-guides-geometry-value]").first["data-design--page-guides-geometry-value"]) }
+    get preview_path
+    assert_response :success
+    assert_equal 0.0, geometry.()["binding"]
+    print_on!
+    get preview_path
+    assert_response :success
+    assert_in_delta @ps.binding_margin_pt, geometry.()["binding"], 0.01
+  ensure
+    Design::PreviewService.new(@dd, paper_size: @ps).clear_cache
+    Design::PreviewService.new(@dd, paper_size: @ps, print_mode: true).clear_cache
+  end
+
   test "POST preview (live preview) honours the cookie" do
     print_on!
     modes = capture_print_modes do

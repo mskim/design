@@ -60,7 +60,8 @@ module Design
 
         def guide_data(number)
           return {} unless guides?
-          { controller: "design--page-guides", "design--page-guides-geometry-value": guide_geometry(number).to_json }
+          { controller: "design--page-guides", action: "turbo:morph-element->design--page-guides#draw",
+            "design--page-guides-geometry-value": guide_geometry(number).to_json }
         end
 
         # The page-guides controller's input, in pt: the rendered page size (a

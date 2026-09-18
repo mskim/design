@@ -211,4 +211,13 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "localStorage"
     assert_includes src, "document.cookie = printCookie("
   end
+
+  # A geometry value change (a morph that keeps the page box) redraws, and so
+  # does the preview's turbo:morph-element action (a morph empties the layer);
+  # Stimulus calls geometryValueChanged on initialize, so connect() needn't draw.
+  test "page_guides draws from geometryValueChanged, not connect" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/page_guides_controller.js"))
+    assert_match(/geometryValueChanged\(\)\s*\{\s*this\.draw\(\)\s*\}/, src)
+    refute_match(/connect\(\)/, src)
+  end
 end

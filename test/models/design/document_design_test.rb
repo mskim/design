@@ -96,8 +96,14 @@ class Design::DocumentDesignTest < ActiveSupport::TestCase
     ps = Design::Theme.create!(name: "GK #{SecureRandom.hex(3)}", locale: "ko")
                       .paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     kind = ->(t) { ps.document_designs.new(doc_type: t).guide_kind }
-    (Design::DocumentDesign::BINDING_DOC_TYPES + %w[poem]).each { |t| assert_equal :columns, kind.(t), t }
-    %w[title_page copyright toc inside_cover part_cover blank_page].each { |t| assert_equal :margins, kind.(t), t }
-    (Design::DocumentDesign::COVER_PANEL_TYPES + %w[document_cover]).each { |t| assert_equal :none, kind.(t), t }
+    columns = Design::DocumentDesign::BINDING_DOC_TYPES + %w[poem]
+    none = Design::DocumentDesign::COVER_PANEL_TYPES + %w[document_cover]
+    all = Design::DocumentDesign::ALL_DOC_TYPES
+    assert_empty (columns + none) - all, "every listed type is a doc type"
+    assert_includes all, "title_page"
+    all.each do |t|
+      expected = columns.include?(t) ? :columns : none.include?(t) ? :none : :margins
+      assert_equal expected, kind.(t), t
+    end
   end
 end

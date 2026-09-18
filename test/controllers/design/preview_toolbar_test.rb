@@ -21,7 +21,7 @@ class Design::PreviewToolbarTest < ActionDispatch::IntegrationTest
     end
     assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='guides'][aria-pressed='true']",
                   text: I18n.t("design.preview.guides")
-    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='print'][aria-pressed='false']:not([disabled])",
+    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='print'][aria-pressed='false']:not([disabled]):not([title])",
                   text: I18n.t("design.preview.print")
     assert_select "#{TOOLBAR} turbo-frame#preview_frame[src][loading=lazy]"
     assert_select "turbo-frame#preview_frame button", 0
@@ -48,5 +48,9 @@ class Design::PreviewToolbarTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "#{TOOLBAR}[data-design--preview-toolbar-preview-url-value*='preview_mode=single']"
     assert_select "#{TOOLBAR} turbo-frame#preview_frame[src*='preview_mode=single']"
+    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='print'][aria-pressed='false']:not([disabled])"
+    cookies["design_preview_print"] = "1"
+    get design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, "zz_body")
+    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='print'][aria-pressed='true']:not([disabled])"
   end
 end
