@@ -110,10 +110,13 @@ class Design::SidebarTest < ActiveSupport::TestCase
   test "renders Korean labels with no translation-missing leftovers" do
     seed_designs
     html = I18n.with_locale(:ko) { render_sidebar.to_html }
-    refute_includes html, "translation missing"
-    assert_includes html, I18n.t("design.sidebar.size", locale: :ko)      # 판형
-    assert_includes html, I18n.t("design.doc_types.chapter", locale: :ko)
-    refute_includes html, "Size settings"                                   # the en string must not leak
+    # Literal Korean, not I18n.t round-trips: a deleted key would make I18n.t return
+    # "Translation missing: ko.…" on both sides and the assertion could never fail.
+    refute_match(/translation missing/i, html)
+    assert_includes html, "판형"          # design.sidebar.size
+    assert_includes html, "판형 설정"     # design.sidebar.size_settings
+    assert_includes html, "장"            # design.doc_types.chapter
+    refute_includes html, "Size settings" # the en string must not leak
   end
 
   # --- size links + table styles ---

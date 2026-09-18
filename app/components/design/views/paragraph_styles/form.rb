@@ -4,7 +4,8 @@ module Design
       class Form < Design::Views::Base
         register_element :turbo_frame
 
-        def initialize(paragraph_style:, form_url:, cancel_url:, crumbs:, document_design: nil, paper_size: nil, theme: nil)
+        # theme: is required — every sidebar branch dereferences it.
+        def initialize(paragraph_style:, theme:, form_url:, cancel_url:, crumbs:, document_design: nil, paper_size: nil)
           @paragraph_style = paragraph_style
           @form_url = form_url
           @cancel_url = cancel_url
