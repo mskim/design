@@ -4,6 +4,8 @@ module Design
     # top, then (for editable themes) the size actions — new size, size settings,
     # generate other sizes — then the book structure (표지/머리/본문/꼬리) with one
     # leaf per doc_type design, and finally the theme's table styles group.
+    # On a read-only theme the structure is listed as plain text (spans, no links):
+    # every editor action answers 403 there (ApplicationController#ensure_theme_editable).
     # Rendered into Shell's sidebar: slot via Base#theme_sidebar.
     #
     # size_url: ->(paper_size) { url } — the URL of *this page kind* for another
@@ -50,7 +52,11 @@ module Design
       ACTIVE_CLASS = "#{LEAF_BASE} bg-slate-900 text-white"
       LINK_CLASS   = "#{LEAF_BASE} text-blue-600 hover:bg-slate-200"
 
-      def editable? = @theme.editable_by?(Design.current_user)
+      # Memoized: called once per leaf.
+      def editable?
+        @editable = @theme.editable_by?(Design.current_user) if @editable.nil?
+        @editable
+      end
 
       def theme_select
         labelled_select("theme", I18n.t("design.sidebar.theme")) do
@@ -137,7 +143,10 @@ module Design
         end
       end
 
+      # Read-only theme: plain text, nothing navigable (so active highlighting is moot).
       def leaf(label_text, href, active:, inactive_class: LEAF_CLASS)
+        return li { span(title: label_text, class: "#{LEAF_BASE} text-slate-500") { label_text } } unless editable?
+
         li do
           a(href: href, title: label_text, class: active ? ACTIVE_CLASS : inactive_class,
             aria_current: (active ? "page" : nil)) { label_text }

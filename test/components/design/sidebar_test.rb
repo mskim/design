@@ -125,6 +125,24 @@ class Design::SidebarTest < ActiveSupport::TestCase
     assert_nil doc.at_css("form[action$='/generate_sizes']")
   end
 
+  # Editor actions answer 403 on a read-only theme (ApplicationController#ensure_theme_editable),
+  # so the rail lists the structure as plain text rather than linking to editors it can't open.
+  test "read-only theme lists designs and table styles as text, not editor links" do
+    system_theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko") # user_id nil
+    ps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.create!(doc_type: "chapter")
+    ts = system_theme.table_styles.find_by!(name: "grid") # seeded by Theme#seed_default_styles on create
+    Design.config.authoring = false
+    doc = render_sidebar(theme: system_theme, paper_size: ps)
+    assert_nil doc.at_css("a[href$='/document_designs/#{dd.id}/edit']"), "design leaf must not link to the editor"
+    assert_nil doc.at_css("a[href*='/table_styles/']"), "table style leaf must not link to the editor"
+    leaf = doc.css("li > span").find { |s| s.text.strip == I18n.t("design.doc_types.chapter") }
+    assert leaf, "doc_type label should still be listed (as a span)"
+    assert_equal I18n.t("design.doc_types.chapter"), leaf["title"]
+    assert doc.css("li > span").any? { |s| s.text.strip == ts.name.capitalize }, "table style label should still be listed"
+    assert_empty doc.css("[aria-current='page']")
+  end
+
   test "size settings link is highlighted for current kind paper_size" do
     doc = render_sidebar(current: { kind: :paper_size })
     current = doc.css("[aria-current='page']")

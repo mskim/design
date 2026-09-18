@@ -15,9 +15,7 @@ class Design::ThemesShowEditableChipsTest < ActionDispatch::IntegrationTest
     get "/design/themes/#{@theme.id}"
     assert_response :success
     assert @theme.system?
-    # Scoped to the content region: the sidebar rail lists every design as a leaf
-    # (editable or not); only the doc-card "Edit" chip is gated on editability.
-    assert_select "aside + main a[href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd), count: 0
+    assert_select "a[href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd), count: 0
   end
 
   test "custom theme doc_type chips are editable links for a designer" do
