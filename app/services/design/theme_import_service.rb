@@ -2,7 +2,7 @@ require "sqlite3"
 
 module Design
   class ThemeImportService
-    SUPPORTED_SCHEMA_VERSION = 2
+    SUPPORTED_SCHEMA_VERSION = 3
     class UnsupportedSchemaVersion < StandardError; end
 
     def self.import_all(dir = Rails.root.join("db/themes_source"))
@@ -17,6 +17,7 @@ module Design
       db = SQLite3::Database.new(@file_path)
       db.results_as_hash = true
       validate_schema_version!(db)
+      @legacy = {}
 
       theme = Design::Theme.transaction do
         theme = upsert_theme(db)
@@ -27,6 +28,9 @@ module Design
         import_heading_elements(db, dd_id_map)
         import_design_paragraph_styles(db, dd_id_map)
         Design::ThemeStyleSeeder.call(theme) # .book_design v2 has no table_styles; re-seed defaults
+        # A file written before D5 has the old five border fields: resolve and
+        # convert them now that every row exists (the normaliser runs inside).
+        Design::BorderUpgrade.rewrite!(theme, @legacy) if @legacy.any?
         # .book_design files carry full-snapshot doc-type rows; keep only the fields
         # that differ from the parent (theme → chapter → doc type).
         Design::ParagraphStyleNormalizer.compact!(theme)
@@ -78,7 +82,8 @@ module Design
 
     def import_base_paragraph_styles(db, theme)
       db.execute("SELECT * FROM paragraph_styles WHERE styleable_type = 'theme'").each do |row|
-        theme.base_paragraph_styles.create!(paragraph_style_attrs(row))
+        record = theme.base_paragraph_styles.create!(paragraph_style_attrs(row))
+        remember_legacy(record, row)
       end
     end
 
@@ -137,7 +142,8 @@ module Design
         # the same name. The imported .book_design is authoritative, so upsert by
         # name rather than blindly create! (which would collide on uniqueness).
         attrs = paragraph_style_attrs(row)
-        dd.upsert_paragraph_style!(attrs[:name], attrs)
+        record = dd.upsert_paragraph_style!(attrs[:name], attrs)
+        remember_legacy(record, row)
       end
     end
 
@@ -161,10 +167,16 @@ module Design
 
     # The twelve D5 fields from a file that has them. A file written before D5
     # has the old five instead: those rows are converted after import
-    # (BorderUpgrade, Task 6), so nothing is read from them here.
+    # (remember_legacy → BorderUpgrade), so nothing is read from them here.
     def border_attrs(row)
       return {} unless row.key?("border_top_thickness")
       Design::ParagraphStyle::BORDER_FIELDS.to_h { |f| [ f.to_sym, row[f] ] }
+    end
+
+    # A pre-D5 row's old five border values, keyed by the imported record's id.
+    def remember_legacy(record, row)
+      return if row.key?("border_top_thickness")
+      @legacy[record.id] = Design::LegacyBorder::OLD_FIELDS.index_with { |f| row[f] }
     end
 
     def document_design_attrs(row)
