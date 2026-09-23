@@ -5,10 +5,12 @@ module Design
       # grey italic while selected. A current value missing from `options` is
       # added so it round-trips unchanged. A named select gets a stable id
       # ("sel-paragraph_style-font"), so a <label for> names it and a morph keeps it.
+      # blank_label: replaces the first option's text (the style panel's linked
+      # corners show 혼합 / Mixed).
       class InheritSelect < Design::Views::Base
         CLASS = "#{Design::Views::FieldGroups::CONTROL} data-[inherited]:italic data-[inherited]:text-slate-400".freeze
 
-        def initialize(name:, value:, options:, inherited_value: nil, i18n_scope: nil, disabled: false, id: nil)
+        def initialize(name:, value:, options:, inherited_value: nil, i18n_scope: nil, disabled: false, id: nil, blank_label: nil)
           @name = name
           @id = id || (self.class.default_id(name) if name.present?)
           @value = value.to_s.presence
@@ -16,6 +18,7 @@ module Design
           @inherited = inherited_value.to_s.presence
           @i18n_scope = i18n_scope
           @disabled = disabled
+          @blank_label = blank_label
         end
 
         def view_template
@@ -30,6 +33,7 @@ module Design
         private
 
         def inherit_label
+          return @blank_label if @blank_label
           @inherited ? I18n.t("design.inputs.inherit_with_value", value: label_for(@inherited)) : I18n.t("design.inputs.inherit")
         end
 

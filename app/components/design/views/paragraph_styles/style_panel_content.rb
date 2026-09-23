@@ -9,6 +9,7 @@ module Design
       # this size's user-marked fields.
       class StylePanelContent < Design::Views::Base
         include Design::Views::FieldGroups
+        include BorderSection
 
         # Panel order; together exactly ParagraphStyle::STYLE_FIELDS (tested).
         SECTIONS = {
@@ -182,7 +183,7 @@ module Design
               plain I18n.t("design.style_panel.sections.#{key}")
               span(class: "h-1.5 w-1.5 rounded-full bg-blue-600", data: { section_dot: true }) if has_change
             end
-            div(class: "mt-2") { rows { fields.each { |f| field(f) } } }
+            div(class: "mt-2") { key == "border" ? border_section_body : rows { fields.each { |f| field(f) } } }
           end
         end
 

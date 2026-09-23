@@ -283,12 +283,14 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     assert_equal "-3", tpl.at_css("[name='paragraph_style_link[border_thickness]']")["value"]
   end
 
-  test "422 for a mixed group: nothing written on either size" do
+  test "422 for a mixed group: nothing written on either size, the bad value echoed" do
     values = Design::ParagraphStyle::BORDER_THICKNESS_FIELDS.index_with { "2" }.merge("border_right_thickness" => "-3")
     stub_preview { patch field_path, params: { values: values }, headers: STREAM }
     assert_response :unprocessable_entity
     assert(row_of(@fw).nil? || row_of(@fw).border_top_thickness.nil?)
     assert(row_of(@forewords.last).nil? || row_of(@forewords.last).border_top_thickness.nil?)
+    assert_equal "-3", stream_template("style-panel-content").at_css("[name='paragraph_style_link[border_thickness]']")["value"],
+           "the linked input shows the invalid value, not the first valid one"
   end
 
   test "400: a group key belonging to the other verb doesn't skip the field check" do

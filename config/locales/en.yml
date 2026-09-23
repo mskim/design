@@ -1,5 +1,18 @@
 en:
   design:
+    border_controls:
+      boxes:
+        border: "Border"
+        corners: "Corners"
+      groups:
+        border_thickness: "Thickness"
+        border_color: "Colour"
+        corners: "Corners"
+      link:
+        border: "Edit all four sides together"
+        corners: "Edit all four corners together"
+      mixed: "Mixed"
+      revert_group: "%{group} — revert all four"
     themes:
       index_title: "Design Themes"
       my_themes: "My Themes"
