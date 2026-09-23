@@ -9,9 +9,19 @@ export default class extends Controller {
   static targets = [ "box" ]
   static values = { effective: Object }
 
-  connect() { this.draw() }
+  connect() { this.redraw() }
 
+  disconnect() { cancelAnimationFrame(this.frame) }
+
+  // Bound to input/change/click and to turbo:morph-element, which bubbles up
+  // from every morphed descendant — one save would otherwise redraw dozens of
+  // times. Coalesce to one redraw per frame.
   draw() {
+    cancelAnimationFrame(this.frame)
+    this.frame = requestAnimationFrame(() => this.redraw())
+  }
+
+  redraw() {
     if (!this.hasBoxTarget) return
     const split = {}
     const linked = {}
