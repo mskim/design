@@ -45,9 +45,11 @@ module Design
 
         def link_box(box, &block)
           linked = border_state.linked?(box)
-          div(class: BOX_CLASS.fetch(box), data: { link_box: box, linked: linked.to_s }) do
+          label_id = "border-box-#{box}-label"
+          div(class: BOX_CLASS.fetch(box), role: "group", aria: { labelledby: label_id },
+              data: { link_box: box, linked: linked.to_s }) do
             div(class: "flex items-center justify-between") do
-              span(class: "text-xs font-medium text-slate-600") { I18n.t("design.border_controls.boxes.#{box}") }
+              span(id: label_id, class: "text-xs font-medium text-slate-600") { I18n.t("design.border_controls.boxes.#{box}") }
               link_toggle(box, linked)
             end
             div(class: LINKED_ONLY.fetch(box), &block)
@@ -108,7 +110,7 @@ module Design
             field_row(label, for: id) do
               render Design::Views::Inputs::InheritSelect.new(
                 name: name, id: id, value: value, options: Design::ParagraphStyle::CORNER_SIZES,
-                i18n_scope: "corner_size", inherited_value: (shared unless mixed), blank_label: mixed_label,
+                i18n_scope: "corner_size", inherited_value: (shared unless mixed), placeholder: mixed_label,
                 disabled: !@editable)
             end
           end

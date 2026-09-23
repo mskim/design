@@ -24,7 +24,7 @@ module Design
     # The value all four fields store themselves, or nil.
     def common_own(group)
       values = fields(group).map { |f| own(f) }
-      values.first if !values.first.nil? && values.all? { |v| same?(group, v, values.first) }
+      values.first if values.none?(&:nil?) && values.all? { |v| same?(group, v, values.first) }
     end
 
     # The four effective values' shared value (possibly nil), or MIXED.
@@ -45,6 +45,21 @@ module Design
 
     private
 
-    def same?(group, a, b) = Design::ParagraphStyle.same_value?(fields(group).first, a, b)
+    def same?(group, a, b)
+      return color_key(a) == color_key(b) if group == "border_color"
+      Design::ParagraphStyle.same_value?(fields(group).first, a, b)
+    end
+
+    # A colour by meaning: a missing colour draws black (CMYK 0,0,0,100), CMYK
+    # compares by its four numbers, hex ignores case. CMYK black and #000000
+    # stay different (the engine draws them in different colour spaces).
+    def color_key(value)
+      text = value.to_s.strip
+      if text.empty? then [ :cmyk, [ 0.0, 0.0, 0.0, 100.0 ] ]
+      elsif (m = text.match(/\ACMYK\s*=\s*(.*)\z/i)) then [ :cmyk, m[1].split(",").map { |n| Float(n.strip, exception: false) || n.strip } ]
+      elsif text.match?(/\A#\h{6}\z/) then [ :hex, text.downcase ]
+      else [ :text, text ]
+      end
+    end
   end
 end

@@ -34,6 +34,26 @@ class Design::BorderSectionTest < ActiveSupport::TestCase
     assert split.any? { |c| c.include?("group-data-[linked=true]/border:hidden") }, "the split rows hide while linked"
   end
 
+  test "each box is a labelled group" do
+    doc = content
+    %w[border corners].each do |b|
+      assert_equal "group", box(doc, b)["role"], b
+      label = doc.at_css("##{box(doc, b)['aria-labelledby']}")
+      assert_equal "border-box-#{b}-label", label["id"]
+      assert_equal t("boxes.#{b}"), label.text
+    end
+  end
+
+  test "one side stored equal to the inherited three: linked, empty linked input, the dot says changed" do
+    @foreword.paragraph_styles.create!(name: "zz_box", border_top_thickness: 1, overridden_fields: %w[border_top_thickness])
+    doc = content
+    assert_equal "true", box(doc, "border")["data-linked"]
+    input = doc.at_css("[name='paragraph_style_link[border_thickness]']")
+    assert_nil input["value"].presence
+    assert_equal "1.0", input["placeholder"]
+    assert_equal "changed", linked(doc, "border_thickness")["data-state"]
+  end
+
   test "the linked controls are named paragraph_style_link[<group>] and carry their group's fields" do
     doc = content
     { "border_thickness" => PS::BORDER_THICKNESS_FIELDS, "border_color" => PS::BORDER_COLOR_FIELDS,
@@ -52,7 +72,12 @@ class Design::BorderSectionTest < ActiveSupport::TestCase
     assert_equal "false", box(doc, "border")["data-linked"]
     assert_equal "false", box(doc, "corners")["data-linked"]
     assert_equal t("mixed"), doc.at_css("[name='paragraph_style_link[border_thickness]']")["placeholder"]
-    assert_equal t("mixed"), doc.at_css("[name='paragraph_style_link[corners]'] option[value='']").text
+    corners = doc.at_css("[name='paragraph_style_link[corners]']")
+    placeholder = corners.at_css("option[value=''][disabled]")
+    assert_equal t("mixed"), placeholder.text
+    assert placeholder.key?("selected"), "Mixed shows preselected"
+    inherit = corners.css("option[value='']").reject { _1.key?("disabled") }
+    assert_equal [ I18n.t("design.inputs.inherit") ], inherit.map(&:text), "a separate, choosable inherit option"
     assert_equal "changed", linked(doc, "border_thickness")["data-state"], "any user field → the group's dot"
     assert_equal "inherited", linked(doc, "border_color")["data-state"]
   end

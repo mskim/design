@@ -27,6 +27,25 @@ class Design::BorderLinkStateTest < ActiveSupport::TestCase
     assert State.new(own: own(border_top_thickness: "1.0"), parent: parent).linked?("border"), "1.0 = 1"
   end
 
+  test "colours compare by meaning: a missing colour is black, spacing and hex case don't matter" do
+    black_sides = { border_top_color: nil, border_right_color: "CMYK=0,0,0,100" }
+    assert State.new(own: nil, parent: parent(border_top_color: nil)).linked?("border"), "nil = black"
+    assert State.new(own: own(border_right_color: "CMYK=0, 0, 0, 100"), parent: parent).linked?("border"), "spacing"
+    assert State.new(own: own(border_right_color: "CMYK=0.0,0,0,100.0"), parent: parent).linked?("border"), "number form"
+    hexes = PS::BORDER_COLOR_FIELDS.index_with { "#ff0000" }.merge("border_top_color" => "#FF0000")
+    assert State.new(own: nil, parent: parent(**hexes)).linked?("border"), "hex case"
+    refute State.new(own: own(border_top_color: "#000000"), parent: parent).linked?("border"),
+           "black CMYK and #000000 are different colour spaces"
+    refute State.new(own: own(border_top_color: "#000000"), parent: parent(**black_sides)).linked?("border")
+    assert_nil State.new(own: own(border_top_color: "CMYK=0,0,0,100"), parent: parent).common_own("border_color"),
+               "a nil own colour matches black but isn't stored"
+  end
+
+  test "thickness and corners keep same_value?" do
+    assert State.new(own: own(border_top_thickness: "1.00"), parent: parent).linked?("border")
+    refute State.new(own: nil, parent: parent(border_top_thickness: nil)).linked?("border"), "no thickness is not 1"
+  end
+
   test "common_own: the shared own value only when all four store it" do
     four = PS::CORNER_FIELDS.index_with { "full" }
     assert_equal "full", State.new(own: own(**four.transform_keys(&:to_sym)), parent: parent).common_own("corners")
