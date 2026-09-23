@@ -240,6 +240,49 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # ── D5 link groups ──
+
+  test "PATCH values[...] writes a whole group in one request" do
+    values = Design::ParagraphStyle::BORDER_COLOR_FIELDS.index_with { "#ff0000" }
+    exports = count_exports { stub_preview { patch field_path, params: { values: values }, headers: STREAM } }
+    assert_response :success
+    assert_equal 1, exports
+    Design::ParagraphStyle::BORDER_COLOR_FIELDS.each { |f| assert_equal "#ff0000", row_of(@fw)[f], f }
+    assert_includes stream_attrs, { "method" => "morph", "action" => "replace", "target" => "style-panel-content" }
+  end
+
+  test "DELETE fields[] reverts a whole group in one request" do
+    @fw.set_style_fields!("zz_body", Design::ParagraphStyle::CORNER_FIELDS.index_with { "full" })
+    stub_preview { delete field_path, params: { fields: Design::ParagraphStyle::CORNER_FIELDS }, headers: STREAM }
+    assert_response :success
+    assert(Design::ParagraphStyle::CORNER_FIELDS.all? { |f| row_of(@fw).nil? || row_of(@fw)[f].nil? })
+  end
+
+  test "400: a values set or a fields list that isn't exactly one group" do
+    [ Design::ParagraphStyle::CORNER_FIELDS.first(3).index_with { "full" },
+      Design::ParagraphStyle::CORNER_FIELDS.index_with { "full" }.merge("font" => "x"),
+      Design::ParagraphStyle::CORNER_FIELDS.index_with { [ "full" ] } ].each do |values|
+      patch field_path, params: { values: values }, headers: STREAM
+      assert_response :bad_request, values.inspect
+    end
+    patch field_path, params: { values: "full" }, headers: STREAM
+    assert_response :bad_request
+    delete field_path, params: { fields: %w[corner_top_left] }, headers: STREAM
+    assert_response :bad_request
+    delete field_path, params: { fields: "corner_top_left" }, headers: STREAM
+    assert_response :bad_request
+  end
+
+  test "422 for a group: nothing written, one message under the linked row, the attempt kept" do
+    values = Design::ParagraphStyle::BORDER_THICKNESS_FIELDS.index_with { "-3" }
+    stub_preview { patch field_path, params: { values: values }, headers: STREAM }
+    assert_response :unprocessable_entity
+    tpl = stream_template("style-panel-content")
+    assert tpl.at_css("[data-field-error='border_thickness']"), "keyed by the group"
+    assert_equal "-3", tpl.at_css("[name='paragraph_style_link[border_thickness]']")["value"]
+    assert(row_of(@fw).nil? || row_of(@fw).border_top_thickness.nil?)
+  end
+
   # ── DELETE style / POST push ──
 
   test "DELETE style reverts every field on every size" do

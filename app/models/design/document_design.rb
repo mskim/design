@@ -500,6 +500,25 @@ module Design
       end
     end
 
+    # A whole 🔗 group (DocumentDesignStylesController, D5): set_style_field!
+    # for each field, in one transaction — every size, the equals-the-parent
+    # rule and the marks exactly as for one field. (touch_inheritors! runs per
+    # field; the timestamps land in one transaction, so the preview sees one change.)
+    def set_style_fields!(name, values)
+      values.each_key { |f| assert_style_field!(f) }
+      transaction { values.each { |f, v| set_style_field!(name, f, v) } }
+    end
+
+    # The group's fields back to inherit on every size, in one pass.
+    def revert_style_fields!(name, fields)
+      fields = fields.map(&:to_s)
+      fields.each { |f| assert_style_field!(f) }
+      transaction do
+        same_doc_type_designs.find_each { |dd| dd.clear_style_fields!(name, fields) }
+        touch_inheritors!
+      end
+    end
+
     # Delete the style's rows on every size (only where a parent exists — a
     # parentless style would vanish entirely).
     def revert_style!(name)
