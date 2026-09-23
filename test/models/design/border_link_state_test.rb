@@ -66,4 +66,9 @@ class Design::BorderLinkStateTest < ActiveSupport::TestCase
     assert_equal :changed, s.group_state("corners", states.merge("corner_top_left" => :generated,
                                                                  "corner_bottom_left" => :changed))
   end
+
+  test "common_effective shows the colour that is set when a nil side means the same black" do
+    s = State.new(own: nil, parent: parent(border_top_color: nil))
+    assert_equal "CMYK=0,0,0,100", s.common_effective("border_color")
+  end
 end

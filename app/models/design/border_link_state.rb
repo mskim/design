@@ -30,7 +30,8 @@ module Design
     # The four effective values' shared value (possibly nil), or MIXED.
     def common_effective(group)
       values = fields(group).map { |f| effective(f) }
-      values.all? { |v| same?(group, v, values.first) } ? values.first : MIXED
+      # Equal by meaning (a nil colour is black): show a value that is set, not the nil.
+      values.all? { |v| same?(group, v, values.first) } ? (values.compact.first || values.first) : MIXED
     end
 
     # A linked row's dot: :changed if any of its fields is the user's, else
