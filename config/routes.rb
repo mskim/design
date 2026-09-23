@@ -39,6 +39,13 @@ Design::Engine.routes.draw do
           patch :field, action: :update_field
           delete :field, action: :revert_field, as: :revert_field
         end
+        # The design editor's Object section (D4): the copyright text box and the
+        # front wing's author photo. One field, or one whitelisted joint set
+        # (values[...]), per request.
+        resource :object, only: [], controller: "document_design_objects", format: false do
+          patch :field, action: :update_field
+          delete :field, action: :revert_field, as: :revert_field
+        end
       end
     end
   end

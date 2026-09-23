@@ -102,6 +102,16 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     assert_equal "spread", @dd.cover_type
   end
 
+  test "the photo fields are no longer accepted through the tabs form" do
+    wing = @ps.document_designs.create!(doc_type: "front_wing")
+    patch design.theme_paper_size_document_design_path(@theme, @ps, wing),
+          params: { document_design: { photo_grid_width: 5, photo_anchor: 9, photo_fit: "contain" } }
+    assert_response :redirect
+    wing.reload
+    assert_equal 3, wing.photo_grid_width
+    assert_equal "cover", wing.photo_fit
+  end
+
   test "update persists image_opacity + logo params for a front_page design" do
     front_page = @ps.document_designs.create!(doc_type: "front_page")
     patch design.theme_paper_size_document_design_path(@theme, @ps, front_page), params: { document_design: {

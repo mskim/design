@@ -195,9 +195,9 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     end
   end
 
-  test "live_preview ignores the Page section's events (they bubble through the tabs form)" do
+  test "live_preview ignores the Page and Object sections' events (both bubble through the tabs form)" do
     assert_includes File.read(ENGINE_JS.join("design-controllers/design/live_preview_controller.js")),
-                    %(closest?.("[data-page-section]"))
+                    %(closest?.("[data-page-section], [data-object-section]"))
   end
 
   test "page_guides and preview_toolbar controllers import the pure page_guides module by its importmap name" do
