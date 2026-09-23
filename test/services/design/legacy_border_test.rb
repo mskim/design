@@ -1,8 +1,9 @@
 require "test_helper"
 
-# D5: the old five border fields → the twelve. Every converted field is set
-# (0 / "none" rather than nil), so the normaliser can compare a child with
-# its parent value for value.
+# D5: the old five border fields → the twelve. What the old chain set is
+# pinned (0 / "none" for a flagged-off side or corner, so the normaliser can
+# compare a child with its parent value for value); what it left unset stays
+# nil (latent: inherits, as the old model would have).
 class Design::LegacyBorderTest < ActiveSupport::TestCase
   LB = Design::LegacyBorder
 
@@ -37,9 +38,29 @@ class Design::LegacyBorderTest < ActiveSupport::TestCase
     end
   end
 
-  test "convert: no thickness is no line on any side and no colour" do
-    [ nil, "", 0, "-1", "abc" ].each do |t|
-      out = LB.convert({ "border_thickness" => t, "border_color" => "#000000" })
+  test "convert: an unset thickness with no sides leaves every side unset" do
+    [ nil, "", "  " ].each do |t|
+      out = LB.convert({ "border_thickness" => t })
+      assert_equal [ nil ] * 4, sides(out, "thickness"), t.inspect
+      assert_equal [ nil ] * 4, sides(out, "color"), t.inspect
+    end
+  end
+
+  test "convert: an unset thickness pins only the flagged-off sides" do
+    out = LB.convert({ "border_thickness" => nil, "border_side" => "1,0,1,0" })
+    assert_equal [ nil, 0, nil, 0 ], sides(out, "thickness")
+    assert_equal [ nil ] * 4, sides(out, "color")
+  end
+
+  test "convert: an unset thickness keeps a set colour latent on every side" do
+    out = LB.convert({ "border_color" => "#00ff00", "border_side" => "0,1,1,1" })
+    assert_equal [ 0, nil, nil, nil ], sides(out, "thickness")
+    assert_equal [ "#00ff00" ] * 4, sides(out, "color")
+  end
+
+  test "convert: a 0, negative or unreadable thickness is no line on any side and no colour" do
+    [ 0, "0", "-1", "abc" ].each do |t|
+      out = LB.convert({ "border_thickness" => t, "border_color" => "#000000", "border_side" => "1,0,1,0" })
       assert_equal [ 0 ] * 4, sides(out, "thickness"), t.inspect
       assert_equal [ nil ] * 4, sides(out, "color"), t.inspect
     end
@@ -49,11 +70,25 @@ class Design::LegacyBorderTest < ActiveSupport::TestCase
     out = LB.convert({ "corner_radius" => "large", "rounded_corners" => "1,1,0,0" })
     assert_equal %w[full full none none], corners(out)
     assert_equal %w[medium] * 4, corners(LB.convert({ "corner_radius" => "medium" }))
-    [ nil, "", "none", "huge" ].each { |r| assert_equal %w[none] * 4, corners(LB.convert({ "corner_radius" => r })), r.inspect }
   end
 
-  test "convert returns exactly the twelve new field names" do
+  test "convert: an explicit none or unreadable preset squares all four corners" do
+    [ "none", "huge" ].each do |r|
+      assert_equal %w[none] * 4, corners(LB.convert({ "corner_radius" => r, "rounded_corners" => "1,1,0,0" })), r.inspect
+      assert_equal %w[none] * 4, corners(LB.convert({ "corner_radius" => r })), r.inspect
+    end
+  end
+
+  test "convert: an unset preset pins only the flagged-off corners" do
+    [ nil, "", " " ].each do |r|
+      assert_equal [ nil ] * 4, corners(LB.convert({ "corner_radius" => r })), r.inspect
+      assert_equal [ nil, nil, "none", "none" ], corners(LB.convert({ "corner_radius" => r, "rounded_corners" => "1,1,0,0" })), r.inspect
+    end
+  end
+
+  test "convert returns exactly the twelve new field names, set or not" do
     assert_equal LB::NEW_FIELDS.sort, LB.convert({}).keys.sort
+    assert LB.convert({}).values.all?(&:nil?), "an empty old style sets nothing"
   end
 
   test "a BigDecimal thickness from the database converts" do

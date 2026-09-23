@@ -2,13 +2,17 @@ module Design
   # D5: the conversion from the old five border fields (border_thickness,
   # border_color, border_side, rounded_corners, corner_radius) to the twelve
   # (a thickness and a colour per side, a corner preset per corner). Pure.
+  # What the old chain set is pinned; what it left unset stays nil (latent),
+  # so e.g. a row with only border_side still inherits its parent's thickness
+  # on its flagged-on sides.
   #
   # The flag strings were written in two orders: the studio (and the engine)
   # read border_side as top,right,bottom,left; book_write's cover presets were
   # authored as left,top,right,bottom. rounded_corners is always tl,tr,br,bl.
   # Used by BorderUpgrade (the hosts' migration, the importers) and by
   # book_write's LegacyCoverBorders. DocProcessorRb::BoxDecoration.legacy_to_keys
-  # applies the same rules to a .db that hasn't been re-exported.
+  # reads the old keys at render time for a .db that hasn't been re-exported
+  # (there nil and 0 draw the same, so it need not tell unset from off).
   module LegacyBorder
     OLD_FIELDS = %w[border_thickness border_color border_side rounded_corners corner_radius].freeze
     SIDES = %w[top right bottom left].freeze
@@ -28,35 +32,60 @@ module Design
       end
     end
 
-    # A resolved old style → the twelve fields, every one set: a thickness per
-    # side (0 = no line), the colour on every side while a line is drawn (nil
-    # otherwise), a preset per corner ("none" = square). `large` → `full`.
+    # A resolved old style → the twelve fields (every key present). What the
+    # old chain set is pinned; what it left unset stays nil, so it keeps
+    # inheriting as the old model would have.
+    #
+    # Thickness: a number > 0 draws on the flagged sides (0 on the others) in
+    # the colour on every side. Set but 0, negative or unreadable: no line on
+    # any side (0) and no colour. Unset (nil / blank): a flagged-off side is 0,
+    # a flagged-on side (or every side, with no flags) nil; a set colour stays
+    # latent on every side.
+    #
+    # Corners: a real preset (small / medium / large → full) on the flagged
+    # corners, "none" on the others. "none" or unreadable: all four "none".
+    # Unset: a flagged-off corner "none", the others nil.
     def convert(old, order: :studio)
       old = old.to_h.transform_keys(&:to_s)
-      thickness = number(old["border_thickness"])
-      drawn = thickness.positive?
-      color = old["border_color"].to_s.strip.presence if drawn
-      on_sides = on(old["border_side"], SIDE_ORDERS.fetch(order))
-      preset = old["corner_radius"].to_s.strip
-      preset = "full" if preset == "large"
-      preset = "none" unless PRESETS.include?(preset)
-      on_corners = on(old["rounded_corners"], CORNERS)
-
       out = {}
-      SIDES.each do |side|
-        out["border_#{side}_thickness"] = drawn && on_sides.include?(side) ? thickness : 0
+      side_values(old, SIDE_ORDERS.fetch(order)).each do |side, (thickness, color)|
+        out["border_#{side}_thickness"] = thickness
         out["border_#{side}_color"] = color
       end
-      CORNERS.each { |corner| out["corner_#{corner}"] = on_corners.include?(corner) ? preset : "none" }
-      out
+      corner_values(old).each { |corner, preset| out["corner_#{corner}"] = preset }
+      out.slice(*NEW_FIELDS)
     end
 
-    # The names whose flag is "1", reading `text` in `names`' order. Blank or
-    # unreadable (not four 0/1 flags) = all of them.
-    def on(text, names)
-      flags = text.to_s.split(",").map(&:strip)
-      return names.dup unless flags.size == 4 && flags.all? { |f| %w[0 1].include?(f) }
-      names.zip(flags).filter_map { |name, flag| name if flag == "1" }
+    # side => [thickness, colour], in SIDES order.
+    def side_values(old, names)
+      color = old["border_color"].to_s.strip.presence
+      flags = flags(old["border_side"], names)
+      if unset?(old["border_thickness"])
+        SIDES.index_with { |side| [ flags && !flags[side] ? 0 : nil, color ] }
+      else
+        thickness = number(old["border_thickness"])
+        drawn = thickness.positive?
+        SIDES.index_with { |side| drawn && (flags.nil? || flags[side]) ? [ thickness, color ] : [ 0, drawn ? color : nil ] }
+      end
+    end
+
+    def corner_values(old)
+      preset = old["corner_radius"].to_s.strip
+      flags = flags(old["rounded_corners"], CORNERS)
+      return CORNERS.index_with { |c| flags && !flags[c] ? "none" : nil } if preset.empty?
+      preset = "full" if preset == "large"
+      preset = "none" unless PRESETS.include?(preset)
+      CORNERS.index_with { |c| preset != "none" && (flags.nil? || flags[c]) ? preset : "none" }
+    end
+
+    def unset?(value) = value.nil? || (value.is_a?(String) && value.strip.empty?)
+
+    # { name => on? } from four 0/1 flags read in `names`' order; nil when the
+    # text is blank or unreadable (= all on).
+    def flags(text, names)
+      list = text.to_s.split(",").map(&:strip)
+      return nil unless list.size == 4 && list.all? { |f| %w[0 1].include?(f) }
+      names.zip(list.map { |f| f == "1" }).to_h
     end
 
     def number(value)
