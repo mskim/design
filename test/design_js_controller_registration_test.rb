@@ -186,7 +186,7 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "LocalValueKeeper"
   end
 
-  %w[style_save_queue style_panel_morph edge_flags field_save_jobs page_guides].each do |mod|
+  %w[style_save_queue style_panel_morph edge_flags field_save_jobs page_guides cell_grid].each do |mod|
     test "#{mod} is a pure module" do
       src = File.read(ENGINE_JS.join("design-controllers/design/#{mod}.js"))
       refute_match(/^import /, src)
@@ -219,5 +219,22 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     src = File.read(ENGINE_JS.join("design-controllers/design/page_guides_controller.js"))
     assert_match(/geometryValueChanged\(\)\s*\{\s*this\.draw\(\)\s*\}/, src)
     refute_match(/connect\(\)/, src)
+  end
+
+  test "anchor_grid writes its hidden input, dispatches a bubbling change and re-syncs after a morph" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/anchor_grid_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, %(dispatchEvent(new Event("change", { bubbles: true })))
+    %w[pick( resync(].each { |m| assert_includes src, m }
+    refute_match(/from\s+["']\.\.?\//, src)
+  end
+
+  test "cell_grid controller imports the pure module by its importmap name and drags from the handle" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/cell_grid_controller.js"))
+    assert_includes src, %("design-controllers/design/cell_grid")
+    %w[draw( dragStart( dragMove( dragEnd(].each { |m| assert_includes src, m }
+    assert_includes src, %(dispatchEvent(new Event("change", { bubbles: true })))
+    assert_includes src, "getBoundingClientRect()"
+    refute_match(/from\s+["']\.\.?\//, src)
   end
 end

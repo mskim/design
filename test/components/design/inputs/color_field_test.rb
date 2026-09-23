@@ -109,4 +109,12 @@ class Design::ColorFieldTest < ActiveSupport::TestCase
     assert_equal %w[c m y k].map { |ch| "cf-paragraph_style-text_color-#{ch}" },
                  doc.css("input[data-channel]").map { |i| i["id"] }
   end
+
+  test "form: ties the hidden value to another form (the Object section's)" do
+    doc = Nokogiri::HTML.fragment(Design::Views::Inputs::ColorField.new(
+      name: "object[photo_border_color]", value: "#1f2937", label: "색", form: "object-section-form").call)
+    assert_equal "object-section-form", doc.at_css("input[type=hidden]")["form"]
+    refute Nokogiri::HTML.fragment(Design::Views::Inputs::ColorField.new(
+      name: "x", value: "", label: "y").call).at_css("input[type=hidden]").key?("form")
+  end
 end

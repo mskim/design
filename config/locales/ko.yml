@@ -298,6 +298,19 @@ ko:
         no_column_width: "단 너비가 0 이하입니다"
         columns_elsewhere: "단 너비가 0 이하가 되는 문서 유형: %{doc_types}"
     object_section:
+      position: "위치"
+      crop: "보이는 부분"
+      resize: "모서리를 끌어 칸 수 바꾸기"
+      anchors:
+        a1: "왼쪽 위"
+        a2: "가운데 위"
+        a3: "오른쪽 위"
+        a4: "왼쪽 가운데"
+        a5: "가운데"
+        a6: "오른쪽 가운데"
+        a7: "왼쪽 아래"
+        a8: "가운데 아래"
+        a9: "오른쪽 아래"
       errors:
         required: "필수"
         not_a_number: "숫자를 입력해 주세요"

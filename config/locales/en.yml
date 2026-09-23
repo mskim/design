@@ -298,6 +298,19 @@ en:
         no_column_width: "Columns would have no width"
         columns_elsewhere: "Columns would have no width in: %{doc_types}"
     object_section:
+      position: "Position"
+      crop: "Visible area"
+      resize: "Drag the corner to resize in cells"
+      anchors:
+        a1: "Top left"
+        a2: "Top centre"
+        a3: "Top right"
+        a4: "Middle left"
+        a5: "Centre"
+        a6: "Middle right"
+        a7: "Bottom left"
+        a8: "Bottom centre"
+        a9: "Bottom right"
       errors:
         required: "Required"
         not_a_number: "Enter a number"
