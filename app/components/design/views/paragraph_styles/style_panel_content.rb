@@ -17,7 +17,9 @@ module Design
           "space"     => %w[first_line_indent left_indent right_indent space_before space_after
                             space_before_in_lines space_after_in_lines],
           "fill"      => %w[fill_type fill_gradient_direction fill_color fill_ending_color],
-          "border"    => %w[border_thickness border_color border_side rounded_corners corner_radius],
+          "border"    => %w[border_top_thickness border_top_color border_right_thickness border_right_color
+                            border_bottom_thickness border_bottom_color border_left_thickness border_left_color
+                            corner_top_left corner_top_right corner_bottom_left corner_bottom_right],
           "pad"       => %w[padding_top padding_bottom]
         }.freeze
         ALWAYS_OPEN = "type_text"
@@ -48,11 +50,13 @@ module Design
                                          { options: Design::ParagraphStyle::GRADIENT_DIRECTIONS, i18n: "gradient_dir" } ],
           "fill_color"              => [ :color, "fill_color" ],
           "fill_ending_color"       => [ :color, "ending_color" ],
-          "border_thickness"        => [ :number, "thickness", { step: 0.1, min: 0 } ],
-          "border_color"            => [ :color, "border_color" ],
-          "border_side"             => [ :border_sides, "border_sides" ],
-          "rounded_corners"         => [ :corners, "rounded_corners" ],
-          "corner_radius"           => [ :select, "corner_radius", { options: Design::ParagraphStyle::CORNER_RADII, i18n: "corner_radius" } ],
+          **Design::ParagraphStyle::SIDES.flat_map { |s|
+            [ [ "border_#{s}_thickness", [ :number, "border_#{s}_thickness", { step: 0.1, min: 0 } ] ],
+              [ "border_#{s}_color", [ :color, "border_#{s}_color" ] ] ]
+          }.to_h,
+          **Design::ParagraphStyle::CORNERS.to_h { |c|
+            [ "corner_#{c}", [ :select, "corner_#{c}", { options: Design::ParagraphStyle::CORNER_SIZES, i18n: "corner_size" } ] ]
+          },
           "padding_top"             => [ :number, "padding_top", { step: 0.1, min: 0 } ],
           "padding_bottom"          => [ :number, "padding_bottom", { step: 0.1, min: 0 } ]
         }.freeze
@@ -212,10 +216,6 @@ module Design
                 name: name, id: id, value: shown_value(f), inherited_value: parent[f], i18n_scope: opts[:i18n],
                 options: kind == :font ? Design::Theme::AVAILABLE_FONTS : opts.fetch(:options), disabled: disabled)
             end
-          when :border_sides
-            render Design::Views::Inputs::BorderSides.new(name: name, value: shown_value(f), inherited_value: parent[f], disabled: disabled)
-          when :corners
-            render Design::Views::Inputs::Corners.new(name: name, value: shown_value(f), inherited_value: parent[f], disabled: disabled)
           end
         end
 
@@ -232,8 +232,7 @@ module Design
         end
 
         # The inherited value as the tooltip reads it: option labels, colour
-        # summaries, numbers with the control's unit, and the sides/corners
-        # that are on.
+        # summaries and numbers with the control's unit.
         def parent_text(f, kind, opts)
           v = parent[f]
           return nil if v.nil?
@@ -241,8 +240,6 @@ module Design
           when :select then opts[:options].include?(v) ? I18n.t("design.options.#{opts[:i18n]}.#{v}") : display(v)
           when :color then Design::Views::Inputs::ColorValue.summary(v)
           when :number then with_unit(display(v), opts.fetch(:unit, :pt))
-          when :border_sides then flags_text(v, Design::Views::Inputs::BorderSides::SIDES.map { |s| I18n.t("design.shared.#{s}") })
-          when :corners then flags_text(v, Design::Views::Inputs::Corners::CORNERS.map { |c| I18n.t("design.inputs.corners.#{c}") })
           else display(v)
           end
         end
@@ -251,15 +248,6 @@ module Design
           suffix = Design::Views::Inputs::NumberField.suffix_for(unit)
           return text unless suffix
           unit == :lines ? "#{text} #{suffix}" : "#{text}#{suffix}"
-        end
-
-        # "1,0,1,0" → "위, 아래" (names in the flag string's order); an unreadable
-        # value is shown as stored.
-        def flags_text(value, names)
-          flags = value.to_s.split(",").map(&:strip)
-          return value.to_s unless flags.size == names.size && flags.all? { |x| %w[0 1].include?(x) }
-          on = names.zip(flags).filter_map { |n, x| n if x == "1" }
-          on.empty? ? I18n.t("design.inputs.none") : on.join(", ")
         end
 
         def source_label = I18n.t(chapter? ? "design.style_panel.from_theme" : "design.style_panel.from_chapter")

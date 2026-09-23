@@ -678,11 +678,10 @@ module Design
         fill_color: style.fill_color,
         fill_ending_color: style.fill_ending_color,
         fill_gradient_direction: style.fill_gradient_direction,
-        border_thickness: style.border_thickness&.to_f,
-        border_color: style.border_color,
-        border_side: style.border_side.presence || (style.border_thickness.to_f > 0 ? "1,1,1,1" : nil),
-        rounded_corners: style.rounded_corners.presence || (style.corner_radius.present? ? "1,1,1,1" : nil),
-        corner_radius: style.corner_radius
+        **Design::ParagraphStyle::BORDER_FIELDS.to_h do |f|
+          value = style[f]
+          [ f.to_sym, value.is_a?(BigDecimal) ? value.to_f : value ]
+        end
       }
     end
 

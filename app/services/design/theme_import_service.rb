@@ -154,10 +154,17 @@ module Design
         emphasis_font: row["emphasis_font"], emphasis_color: row["emphasis_color"],
         fill_type: row["fill_type"], fill_color: row["fill_color"],
         fill_ending_color: row["fill_ending_color"], fill_gradient_direction: row["fill_gradient_direction"],
-        border_thickness: row["border_thickness"], border_color: row["border_color"],
-        border_side: row["border_side"], rounded_corners: row["rounded_corners"],
-        corner_radius: row["corner_radius"], padding_top: row["padding_top"], padding_bottom: row["padding_bottom"]
+        **border_attrs(row),
+        padding_top: row["padding_top"], padding_bottom: row["padding_bottom"]
       }
+    end
+
+    # The twelve D5 fields from a file that has them. A file written before D5
+    # has the old five instead: those rows are converted after import
+    # (BorderUpgrade, Task 6), so nothing is read from them here.
+    def border_attrs(row)
+      return {} unless row.key?("border_top_thickness")
+      Design::ParagraphStyle::BORDER_FIELDS.to_h { |f| [ f.to_sym, row[f] ] }
     end
 
     def document_design_attrs(row)

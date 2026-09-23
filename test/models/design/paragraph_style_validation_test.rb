@@ -60,7 +60,7 @@ class Design::ParagraphStyleValidationTest < ActiveSupport::TestCase
   test "select fields take only the options the panel offers" do
     { text_align: Design::ParagraphStyle::TEXT_ALIGNS, fill_type: Design::ParagraphStyle::FILL_TYPES,
       fill_gradient_direction: Design::ParagraphStyle::GRADIENT_DIRECTIONS,
-      corner_radius: Design::ParagraphStyle::CORNER_RADII }.each do |f, options|
+      corner_top_left: Design::ParagraphStyle::CORNER_SIZES }.each do |f, options|
       options.each { |v| assert panel_valid?(row(f => v)), "#{f}=#{v}" }
       r = row(f => "banana")
       refute panel_valid?(r), f
@@ -83,17 +83,6 @@ class Design::ParagraphStyleValidationTest < ActiveSupport::TestCase
     @theme.base_paragraph_styles.create!(name: "zz_v", bold_font: "ParentFont")
     assert panel_valid?(row(bold_font: "ParentFont")), "the parent's value"
     refute panel_valid?(row(font: "ParentFont")), "per field: the parent's font is not the parent's bold_font"
-  end
-
-  test "border sides and rounded corners are four 0/1 flags" do
-    %w[border_side rounded_corners].each do |f|
-      %w[1,0,1,0 0,0,0,0 1,1,1,1].each { |v| assert panel_valid?(row(f => v)), "#{f}=#{v}" }
-      [ "1,0,1", "1,0,1,0,1", "2,0,0,0", "1, 0,1,0", "top", "1,0,1,0\nx" ].each do |v|
-        r = row(f => v)
-        refute panel_valid?(r), "#{f}=#{v.inspect}"
-        assert_includes r.errors[f], I18n.t("design.style_panel.errors.invalid_flags"), f
-      end
-    end
   end
 
   test "colours: CMYK=c,m,y,k, #rrggbb or a legacy name (what ColorValue reads)" do

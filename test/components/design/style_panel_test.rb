@@ -12,7 +12,7 @@ class Design::StylePanelTest < ActiveSupport::TestCase
     @forewords = [ @ps1, @ps2 ].map { |ps| design_for(ps, "foreword") }
     @chapter, @foreword = @chapters.first, @forewords.first
     @base = @theme.base_paragraph_styles.create!(name: "zz_body", font: "Base Font", font_size: 10, text_align: "left",
-                                                 korean_name: "본문", border_side: "1,0,1,0")
+                                                 korean_name: "본문")
   end
 
   def design_for(ps, doc_type) = ps.document_designs.find_by(doc_type: doc_type) || ps.document_designs.create!(doc_type: doc_type)
@@ -70,18 +70,17 @@ class Design::StylePanelTest < ActiveSupport::TestCase
     assert_nil field(doc, "tracking")["title"], "no parent value → no title (not a bare source label)"
   end
 
-  test "inherited tooltips: numbers carry the control's unit; flag strings name the sides that are on" do
-    @base.update!(scale: 90, tracking: -0.5, space_before_in_lines: 1, rounded_corners: "1,0,1,0")
+  test "inherited tooltips: numbers carry the control's unit; a corner preset reads as its label" do
+    @base.update!(scale: 90, tracking: -0.5, space_before_in_lines: 1)
     doc = content
     from = I18n.t("design.style_panel.from_chapter")
     assert_equal "#{from}: 90.0%", field(doc, "scale")["title"]
     assert_equal "#{from}: -0.5", field(doc, "tracking")["title"], "unitless"
     assert_equal "#{from}: 1.0 #{I18n.t('design.inputs.lines')}", field(doc, "space_before_in_lines")["title"]
-    assert_equal "#{from}: #{I18n.t('design.shared.top')}, #{I18n.t('design.shared.bottom')}", field(doc, "border_side")["title"]
-    assert_equal "#{from}: #{I18n.t('design.inputs.corners.tl')}, #{I18n.t('design.inputs.corners.br')}",
-                 field(doc, "rounded_corners")["title"], "tl,tr,br,bl order"
-    @base.update!(border_side: "0,0,0,0")
-    assert_equal "#{from}: #{I18n.t('design.inputs.none')}", field(content, "border_side")["title"]
+    @base.update!(border_top_thickness: 1.5, corner_top_left: "medium")
+    doc = content
+    assert_equal "#{from}: 1.5pt", field(doc, "border_top_thickness")["title"]
+    assert_equal "#{from}: #{I18n.t('design.options.corner_size.medium')}", field(doc, "corner_top_left")["title"]
   end
 
   test "× is labelled with its field" do
@@ -91,7 +90,7 @@ class Design::StylePanelTest < ActiveSupport::TestCase
 
   test "selects are labelled: the row's label points at the select's stable id" do
     doc = content
-    %w[font text_align bold_font fill_type corner_radius].each do |f|
+    %w[font text_align bold_font fill_type corner_top_left].each do |f|
       select = doc.at_css("select[name='paragraph_style[#{f}]']")
       assert select["id"].present?, f
       assert_equal "sel-paragraph_style-#{f}", select["id"], f
@@ -160,14 +159,13 @@ class Design::StylePanelTest < ActiveSupport::TestCase
     refute on_a.at_css("button[data-action='design--style-autosave#pushStyle']").key?("disabled")
   end
 
-  test "selects offer 상속 (<parent>) first; colours and border editors carry the parent value" do
+  test "selects offer 상속 (<parent>) first; colours carry the parent value" do
     doc = content
     first = doc.at_css("select[name='paragraph_style[text_align]'] option")
     assert_equal I18n.t("design.inputs.inherit_with_value", value: I18n.t("design.options.text_align.left")), first.text
     assert first.key?("selected")
     assert doc.at_css("[data-controller='design--color-row'][data-design--color-row-parent-value]"),
            "text_color inherits the theme default colour"
-    assert_equal "1,0,1,0", doc.at_css("[data-controller='design--border-side-editor']")["data-design--border-side-editor-parent-value"]
   end
 
   test "sections: 글꼴 · 텍스트 always open; others open with a change and show a dot" do
@@ -240,7 +238,7 @@ class Design::StylePanelTest < ActiveSupport::TestCase
     assert_equal inherited.uniq, inherited, "ids are unique within a render"
     assert_equal inherited, ids.(content)
 
-    { "font_size" => 12, "text_align" => "center", "text_color" => "CMYK=0,0,0,50", "border_side" => "1,1,1,1",
+    { "font_size" => 12, "text_align" => "center", "text_color" => "CMYK=0,0,0,50", "border_top_thickness" => "1.0",
       "font" => Design::Theme::AVAILABLE_FONTS.first, "fill_type" => "solid" }.each do |f, v|
       @foreword.set_style_field!("zz_body", f, v)
     end

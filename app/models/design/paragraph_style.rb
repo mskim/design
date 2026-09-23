@@ -20,6 +20,30 @@ module Design
     # override); vertical_align is table-cell only and theme-level (no doc-type consumer).
     STYLE_FIELDS = (Design::DocumentDesign::MERGEABLE_ATTRS - %w[korean_name]).freeze
 
+    # D5: a thickness and a colour per side, a corner preset per corner — each
+    # an ordinary style field that inherits on its own. Spelled out again in
+    # DocumentDesign::MERGEABLE_ATTRS (a shared constant would be an autoload
+    # cycle); Design::BorderFieldsTest pins the two equal.
+    SIDES = %w[top right bottom left].freeze
+    CORNERS = %w[top_left top_right bottom_right bottom_left].freeze
+    BORDER_THICKNESS_FIELDS = %w[border_top_thickness border_right_thickness border_bottom_thickness
+                                 border_left_thickness].freeze
+    BORDER_COLOR_FIELDS = %w[border_top_color border_right_color border_bottom_color border_left_color].freeze
+    CORNER_FIELDS = %w[corner_top_left corner_top_right corner_bottom_right corner_bottom_left].freeze
+    BORDER_FIELDS = (BORDER_THICKNESS_FIELDS + BORDER_COLOR_FIELDS + CORNER_FIELDS).freeze
+    # Relative to the box's shorter side s (DocProcessorRb::BoxDecoration.radius):
+    # small 6% (≥ 2 pt), medium 15% (≥ 4 pt), full s/2.
+    CORNER_SIZES = %w[none small medium full].freeze
+    # The style panel's 🔗 groups: one request writes, or reverts, all four.
+    LINK_GROUPS = { "border_thickness" => BORDER_THICKNESS_FIELDS, "border_color" => BORDER_COLOR_FIELDS,
+                    "corners" => CORNER_FIELDS }.freeze
+
+    # The group whose four fields are exactly `fields` (any order), or nil.
+    def self.link_group_for(fields)
+      names = Array(fields).map(&:to_s).sort
+      LINK_GROUPS.find { |_, group| group.sort == names }&.first
+    end
+
     # pt-valued, paper-size-dependent fields: an edit on one size changes the
     # other sizes proportionally (see DocumentDesign#set_style_field!).
     SCALED_FIELDS = %w[
@@ -31,10 +55,10 @@ module Design
     after_initialize :clear_doc_type_defaults, if: -> { new_record? && doc_type_row? }
 
     # Sizes and spacing (pt, lines, %) can't be negative; indents and tracking can.
-    NON_NEGATIVE_FIELDS = %w[
+    NON_NEGATIVE_FIELDS = (%w[
       font_size scale space_width text_line_spacing space_before space_after
-      space_before_in_lines space_after_in_lines border_thickness padding_top padding_bottom
-    ].freeze
+      space_before_in_lines space_after_in_lines padding_top padding_bottom
+    ] + BORDER_THICKNESS_FIELDS).freeze
     # A zero size or scale draws nothing.
     POSITIVE_FIELDS = %w[font_size scale].freeze
     NUMBER_LIMIT = 10_000
@@ -48,17 +72,12 @@ module Design
     TEXT_ALIGNS = %w[left center right justify].freeze
     FILL_TYPES = %w[none solid gradient].freeze
     GRADIENT_DIRECTIONS = %w[top_to_bottom bottom_to_top left_to_right right_to_left angle].freeze
-    CORNER_RADII = %w[none small medium large].freeze
     OPTION_FIELDS = {
-      "text_align" => TEXT_ALIGNS, "fill_type" => FILL_TYPES,
-      "fill_gradient_direction" => GRADIENT_DIRECTIONS, "corner_radius" => CORNER_RADII
-    }.freeze
+      "text_align" => TEXT_ALIGNS, "fill_type" => FILL_TYPES, "fill_gradient_direction" => GRADIENT_DIRECTIONS
+    }.merge(CORNER_FIELDS.index_with { CORNER_SIZES }).freeze
 
     FONT_FIELDS = %w[font bold_font emphasis_font].freeze
-    # "top,right,bottom,left" / "tl,tr,br,bl" on-off flags.
-    FLAG_FIELDS = %w[border_side rounded_corners].freeze
-    FLAGS = /\A[01](,[01]){3}\z/
-    COLOR_FIELDS = %w[text_color bold_text_color emphasis_color fill_color fill_ending_color border_color].freeze
+    COLOR_FIELDS = (%w[text_color bold_text_color emphasis_color fill_color fill_ending_color] + BORDER_COLOR_FIELDS).freeze
     # What Inputs::ColorValue reads: "CMYK=c,m,y,k" (plain decimals, spaces
     # around each allowed), "#rrggbb", or a legacy colour name.
     COLOR = /\A(CMYK=(\s*[+-]?(\d+(\.\d*)?|\.\d+)\s*)(,\s*[+-]?(\d+(\.\d*)?|\.\d+)\s*){3}|#\h{6}|(?i:black|white|red|blue|green|gray))\z/
@@ -116,7 +135,7 @@ module Design
       end
     end
 
-    # Selects, fonts, flag strings and colours take only what the panel's
+    # Selects, fonts and colours take only what the panel's
     # controls produce. A font may also be the value already stored on this
     # row or its parent, so a legacy font round-trips. Like the numbers, only
     # fields assigned in this edit are checked.
@@ -128,7 +147,6 @@ module Design
         text = value.to_s
         error = if OPTION_FIELDS.key?(f) then :invalid_option unless OPTION_FIELDS[f].include?(text)
                 elsif FONT_FIELDS.include?(f) then :invalid_option unless allowed_fonts(f).include?(text)
-                elsif FLAG_FIELDS.include?(f) then :invalid_flags unless text.match?(FLAGS)
                 elsif COLOR_FIELDS.include?(f) then :invalid_color unless text.match?(COLOR)
                 end
         errors.add(f, I18n.t("design.style_panel.errors.#{error}")) if error

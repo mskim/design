@@ -742,7 +742,9 @@ module Design
       space_before_in_lines space_after_in_lines left_indent right_indent
       bold_font emphasis_color
       fill_type fill_color fill_ending_color fill_gradient_direction
-      border_thickness border_color border_side rounded_corners corner_radius
+      border_top_thickness border_right_thickness border_bottom_thickness border_left_thickness
+      border_top_color border_right_color border_bottom_color border_left_color
+      corner_top_left corner_top_right corner_bottom_right corner_bottom_left
       padding_top padding_bottom bold_text_color emphasis_font
     ].freeze
 

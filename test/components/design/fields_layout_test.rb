@@ -4,7 +4,7 @@ class Design::FieldsLayoutTest < ActiveSupport::TestCase
   def fragment(name: "title")
     theme = Design::Theme.create!(name: "FX #{SecureRandom.hex(3)}", locale: "ko")
     style = theme.base_paragraph_styles.create!(
-      name: name, font_size: 24, text_color: "CMYK=0,0,0,100", border_thickness: 5
+      name: name, font_size: 24, text_color: "CMYK=0,0,0,100", border_top_thickness: 5
     )
     Nokogiri::HTML.fragment(Design::Views::ParagraphStyles::Fields.new(paragraph_style: style).call)
   end
@@ -34,12 +34,10 @@ class Design::FieldsLayoutTest < ActiveSupport::TestCase
     assert row.at_css("input, select"), "row has a control"
   end
 
-  test "border editors and corner radius stay inside the border box" do
+  test "the per-side and per-corner border fields stay inside the border box" do
     f = fragment
     box = f.at_css('fieldset[data-group="border"]')
     assert box, "border box present"
-    assert box.at_css('[data-controller~="design--border-side-editor"]')
-    assert box.at_css('[data-controller~="design--corner-editor"]')
-    assert box.at_css('[name="paragraph_style[corner_radius]"]')
+    Design::ParagraphStyle::BORDER_FIELDS.each { |fld| assert box.at_css("[name='paragraph_style[#{fld}]']"), fld }
   end
 end
