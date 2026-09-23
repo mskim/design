@@ -11,6 +11,9 @@ export const PANEL_TARGET = "style-panel-content"
 // the Page section's Left/Right link toggle.
 export const MENU = "[data-design--dropdown-target='menu']"
 export const MARGIN_LINK = "[data-margin-link]"
+// The style panel's 🔗 border/corner toggles (D5) and the boxes they switch.
+export const LINK_TOGGLE = "[data-link-toggle]"
+export const LINK_BOX = "[data-link-box]"
 
 // A name → field function for controls named <prefix>[<field>]
 // ("paragraph_style[font_size]" → "font_size"); anything else → null.
@@ -27,12 +30,14 @@ export const fieldFromName = fieldMatcher()
 function escapeRegExp(text) { return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") }
 
 // Attributes a save's morph leaves as the user set them: a <details>' open
-// state, the ▾ menu's class (the server renders it closed) and the margin
-// link's aria-pressed (client-side state). Values are LocalValueKeeper's job.
+// state, the ▾ menu's class (the server renders it closed), the margin link's
+// and the 🔗 border/corner toggles' aria-pressed, and the 🔗 boxes'
+// data-linked (all client-side state). Values are LocalValueKeeper's job.
 export function keepsUserAttribute(el, attributeName) {
   if (el?.tagName === "DETAILS" && attributeName === "open") return true
   if (attributeName === "class" && el?.matches?.(MENU)) return true
-  if (attributeName === "aria-pressed" && el?.matches?.(MARGIN_LINK)) return true
+  if (attributeName === "aria-pressed" && (el?.matches?.(MARGIN_LINK) || el?.matches?.(LINK_TOGGLE))) return true
+  if (attributeName === "data-linked" && el?.matches?.(LINK_BOX)) return true
   return false
 }
 
@@ -67,14 +72,28 @@ export class LocalValueKeeper {
     this.decisions = new WeakMap()
   }
 
-  // turbo:before-morph-element: only the panel's named controls.
+  // turbo:before-morph-element: only the panel's named controls — its fields,
+  // and a 🔗 row's linked control (paragraph_style_link[…], never a field),
+  // which is pending while any field of its group is.
   decide(el) {
     const field = this.fieldOf(el?.name)
-    if (!field) return
-    this.decisions.set(el, keepsLocalValue({ pending: this.isPending(field), dirty: isDirty(el) }))
+    const fields = field ? [ field ] : linkRowFields(el)
+    if (!fields) return
+    const pending = fields.some((f) => this.isPending(f))
+    this.decisions.set(el, keepsLocalValue({ pending, dirty: isDirty(el) }))
   }
 
   keeps(control) { return this.decisions.get(control) === true }
+}
+
+// The fields of the 🔗 row (D5) a named, non-field control sits in (its
+// data-link-fields); null outside one, or for an unnamed control (a colour
+// popover's sub-fields).
+function linkRowFields(el) {
+  if (!el?.name) return null
+  const row = el.closest?.("[data-link-fields]")
+  if (!row) return null
+  return String(row.dataset?.linkFields ?? "").split(/\s+/).filter(Boolean)
 }
 
 // Remove the <turbo-stream target="…"> elements aimed at `target` from a

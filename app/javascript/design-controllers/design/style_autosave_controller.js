@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 import { StyleSaveQueue } from "design-controllers/design/style_save_queue"
 import { fieldMatcher, LocalValueKeeper, dropStreamsFor, keepsUserAttribute, PANEL_TARGET, FIELD_PREFIX, MENU, MARGIN_LINK }
   from "design-controllers/design/style_panel_morph"
-import { saveJobs, partnerInput, jointFields, valuesFor } from "design-controllers/design/field_save_jobs"
+import { saveJobs, partnerInput, jointFields, valuesFor, groupJobs, mirrorTargets } from "design-controllers/design/field_save_jobs"
 
 // Autosave for the paragraph style panel (D2b) and the Layout tab's Page
 // section (D3: margins, binding, body lines, columns). Each committed field
@@ -17,6 +17,9 @@ import { saveJobs, partnerInput, jointFields, valuesFor } from "design-controlle
 // state, the ▾ menu's open state and the 🔗 margin link's pressed state.
 // A control marked `data-joint-with` (the Object section's two cell sizes) is
 // saved together with the fields it names, in one request.
+// A 🔗 border/corner row (the style panel, D5) writes or reverts its whole
+// group in one request; its toggle's state and its box's `data-linked`
+// survive morphs.
 // Whether a control keeps its value is decided once per morphed element
 // (LocalValueKeeper). When the last request of a burst fails without a
 // stream, the preview is reloaded. Once the panel is gone (the frame moved
@@ -70,6 +73,8 @@ export default class extends Controller {
   // match the prefix: both ignored.
   fieldChanged(event) {
     const el = event.target
+    const row = el?.closest?.("[data-link-fields]")
+    if (row && !this.fieldOf(el?.name)) return this.groupChanged(el, row)
     const field = this.fieldOf(el?.name)
     if (!field || el.disabled) return
     markCommitted(el)
@@ -89,11 +94,15 @@ export default class extends Controller {
     }
   }
 
-  // 🔗 between Left and Right: client-side state (kept through morphs by
-  // keepsUserAttribute); the server renders it pressed when Left = Right.
+  // 🔗 between Left and Right, or on a border/corner box (flipping the box's
+  // data-linked too): client-side state (kept through morphs by
+  // keepsUserAttribute); the server renders it pressed when the values match.
   toggleLink(event) {
     const button = event.currentTarget
-    button.setAttribute("aria-pressed", String(button.getAttribute("aria-pressed") !== "true"))
+    const pressed = button.getAttribute("aria-pressed") !== "true"
+    button.setAttribute("aria-pressed", String(pressed))
+    const box = button.closest("[data-link-box]")
+    if (box) box.dataset.linked = String(pressed)
   }
 
   get linked() { return this.element.querySelector(MARGIN_LINK)?.getAttribute("aria-pressed") === "true" }
@@ -105,6 +114,31 @@ export default class extends Controller {
     if (!input || input.value === value) return
     input.value = value
     markCommitted(input)
+  }
+
+  // A 🔗 row's control (named paragraph_style_link[…], never a field): its
+  // value goes into the group's split controls at once and is saved as one
+  // request; emptied, the whole group reverts.
+  groupChanged(el, row) {
+    if (el.disabled) return
+    markCommitted(el)
+    const value = (el.value ?? "").trim()
+    const fields = row.dataset.linkFields.split(/\s+/).filter(Boolean)
+    if (value !== "") {
+      for (const input of mirrorTargets(this.element.querySelectorAll("[name]"), this.fieldOf, fields, value)) {
+        input.value = value
+        markCommitted(input)
+      }
+    }
+    this.enqueueAll(groupJobs({ group: row.dataset.linkGroup, fields, value, url: this.fieldUrlValue }))
+  }
+
+  // × on a 🔗 row: the group's four fields back to inherit, in one request.
+  revertGroup(event) {
+    const row = event.currentTarget.closest("[data-link-fields]")
+    if (!row) return
+    const fields = row.dataset.linkFields.split(/\s+/).filter(Boolean)
+    this.enqueueAll(groupJobs({ group: row.dataset.linkGroup, fields, value: "", url: this.fieldUrlValue }))
   }
 
   // A control Ruby marked data-joint-with is written together with the fields
@@ -163,6 +197,7 @@ export default class extends Controller {
     if (job.field) body.append("field", job.field)
     if (job.value !== undefined) body.append("value", job.value)
     if (job.values) for (const [ f, v ] of Object.entries(job.values)) body.append(`values[${f}]`, v)
+    if (job.method === "DELETE" && job.fields) for (const f of job.fields) body.append("fields[]", f)
     if (this.previewModeValue) body.append("preview_mode", this.previewModeValue)
     body.append("render_preview", renderPreview ? "1" : "0")
     let response

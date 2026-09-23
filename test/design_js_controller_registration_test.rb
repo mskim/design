@@ -250,4 +250,12 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes pure, %(kind === "grid")
   end
 
+  test "D5: the box sketch registers, and style_autosave handles 🔗 groups" do
+    assert File.exist?(ENGINE_JS.join("design-controllers/design/box_sketch_controller.js"))
+    pure = File.read(ENGINE_JS.join("design-controllers/design/box_sketch.js"))
+    %w[import document. window.].each { |word| refute_includes pure, word }
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    %w[groupChanged( revertGroup( groupJobs( mirrorTargets( fields[]].each { |m| assert_includes src, m }
+    assert_includes src, %(closest("[data-link-box]"))
+  end
 end

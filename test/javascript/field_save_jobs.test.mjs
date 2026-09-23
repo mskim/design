@@ -1,6 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { saveJobs, partnerOf, partnerInput, LINKED_FIELDS, LINKED_KEY, jointFields, valuesFor, JOINT_KEY_PREFIX }
+import { saveJobs, partnerOf, partnerInput, LINKED_FIELDS, LINKED_KEY, jointFields, valuesFor, JOINT_KEY_PREFIX,
+         groupJobs, mirrorTargets, GROUP_KEY_PREFIX }
   from "../../app/javascript/design-controllers/design/field_save_jobs.js"
 
 const url = "/p/field"
@@ -100,4 +101,28 @@ test("emptying a joint field reverts that field alone", () => {
 
 test("the linked margin pair is unaffected by joint sets", () => {
   assert.equal(saveJobs({ field: "left_margin_mm", value: "18", url, linked: true })[0].key, LINKED_KEY)
+})
+
+const THICK = [ "border_top_thickness", "border_right_thickness", "border_bottom_thickness", "border_left_thickness" ]
+
+test("groupJobs: one PATCH writes the whole group; the key is the group, so commits coalesce", () => {
+  const [ job ] = groupJobs({ group: "border_thickness", fields: THICK, value: "2", url })
+  assert.deepEqual(job, { key: `${GROUP_KEY_PREFIX}border_thickness`, method: "PATCH", url, fields: THICK,
+                          values: Object.fromEntries(THICK.map((f) => [ f, "2" ])) })
+  assert.equal(groupJobs({ group: "border_thickness", fields: THICK, value: "3", url })[0].key, job.key)
+})
+
+test("groupJobs: an empty value is one group revert", () => {
+  assert.deepEqual(groupJobs({ group: "corners", fields: [ "a", "b" ], value: "", url }),
+                   [ { key: `${GROUP_KEY_PREFIX}corners`, method: "DELETE", url, fields: [ "a", "b" ] } ])
+})
+
+test("mirrorTargets: the group's split controls whose value differs, matched by name", () => {
+  const fieldOf = (name) => /^paragraph_style\[(\w+)\]$/.exec(name ?? "")?.[1] ?? null
+  const inputs = [ { name: "paragraph_style[border_top_thickness]", value: "1" },
+                   { name: "paragraph_style[border_left_thickness]", value: "2" },
+                   { name: "paragraph_style_link[border_thickness]", value: "2" },
+                   { name: "paragraph_style[font_size]", value: "1" } ]
+  assert.deepEqual(mirrorTargets(inputs, fieldOf, THICK, "2").map((i) => i.name),
+                   [ "paragraph_style[border_top_thickness]" ])
 })

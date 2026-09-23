@@ -11,6 +11,9 @@
 //   written together with the fields it names (a cell size with its partner,
 //   typed or dragged) in ONE request, so the set is validated as a whole.
 //   Emptying one of them still reverts that field alone.
+// • The style panel's 🔗 border/corner rows (D5): one value written to a
+//   whole group in ONE request (values[...]); emptied, the group reverts in
+//   one request (fields[]).
 
 export const LINKED_FIELDS = [ "left_margin_mm", "right_margin_mm" ]
 export const LINKED_KEY = ":linked_margins"
@@ -69,4 +72,26 @@ export function saveJobs({ field, value, url, linked = false, required = [], joi
                values: Object.fromEntries(LINKED_FIELDS.map((f) => [ f, value ])) } ]
   }
   return [ { key: field, method: "PATCH", url, field, value } ]
+}
+
+// One request key per 🔗 group, so two commits of the same group coalesce.
+export const GROUP_KEY_PREFIX = ":group:"
+
+// The request(s) for a linked row's commit: every field of the group set to
+// `value`, or — empty — the group reverted.
+export function groupJobs({ group, fields, value, url }) {
+  const key = GROUP_KEY_PREFIX + group
+  if (value === "") return [ { key, method: "DELETE", url, fields: [ ...fields ] } ]
+  return [ { key, method: "PATCH", url, fields: [ ...fields ],
+             values: Object.fromEntries(fields.map((f) => [ f, value ])) } ]
+}
+
+// The group's split controls among `inputs` (anything with a name and a
+// value) whose value isn't `value` yet, matched by field name — never by a
+// selector built from a name.
+export function mirrorTargets(inputs, fieldOf, fields, value) {
+  return Array.from(inputs).filter((input) => {
+    const field = fieldOf(input.name)
+    return field && fields.includes(field) && input.value !== value
+  })
 }
