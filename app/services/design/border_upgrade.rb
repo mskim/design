@@ -10,6 +10,13 @@ module Design
   # that had them, and overridden_fields moves from the old names to the new
   # fields still set, so they stay pushable.
   #
+  # Two harmless side effects. A side with no line stores no colour (the
+  # converter writes nil when nothing is drawn), so afterwards it may resolve
+  # to its parent's colour; nothing is drawn there, so nothing renders
+  # differently. And the normaliser compacts every style field, not only the
+  # border ones (the D2a rule, spec decision 8): a doc-type value that has come
+  # to equal its parent since D2a is unpinned too, and resolves the same.
+  #
   # DB work only, safe inside a caller's transaction; the caller re-exports.
   module BorderUpgrade
     module_function

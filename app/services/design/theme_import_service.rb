@@ -28,12 +28,11 @@ module Design
         import_heading_elements(db, dd_id_map)
         import_design_paragraph_styles(db, dd_id_map)
         Design::ThemeStyleSeeder.call(theme) # .book_design v2 has no table_styles; re-seed defaults
-        # A file written before D5 has the old five border fields: resolve and
-        # convert them now that every row exists (the normaliser runs inside).
-        Design::BorderUpgrade.rewrite!(theme, @legacy) if @legacy.any?
         # .book_design files carry full-snapshot doc-type rows; keep only the fields
-        # that differ from the parent (theme → chapter → doc type).
-        Design::ParagraphStyleNormalizer.compact!(theme)
+        # that differ from the parent (theme → chapter → doc type). A file written
+        # before D5 has the old five border fields: BorderUpgrade resolves and
+        # converts them now that every row exists, and runs that compaction itself.
+        @legacy.any? ? Design::BorderUpgrade.rewrite!(theme, @legacy) : Design::ParagraphStyleNormalizer.compact!(theme)
         theme
       end
       # Export only what was committed (a rollback must not leave a new .db).
