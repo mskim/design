@@ -51,10 +51,13 @@ module Design
 
     def binding_applies? = BINDING_DOC_TYPES.include?(doc_type)
 
-    # Preview guides (안내선): margins + columns for the body-flow layouts and
-    # poem; margins only for the other interior pages; none for covers and wings.
+    # Preview guides (안내선): margins + columns for the column layouts; the
+    # grid and the text box for copyright, the one doc type whose inspector the
+    # preview can mirror (D4); margins only for the other interior pages; none
+    # for covers and wings.
     def guide_kind
       if COLUMN_DOC_TYPES.include?(doc_type) then :columns
+      elsif doc_type == "copyright" then :grid
       elsif COVER_PANEL_TYPES.include?(doc_type) || doc_type == "document_cover" then :none
       else :margins
       end

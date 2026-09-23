@@ -247,4 +247,11 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "joint: this.jointValues(el, field)"
   end
 
+  test "page_guides draws the copyright grid and box from server-sent cells" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/page_guides_controller.js"))
+    %w[rects.grid rects.box].each { |m| assert_includes src, m }
+    pure = File.read(ENGINE_JS.join("design-controllers/design/page_guides.js"))
+    assert_includes pure, %(kind === "grid")
+  end
+
 end

@@ -60,3 +60,65 @@ test("the print cookie: set for a year, cleared with max-age=0", () => {
   assert.equal(printCookie(true), "design_preview_print=1; path=/; max-age=31536000; SameSite=Lax")
   assert.equal(printCookie(false), "design_preview_print=; path=/; max-age=0; SameSite=Lax")
 })
+
+// Copyright's guides: the grid the engine lays over the page's content rect,
+// and the box on it. The server sends the grid and the box IN CELLS (it mirrors
+// DocLayout::Grid), so this only turns cells into percent — with the same
+// binding shift the margin box gets.
+const gridPage = (over = {}) => ({ kind: "grid", width: 432, height: 648, top: 50, bottom: 80, left: 60, right: 40,
+                                   binding: 0, parity: "odd", columnCount: 1, gutter: 0,
+                                   grid: { columns: 6, rows: 12 }, box: { x: 0, y: 6, w: 4, h: 6 }, ...over })
+
+test("grid guides: cell lines inside the content box, and the box itself", () => {
+  const { margin, grid, box, columns } = guideRects(gridPage())
+  const contentW = 432 - 60 - 40
+  const contentH = 648 - 50 - 80
+  assert.deepEqual(columns, [], "copyright has no columns")
+  near(grid.left, margin.left); near(grid.top, margin.top)
+  near(grid.width, margin.width); near(grid.height, margin.height)
+  assert.equal(grid.vertical.length, 5, "6 columns: 5 inner lines")
+  assert.equal(grid.horizontal.length, 11)
+  near(grid.vertical[0], pct(60 + contentW / 6, 432))
+  near(grid.horizontal[0], pct(50 + contentH / 12, 648))
+  near(box.left, pct(60, 432))
+  near(box.top, pct(50 + contentH / 2, 648))
+  near(box.width, pct(contentW * 4 / 6, 432))
+  near(box.height, pct(contentH / 2, 648))
+})
+
+// The binding comes off both parities and only changes sides, so the grid keeps
+// its size — and the server-sent columns and rows keep their meaning — while the
+// origin moves one binding right on an odd page.
+test("grid guides shift by the binding in print mode, keeping their size on both parities", () => {
+  const odd = guideRects(gridPage({ binding: 10, parity: "odd" }))
+  const even = guideRects(gridPage({ binding: 10, parity: "even" }))
+  near(odd.grid.left, pct(70, 432))
+  near(even.grid.left, pct(60, 432))
+  near(odd.grid.width, pct(432 - 70 - 40, 432))
+  near(even.grid.width, pct(432 - 60 - 50, 432))
+  near(odd.grid.width, even.grid.width)
+  near(odd.grid.height, even.grid.height)
+  assert.equal(odd.grid.vertical.length, even.grid.vertical.length, "the same cell lines on both parities")
+  assert.equal(odd.grid.horizontal.length, even.grid.horizontal.length)
+  near(odd.box.left, pct(70, 432))
+  near(even.box.left, pct(60, 432))
+  near(odd.box.width, pct((432 - 70 - 40) * 4 / 6, 432))
+  near(odd.box.width, even.box.width)
+  // The whole grid moves one binding right on an odd page.
+  near(odd.grid.left - even.grid.left, pct(10, 432))
+})
+
+test("a landscape grid is drawn as the server sends it", () => {
+  const { grid } = guideRects(gridPage({ grid: { columns: 12, rows: 6 }, box: { x: 6, y: 0, w: 6, h: 3 } }))
+  assert.equal(grid.vertical.length, 11)
+  assert.equal(grid.horizontal.length, 5)
+})
+
+test("the other kinds carry no grid and no box", () => {
+  for (const kind of [ "columns", "margins" ]) {
+    const rects = guideRects(page({ kind }))
+    assert.equal(rects.grid, null, kind)
+    assert.equal(rects.box, null, kind)
+  }
+  assert.equal(guideRects(gridPage({ grid: null, box: null })).grid, null, "kind grid without geometry draws none")
+})
