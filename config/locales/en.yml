@@ -297,6 +297,15 @@ en:
         too_short: "Leaves less than %{min} mm of text height"
         no_column_width: "Columns would have no width"
         columns_elsewhere: "Columns would have no width in: %{doc_types}"
+    object_section:
+      errors:
+        required: "Required"
+        not_a_number: "Enter a number"
+        not_an_integer: "Enter a whole number"
+        negative: "Must be 0 or more"
+        out_of_range: "Must be %{min}–%{max}"
+        bad_fit: "Must be fill or fit"
+        bad_color: "Only a CMYK or #rrggbb colour (a colour name draws no border)"
     paper_sizes:
       edit_title: "Edit Paper Size"
       margins: "Margins (mm)"

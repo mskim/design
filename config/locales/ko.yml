@@ -297,6 +297,15 @@ ko:
         too_short: "본문 높이가 %{min} mm보다 작아집니다"
         no_column_width: "단 너비가 0 이하입니다"
         columns_elsewhere: "단 너비가 0 이하가 되는 문서 유형: %{doc_types}"
+    object_section:
+      errors:
+        required: "필수"
+        not_a_number: "숫자를 입력해 주세요"
+        not_an_integer: "정수를 입력해 주세요"
+        negative: "0 이상이어야 합니다"
+        out_of_range: "%{min}–%{max} 사이여야 합니다"
+        bad_fit: "채우기 또는 맞추기여야 합니다"
+        bad_color: "CMYK 또는 #rrggbb 색만 됩니다 (색 이름은 테두리가 그려지지 않습니다)"
     paper_sizes:
       edit_title: "판형 편집"
       margins: "여백 (mm)"
