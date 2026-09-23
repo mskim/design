@@ -12,7 +12,9 @@ export function printCookie(on) {
 // One preview page's guide boxes, in percent of the page: { margin, binding,
 // columns } — or null (no guides). g (lengths in pt, from Preview#guide_geometry):
 // { kind: "columns"|"margins"|"none", width, height, top, bottom, left, right,
-//   binding, parity: "odd"|"even", columnCount, gutter }.
+//   binding, parity: "odd"|"even", columnCount, gutter,
+//   grid: { columns, rows } | null, box: { x, y, w, h } | null  // cells, for kind "grid"
+// }.
 // binding is 0 unless the page renders in print mode; like the engine
 // (TextBox#margins_for_page) an odd page adds it on the left (the spine side),
 // an even page on the right. The binding strip is shaded full height.
@@ -33,9 +35,36 @@ export function guideRects(g) {
     const colW = (contentW - (count - 1) * gutter) / count
     if (colW > 0) for (let i = 0; i < count; i++) columns.push(box(left + i * (colW + gutter), g.top, colW, contentH))
   }
+  // kind "grid" (copyright): the engine's grid over this page's content rect,
+  // and the box on it. Both arrive in CELLS from the server, which mirrors
+  // DocLayout::Grid; the columns and rows are the same on every page (the
+  // binding narrows both parities alike), so all that changes here is the
+  // origin — `left` already carries the page's binding shift. Inner cell lines
+  // only: the content box is already drawn as the margin guide.
+  let grid = null
+  let boxRect = null
+  if (g.kind === "grid" && g.grid && g.box && g.grid.columns > 0 && g.grid.rows > 0) {
+    const cellW = contentW / g.grid.columns
+    const cellH = contentH / g.grid.rows
+    grid = {
+      ...box(left, g.top, contentW, contentH),
+      vertical: line(g.grid.columns, (i) => 100 * (left + i * cellW) / g.width),
+      horizontal: line(g.grid.rows, (i) => 100 * (g.top + i * cellH) / g.height)
+    }
+    boxRect = box(left + g.box.x * cellW, g.top + g.box.y * cellH, g.box.w * cellW, g.box.h * cellH)
+  }
   return {
     margin: box(left, g.top, contentW, contentH),
     binding: binding > 0 ? box(odd ? g.left : g.width - g.right - binding, 0, binding, g.height) : null,
-    columns
+    columns,
+    grid,
+    box: boxRect
   }
+}
+
+// The inner division lines of `count` equal cells: count - 1 of them.
+function line(count, at) {
+  const lines = []
+  for (let i = 1; i < count; i++) lines.push(at(i))
+  return lines
 }

@@ -54,4 +54,55 @@ class Design::PreviewGuidesTest < ActiveSupport::TestCase
       assert_nil doc.at_css("[data-design--page-guides-target='layer']"), t
     end
   end
+  test "copyright carries the grid and the effective box, in cells" do
+    dd = @ps.document_designs.create!(doc_type: "copyright")
+    g = geometry(render(dd), 0)
+    assert_equal "grid", g["kind"]
+    assert_equal({ "columns" => 6, "rows" => 12 }, g["grid"])
+    assert_equal({ "x" => 0.0, "y" => 6.0, "w" => 4.0, "h" => 6.0 }, g["box"], "the 7 / 4 / 6 default")
+    dd.update!(text_box_anchor_position: 3, text_box_grid_width: 2, text_box_grid_height: 4)
+    assert_equal({ "x" => 4.0, "y" => 0.0, "w" => 2.0, "h" => 4.0 }, geometry(render(dd), 0)["box"])
+  end
+
+  # Taking the binding off narrows the content rect, which can turn a nearly
+  # square, slightly wide page upright — against SCREEN mode. It never differs
+  # between an odd page and an even one: the binding comes off both and only
+  # changes sides (Context#page_margins), so the grid is the same on every page
+  # and only its origin moves, which page_guides.js works out from the parity.
+  test "print mode measures the grid against the bound content rect" do
+    ps = @theme.paper_sizes.create!(size_name: "가로", width_mm: 216, height_mm: 210)
+    ps.update_columns(left_margin_mm: 10, right_margin_mm: 10, top_margin_mm: 10, bottom_margin_mm: 10,
+                      binding_margin_mm: 20)
+    dd = ps.document_designs.create!(doc_type: "copyright")
+    # Screen: 196 x 190 mm — wider than tall, so 12 x 6. Print: 176 x 190 — upright, so 6 x 12.
+    # This size isn't @ps, so the file's `render` helper can't be used.
+    preview = ->(print_mode) do
+      Nokogiri::HTML.fragment(Design::Views::DocumentDesigns::Preview.new(
+        document_design: dd, paper_size: ps, pages: [ { jpg_url: "/p.jpg", overlay_data: [] } ],
+        page_width: ps.width_pt, page_height: ps.height_pt, print_mode: print_mode).call)
+    end
+    assert_equal({ "columns" => 12, "rows" => 6 }, geometry(preview.(false), 0)["grid"])
+    assert_equal({ "columns" => 6, "rows" => 12 }, geometry(preview.(true), 0)["grid"])
+  end
+
+  test "the grid and the box are the same on an odd and an even page; only the parity differs" do
+    dd = @ps.document_designs.create!(doc_type: "copyright", text_box_anchor_position: 3, text_box_grid_width: 2)
+    doc = render(dd, print_mode: true, count: 2)
+    odd, even = geometry(doc, 0), geometry(doc, 1)
+    assert_equal %w[odd even], [ odd["parity"], even["parity"] ]
+    assert_equal odd["grid"], even["grid"], "the binding narrows both parities alike"
+    assert_equal odd["box"], even["box"]
+    assert_in_delta mm_pt(@ps.binding_margin_mm), odd["binding"], 0.01, "the shift itself is page_guides.js's job"
+  end
+
+  test "no other doc type gets a grid" do
+    %w[chapter poem title_page toc].each do |doc_type|
+      # chapter is already there from setup: doc_type is unique per paper size.
+      dd = @ps.document_designs.find_by(doc_type: doc_type) || @ps.document_designs.create!(doc_type: doc_type)
+      g = geometry(render(dd), 0)
+      assert_nil g["grid"], doc_type
+      assert_nil g["box"], doc_type
+    end
+  end
+
 end

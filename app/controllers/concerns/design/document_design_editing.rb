@@ -102,8 +102,6 @@ module Design
         :text_box_anchor_position, :text_box_grid_width, :text_box_grid_height,
         :page_bg_color, :has_document_cover, :cover_type,
         :image_opacity, :logo_width, :logo_height, :logo_position, :logo_offset,
-        :photo_grid_width, :photo_grid_height, :photo_anchor, :photo_fit,
-        :photo_border_width, :photo_border_color,
         heading_elements_attributes: [ :id, :element_type, :style_name, :position, :_destroy ]
       )
     end

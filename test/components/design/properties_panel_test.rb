@@ -149,32 +149,57 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
     assert_includes html, "Title"
   end
 
-  # --------------- text_box section (Task 4) ---------------
+  # --------------- Object section (D4) ---------------
 
-  test "renders text_box section with anchor, grid_width, and grid_height inputs" do
-    html = render_panel
-    assert_includes html, "Text Box Position"
-    assert_includes html, %(name="document_design[text_box_anchor_position]")
-    assert_includes html, %(name="document_design[text_box_grid_width]")
-    assert_includes html, %(name="document_design[text_box_grid_height]")
+  test "copyright gets the Object section; the tabs form carries no text-box or photo fields" do
+    @dd = @ps.document_designs.create!(doc_type: "copyright")
+    doc = Nokogiri::HTML.fragment(render_panel)
+    section = doc.at_css("[data-object-section]")
+    assert section, "the Object section is in the Layout tab"
+    assert_empty doc.css("[name^='document_design[text_box_']"), "copyright's box is the inspector's now"
+    assert doc.css("[name^='object[']").all? { |e| e["form"] == "object-section-form" }
+    form = doc.at_css("form#object-section-form")
+    assert form && form.ancestors("form").empty? && form.ancestors("turbo-frame#properties_panel").any?
+    assert_empty form.element_children
   end
 
-  test "text_box inputs are disabled when editable: false" do
+  test "front_wing gets the Object section instead of the old photo box" do
+    @dd = @ps.document_designs.create!(doc_type: "front_wing")
+    doc = Nokogiri::HTML.fragment(render_panel)
+    assert doc.at_css("[data-object-section]")
+    assert_empty doc.css("[name^='document_design[photo_']")
+  end
+
+  test "front_page and seneca keep the plain text-box controls in the tabs form" do
+    %w[front_page seneca].each do |doc_type|
+      @dd = @ps.document_designs.create!(doc_type: doc_type)
+      doc = Nokogiri::HTML.fragment(render_panel)
+      assert_nil doc.at_css("[data-object-section]"), doc_type
+      assert doc.at_css("select[name='document_design[text_box_anchor_position]']"), doc_type
+      %w[text_box_grid_width text_box_grid_height].each do |f|
+        assert doc.at_css("input[name='document_design[#{f}]']"), "#{doc_type} #{f}"
+      end
+    end
+  end
+
+  test "a doc type no renderer reads the fields for gets neither the inspector nor the plain controls" do
+    doc = Nokogiri::HTML.fragment(render_panel) # chapter
+    assert_nil doc.at_css("[data-object-section]")
+    assert_empty doc.css("[name^='document_design[text_box_']")
+    assert_nil doc.at_css("form#object-section-form"), "no section, no form"
+  end
+
+  test "the plain text-box controls are disabled when editable: false" do
+    @dd = @ps.document_designs.create!(doc_type: "seneca")
     html = render_panel(editable: false)
-    assert_match(/name="document_design\[text_box_grid_width\]"[^>]*disabled|disabled[^>]*name="document_design\[text_box_grid_width\]"/, html)
-    assert_match(/name="document_design\[text_box_grid_height\]"[^>]*disabled|disabled[^>]*name="document_design\[text_box_grid_height\]"/, html)
-    assert_match(/name="document_design\[text_box_anchor_position\]"[^>]*disabled|disabled[^>]*name="document_design\[text_box_anchor_position\]"/, html)
-  end
-
-  test "text_box inputs are not disabled when editable: true" do
-    html = render_panel(editable: true)
-    refute_match(/name="document_design\[text_box_grid_width\]"[^>]*disabled/, html)
-    refute_match(/name="document_design\[text_box_grid_height\]"[^>]*disabled/, html)
+    %w[text_box_anchor_position text_box_grid_width text_box_grid_height].each do |f|
+      assert_match(/name="document_design\[#{f}\]"[^>]*disabled|disabled[^>]*name="document_design\[#{f}\]"/, html, f)
+    end
   end
 
   # --------------- page_bg section (Task 4) ---------------
 
-  COLOR_ATTRS = %w[photo_border_color page_bg_color heading_bg_color heading_bg_gradient_start heading_bg_gradient_end].freeze
+  COLOR_ATTRS = %w[page_bg_color heading_bg_color heading_bg_gradient_start heading_bg_gradient_end].freeze
 
   test "renders page_bg section with color input and design--color-row controller" do
     html = render_panel
@@ -235,13 +260,12 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
 
   # --------------- Number fields (design--scrub-input) ---------------
 
-  test "photo grid width is a scrub-input number field capped at 6" do
+  test "the photo's cell width is a scrub-input number field capped at 6" do
     @dd = @ps.document_designs.create!(doc_type: "front_wing")
     doc = Nokogiri::HTML.fragment(render_panel)
-    input = doc.at_css("[data-controller='design--scrub-input'] input[name='document_design[photo_grid_width]']")
+    input = doc.at_css("[data-controller='design--scrub-input'] input[name='object[photo_grid_width]']")
     assert input, "photo_grid_width must be inside design--scrub-input"
-    wrapper = input.ancestors("[data-controller='design--scrub-input']").first
-    assert_equal "6", wrapper["data-design--scrub-input-max-value"]
+    assert_equal "6", input.ancestors("[data-controller='design--scrub-input']").first["data-design--scrub-input-max-value"]
   end
 
   # --------------- document_cover section (Task 4) ---------------
@@ -361,6 +385,7 @@ class Design::PropertiesPanelTest < ActiveSupport::TestCase
     component.define_singleton_method(:typography_style_url) { |name| "/test/styles/#{name}" }
     component.define_singleton_method(:typography_new_style_url) { "/test/new_style" }
     component.define_singleton_method(:page_urls) { { field: "/x/page/field", preview: "/x/preview", paper_size: "/x/ps/edit" } }
+    component.define_singleton_method(:object_urls) { { field: "/x/object/field", preview: "/x/preview" } }
     component.call
   end
 end

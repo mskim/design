@@ -51,10 +51,13 @@ module Design
 
     def binding_applies? = BINDING_DOC_TYPES.include?(doc_type)
 
-    # Preview guides (안내선): margins + columns for the body-flow layouts and
-    # poem; margins only for the other interior pages; none for covers and wings.
+    # Preview guides (안내선): margins + columns for the column layouts; the
+    # grid and the text box for copyright, the one doc type whose inspector the
+    # preview can mirror (D4); margins only for the other interior pages; none
+    # for covers and wings.
     def guide_kind
       if COLUMN_DOC_TYPES.include?(doc_type) then :columns
+      elsif doc_type == "copyright" then :grid
       elsif COVER_PANEL_TYPES.include?(doc_type) || doc_type == "document_cover" then :none
       else :margins
       end
@@ -72,11 +75,66 @@ module Design
     validates :image_opacity, numericality: { only_integer: true, in: 0..100 }, allow_nil: true
 
     PHOTO_FITS = %w[cover contain].freeze
-    validates :photo_fit, inclusion: { in: PHOTO_FITS }, allow_blank: true
-    validates :photo_grid_width,  numericality: { only_integer: true, in: 1..6 },  allow_nil: true
-    validates :photo_grid_height, numericality: { only_integer: true, in: 1..12 }, allow_nil: true
-    validates :photo_anchor,      numericality: { only_integer: true, in: 1..9 },  allow_nil: true
-    validates :photo_border_width, numericality: { greater_than_or_equal_to: 0 },  allow_nil: true
+    # The front wing's grid is the flap panel's, fixed at 6 x 12 whatever the
+    # page's shape (FrontWingRenderer::GRID_COLS / GRID_ROWS), because the flap
+    # is always a narrow, tall strip.
+    PHOTO_GRID = { columns: 6, rows: 12 }.freeze
+    # Loose, always on: exactly the range the old Layout-tab controls allowed,
+    # so an import, a Page-section save or the tabs form can never be blocked by
+    # a row the studio itself wrote.
+    #
+    # They stand down inside :object_section, where the section's own rules are
+    # tighter (a cell size is bounded by THIS page's grid, not by 12) and say so
+    # in the section's words. Without that, a value breaking both would put two
+    # messages on one field and the vaguer one could win the display.
+    MAX_GRID_CELLS = 12
+    # Rails instance_execs a conditional lambda on the record, so the private
+    # validation_context reader is reachable.
+    IN_OBJECT_SECTION = -> { validation_context == :object_section }
+    validates :photo_fit, inclusion: { in: PHOTO_FITS }, allow_blank: true, unless: IN_OBJECT_SECTION
+    validates :photo_grid_width,  numericality: { only_integer: true, in: 1..PHOTO_GRID[:columns] },
+              allow_nil: true, unless: IN_OBJECT_SECTION
+    validates :photo_grid_height, numericality: { only_integer: true, in: 1..PHOTO_GRID[:rows] },
+              allow_nil: true, unless: IN_OBJECT_SECTION
+    validates :photo_anchor, numericality: { only_integer: true, in: 1..9 },
+              allow_nil: true, unless: IN_OBJECT_SECTION
+    validates :photo_border_width, numericality: { greater_than_or_equal_to: 0 },
+              allow_nil: true, unless: IN_OBJECT_SECTION
+    validates :text_box_anchor_position, numericality: { only_integer: true, in: 1..9 },
+              allow_nil: true, unless: IN_OBJECT_SECTION
+    validates :text_box_grid_width, :text_box_grid_height,
+              numericality: { only_integer: true, in: 1..MAX_GRID_CELLS },
+              allow_nil: true, unless: IN_OBJECT_SECTION
+
+    # ── Object section (D4) ──────────────────────────────────────────────────
+    # Only the doc types whose renderer honours the fields get an inspector:
+    # copyright through DocLayout::Book::Copyright (studio preview and
+    # book_write), the front wing through FrontWingRenderer. front_page and
+    # seneca keep the plain text-box controls in the tabs form until the studio
+    # previews covers with the real cover renderers.
+    OBJECT_TEXT_BOX_FIELDS = %w[text_box_anchor_position text_box_grid_width text_box_grid_height].freeze
+    OBJECT_PHOTO_FIELDS = %w[photo_grid_width photo_grid_height photo_anchor photo_fit
+                             photo_border_width photo_border_color].freeze
+    OBJECT_FIELDS_BY_DOC_TYPE = { "copyright" => OBJECT_TEXT_BOX_FIELDS,
+                                  "front_wing" => OBJECT_PHOTO_FIELDS }.freeze
+    # Field sets that must be written — and validated — in one save: a cell size
+    # carries its partner, because a mini-grid drag changes both at once and an
+    # intermediate state could fail the grid on its own. The anchors are NOT in a
+    # set: the engine defaults each field independently, so an anchor with unset
+    # sizes renders correctly (Copyright::DEFAULT_ANCHOR / _GRID_W / _GRID_H).
+    OBJECT_JOINT_SETS = {
+      "copyright"  => [ %w[text_box_grid_width text_box_grid_height] ].freeze,
+      "front_wing" => [ %w[photo_grid_width photo_grid_height] ].freeze
+    }.freeze
+
+    GRID_PORTRAIT = { columns: 6, rows: 12 }.freeze
+    GRID_LANDSCAPE = { columns: 12, rows: 6 }.freeze
+    MIN_GRID_CELLS = 0.5
+
+    validate :object_section_fields, on: :object_section
+
+    def object_fields = OBJECT_FIELDS_BY_DOC_TYPE.fetch(doc_type, [])
+    def object_joint_sets = OBJECT_JOINT_SETS.fetch(doc_type, [])
 
     # Canonical reading order (frontmatter → bodymatter → rearmatter) for displaying
     # a paper size's document designs. doc_types not listed sort to the end.
@@ -222,6 +280,43 @@ module Design
 
     def content_height_pt
       height_pt - top_margin_pt - bottom_margin_pt
+    end
+
+    # The grid DocLayout::Grid lays over a content rect of this shape: 6 x 12
+    # upright, 12 x 6 when the rect is wider than it is tall (grid.rb:60-69).
+    # The default is this design's screen content rect; the guides pass the
+    # bound width, because taking the binding off can turn a nearly square,
+    # slightly wide page upright — the same rect on every page, since the
+    # binding comes off both parities alike and only changes sides.
+    def object_grid(width_pt = content_width_pt, height_pt = content_height_pt)
+      width_pt >= height_pt ? GRID_LANDSCAPE : GRID_PORTRAIT
+    end
+
+    # Where a w x h cell box sits at anchor 1-9 (reading order), clamped into
+    # the grid the way DocLayout::Book::Copyright clamps it. The server-side
+    # twin of cell_grid.js#anchorCell — keep the two identical; the tests run
+    # the same nine anchors through both.
+    def self.anchor_cell(grid, anchor, width, height)
+      position = anchor.to_i.clamp(1, 9)
+      w = width.to_f.clamp(MIN_GRID_CELLS, grid[:columns].to_f)
+      h = height.to_f.clamp(MIN_GRID_CELLS, grid[:rows].to_f)
+      { x: [ 0.0, (grid[:columns] - w) / 2.0, grid[:columns] - w ][(position - 1) % 3],
+        y: [ 0.0, (grid[:rows] - h) / 2.0, grid[:rows] - h ][(position - 1) / 3],
+        w: w, h: h }
+    end
+
+    # The copyright box as grid cells, from the effective values (7 / 4 / 6
+    # where this design sets nothing).
+    def text_box_cell(grid = object_grid)
+      self.class.anchor_cell(grid, effective_text_box_anchor_position, effective_text_box_grid_width,
+                             effective_text_box_grid_height)
+    end
+
+    # The front wing's photo cell, drawn at the sketch's top-left: the renderer
+    # floats it inside the body text box, so the sketch shows its SIZE, never
+    # its position (front_wing_renderer.rb:54-67).
+    def photo_cell
+      self.class.anchor_cell(PHOTO_GRID, 1, photo_grid_width, photo_grid_height)
     end
 
     def heading_height_pt
@@ -531,6 +626,51 @@ module Design
     end
 
     private
+
+    # Only the fields this save names, and only the ones this doc type's
+    # inspector owns — a field belonging to the other inspector is rejected by
+    # the endpoint long before this, and never checked here.
+    def object_section_fields
+      fields = object_fields_set(object_fields)
+      return if fields.empty?
+      fields.each do |field|
+        case field
+        when "text_box_anchor_position", "photo_anchor" then object_anchor(field)
+        when "text_box_grid_width"  then object_cells(field, object_grid[:columns])
+        when "text_box_grid_height" then object_cells(field, object_grid[:rows])
+        when "photo_grid_width"     then object_cells(field, PHOTO_GRID[:columns])
+        when "photo_grid_height"    then object_cells(field, PHOTO_GRID[:rows])
+        when "photo_fit"            then object_error(field, :bad_fit) unless PHOTO_FITS.include?(self[field].to_s)
+        when "photo_border_width"   then object_border_width(field)
+        when "photo_border_color"   then object_border_color(field)
+        end
+      end
+    end
+
+    def object_anchor(field)
+      n = typed_number(field, integer: true, scope: Design::PageSectionFields::OBJECT_SCOPE)
+      object_error(field, :out_of_range, min: 1, max: 9) if n && !n.between?(1, 9)
+    end
+
+    # Whole cells inside the grid. The engine clamps too, so a stored value can
+    # never overflow; this is what stops one being stored in the first place.
+    def object_cells(field, max)
+      n = typed_number(field, integer: true, scope: Design::PageSectionFields::OBJECT_SCOPE)
+      object_error(field, :out_of_range, min: 1, max: max) if n && !n.between?(1, max)
+    end
+
+    def object_border_width(field)
+      n = typed_number(field, scope: Design::PageSectionFields::OBJECT_SCOPE)
+      object_error(field, :negative) if n&.negative?
+    end
+
+    # The renderers stroke a border only from hex or CMYK (PreviewService
+    # #photo_border_hex, FrontWingRenderer#hex_to_rgb): a colour name would
+    # silently mean "no border", so the section refuses one.
+    def object_border_color(field)
+      format = Design::Views::Inputs::ColorValue.format(self[field])
+      object_error(field, :bad_color) unless %i[cmyk hex].include?(format)
+    end
 
     def page_section_fields
       fields = page_fields(PAGE_DESIGN_FIELDS)

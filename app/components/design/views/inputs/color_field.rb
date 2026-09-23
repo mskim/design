@@ -5,9 +5,11 @@ module Design
       # (four scrubbable fields + K slider) or hex (text + native picker). The stored
       # text lives in a hidden input with the form's original name, unchanged format.
       # formats: [:hex] for columns whose consumers only read hex (table styles, gradients).
+      # form: ties the hidden value to another <form> (the Object section's), so the
+      # enclosing form never submits it.
       class ColorField < Design::Views::Base
         def initialize(name:, value:, label:, layout: :inline, formats: [ :cmyk, :hex ], disabled: false, span: false,
-                       inherited_value: nil)
+                       inherited_value: nil, form: nil)
           @name = name
           @value = value.to_s
           @label = label
@@ -16,6 +18,7 @@ module Design
           @disabled = disabled
           @span = span
           @inherited_value = inherited_value.to_s.strip
+          @form = form
           # Stable when named (a morph must keep the row, its popover and focus).
           @uid = name.present? ? "cf-#{NumberField.dom_key(name)}" : "cf-#{SecureRandom.hex(4)}"
         end
@@ -28,7 +31,7 @@ module Design
                       "design--color-row-parent-value": @inherited_value.presence }) do
             span(id: label_id, class: label_class) { @label }
             div(class: "relative min-w-0 flex-1") do
-              input(type: "hidden", name: @name, value: @value, disabled: (@disabled || nil),
+              input(type: "hidden", name: @name, form: @form, value: @value, disabled: (@disabled || nil),
                     data: { "design--color-row-target": "value" })
               trigger
               popover

@@ -22,9 +22,10 @@ module Design
             div(class: "w-full border-l flex flex-col max-h-screen") do
               render_header
               render_form_body
-              # The Page section's controls point here (form=) so the tabs form
-              # above never sends them; it is never submitted itself.
+              # The Page and Object sections' controls point at these (form=) so
+              # the tabs form above never sends them; neither is ever submitted.
               form(id: PageSectionContent::FORM_ID, hidden: true, data: { turbo: "false" })
+              form(id: ObjectSectionContent::FORM_ID, hidden: true, data: { turbo: "false" }) if object_section?
             end
           end
         end
@@ -102,43 +103,12 @@ module Design
             end
             heading_elements_section
             heading_background_section
-            render_text_box_section
+            render_object_section
+            render_cover_text_box_section if COVER_TEXT_BOX_TYPES.include?(@document_design.doc_type)
             render_page_bg_section
             render_document_cover_section
             render_image_opacity_section if Design::DocumentDesign::COVER_PANEL_TYPES.include?(@document_design.doc_type)
             render_logo_section if @document_design.doc_type == "front_page"
-            render_photo_section if @document_design.doc_type == "front_wing"
-          end
-        end
-
-        # Author-photo layout for the front wing: cell size (6x12 grid units),
-        # crop anchor, fit, and a frame (border). Mirrors render_text_box_section.
-        def render_photo_section
-          group_box("space", I18n.t("design.properties_panel.photo_layout")) do
-            div(class: "grid grid-cols-2 gap-2") do
-              number_field(I18n.t("design.properties_panel.photo_grid_width"), :photo_grid_width, placeholder: 3, min: 1, max: 6, layout: :stacked)
-              number_field(I18n.t("design.properties_panel.photo_grid_height"), :photo_grid_height, placeholder: 2, min: 1, max: 12, layout: :stacked)
-            end
-            div(class: "mt-2") do
-              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_anchor") }
-              select(name: "document_design[photo_anchor]", class: CONTROL, **disabled_attr) do
-                ANCHOR_LABELS.each do |val, label_text|
-                  option(value: val.to_s, selected: @document_design.photo_anchor == val) { label_text }
-                end
-              end
-            end
-            div(class: "mt-2") do
-              label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.photo_fit") }
-              select(name: "document_design[photo_fit]", class: CONTROL, **disabled_attr) do
-                %w[cover contain].each do |opt|
-                  option(value: opt, selected: @document_design.photo_fit == opt) { I18n.t("design.options.photo_fit.#{opt}") }
-                end
-              end
-            end
-            div(class: "mt-2 grid grid-cols-2 gap-2") do
-              number_field(I18n.t("design.properties_panel.photo_border_width"), :photo_border_width, placeholder: 0, min: 0, step: "0.5", unit: :pt, layout: :stacked)
-              color_input(I18n.t("design.properties_panel.photo_border_color"), :photo_border_color)
-            end
           end
         end
 
@@ -170,7 +140,23 @@ module Design
           7 => "7 — Bottom Left", 8 => "8 — Bottom Center", 9 => "9 — Bottom Right"
         }.freeze
 
-        def render_text_box_section
+        # The cover panels whose renderers still read text_box_* straight off the
+        # theme (TitlePageRenderer#compute_heading_box, SenecaRenderer
+        # #compute_text_center). They keep the plain controls in the tabs form
+        # until the studio previews covers with the real cover renderers; the
+        # inspector (ObjectSection) is for the doc types the studio can show.
+        COVER_TEXT_BOX_TYPES = %w[front_page seneca].freeze
+
+        def object_section?
+          @document_design.object_fields.any?
+        end
+
+        def render_object_section
+          return unless object_section?
+          render ObjectSection.new(document_design: @document_design, urls: object_urls, editable: @editable)
+        end
+
+        def render_cover_text_box_section
           group_box("space", I18n.t("design.properties_panel.text_box_position")) do
             div do
               label(class: "block text-xs font-medium mb-0.5 text-slate-600") { I18n.t("design.properties_panel.anchor_position") }
@@ -513,6 +499,11 @@ module Design
           { field: helpers.field_theme_paper_size_document_design_page_path(@theme, @paper_size, @document_design),
             preview: preview_url,
             paper_size: helpers.edit_theme_paper_size_path(@theme, @paper_size, return_to: @document_design.id) }
+        end
+
+        def object_urls
+          { field: helpers.field_theme_paper_size_document_design_object_path(@theme, @paper_size, @document_design),
+            preview: preview_url }
         end
       end
     end

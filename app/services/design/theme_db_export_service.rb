@@ -77,7 +77,9 @@ module Design
           has_document_cover BOOLEAN DEFAULT 0,
           heading_bg_gradient_angle REAL, heading_bg_gradient_start TEXT, heading_bg_gradient_end TEXT,
           image_opacity INTEGER DEFAULT 100, logo_width REAL, logo_height REAL, logo_position TEXT, logo_offset REAL DEFAULT 0,
-          photo_grid_width INTEGER DEFAULT 3, photo_grid_height INTEGER DEFAULT 2, photo_anchor INTEGER DEFAULT 8,
+          -- photo_anchor is reading order (1-3 top … 7-9 bottom): 2 is top centre, which keeps a
+          -- portrait photo's head in view. See the D4 migration, which swapped every stored value.
+          photo_grid_width INTEGER DEFAULT 3, photo_grid_height INTEGER DEFAULT 2, photo_anchor INTEGER DEFAULT 2,
           photo_fit TEXT DEFAULT 'cover', photo_border_width REAL DEFAULT 0.3, photo_border_color TEXT DEFAULT '#000000',
           page_type TEXT,
           created_at DATETIME, updated_at DATETIME

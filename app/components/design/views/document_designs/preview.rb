@@ -68,13 +68,44 @@ module Design
         # wing's flap width comes from the service result), the paper size's
         # margins, the binding only when this preview renders in print mode,
         # this design's columns, and the page's parity (preview page N is odd
-        # when N is, as the engine's start_page 0 makes it).
+        # when N is, as the engine's start_page 0 makes it). For copyright it
+        # also carries the engine's grid and the effective box IN CELLS. Those
+        # two are the same on every page: the binding narrows the content rect
+        # on both parities and only changes which side it comes off, so the
+        # columns and rows never differ between an odd page and an even one —
+        # what the parity moves is the grid's origin, and page_guides.js places
+        # it from `left` and `binding`. Print mode can still change the shape
+        # against SCREEN mode (a nearly square, slightly wide rect becomes
+        # upright once the binding is off), which is why the bound width is the
+        # one measured (DocLayout::Grid#initialize, Context#page_margins).
         def guide_geometry(number)
           { kind: @dd.guide_kind.to_s, width: @page_width.to_f.round(3), height: @page_height.to_f.round(3),
             top: @ps.top_margin_pt.to_f.round(3), bottom: @ps.bottom_margin_pt.to_f.round(3),
             left: @ps.left_margin_pt.to_f.round(3), right: @ps.right_margin_pt.to_f.round(3),
             binding: @print_mode ? @ps.binding_margin_pt.to_f.round(3) : 0.0,
-            columnCount: @dd.column_count.to_i, gutter: @dd.gutter.to_f, parity: number.odd? ? "odd" : "even" }
+            columnCount: @dd.column_count.to_i, gutter: @dd.gutter.to_f, parity: number.odd? ? "odd" : "even",
+            grid: object_grid, box: object_box }.compact
+        end
+
+        # The grid over the bound content rect, or nil for a doc type with no
+        # grid guides. Memoised: it is the same for every page of this render.
+        def object_grid
+          return nil unless @dd.guide_kind == :grid
+          @object_grid ||= @dd.object_grid(bound_content_width_pt,
+                                           @page_height.to_f - @ps.top_margin_pt - @ps.bottom_margin_pt)
+        end
+
+        def object_box
+          grid = object_grid or return nil
+          @object_box ||= @dd.text_box_cell(grid)
+        end
+
+        # The content width every page gets in this mode: in print mode the
+        # binding comes off the spine side, which is the left of an odd page and
+        # the right of an even one — the same width either way.
+        def bound_content_width_pt
+          binding = @print_mode ? @ps.binding_margin_pt.to_f : 0.0
+          @page_width.to_f - @ps.left_margin_pt.to_f - @ps.right_margin_pt.to_f - binding
         end
 
         def render_svg_overlay(overlay_data)

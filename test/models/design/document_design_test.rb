@@ -104,8 +104,10 @@ class Design::DocumentDesignTest < ActiveSupport::TestCase
     assert_equal columns.sort, Design::DocumentDesign::COLUMN_DOC_TYPES.sort
     assert_empty %w[title_page toc copyright] & columns, "bound, but no columns to guide"
     all.each do |t|
-      expected = columns.include?(t) ? :columns : none.include?(t) ? :none : :margins
+      # copyright is the one doc type with an inspector the preview can mirror.
+      expected = t == "copyright" ? :grid : columns.include?(t) ? :columns : none.include?(t) ? :none : :margins
       assert_equal expected, kind.(t), t
     end
+    assert_equal :grid, kind.("copyright"), "…and it is not :margins any more"
   end
 end

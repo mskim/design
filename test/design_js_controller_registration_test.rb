@@ -186,7 +186,7 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "LocalValueKeeper"
   end
 
-  %w[style_save_queue style_panel_morph edge_flags field_save_jobs page_guides].each do |mod|
+  %w[style_save_queue style_panel_morph edge_flags field_save_jobs page_guides cell_grid].each do |mod|
     test "#{mod} is a pure module" do
       src = File.read(ENGINE_JS.join("design-controllers/design/#{mod}.js"))
       refute_match(/^import /, src)
@@ -195,9 +195,9 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     end
   end
 
-  test "live_preview ignores the Page section's events (they bubble through the tabs form)" do
+  test "live_preview ignores the Page and Object sections' events (both bubble through the tabs form)" do
     assert_includes File.read(ENGINE_JS.join("design-controllers/design/live_preview_controller.js")),
-                    %(closest?.("[data-page-section]"))
+                    %(closest?.("[data-page-section], [data-object-section]"))
   end
 
   test "page_guides and preview_toolbar controllers import the pure page_guides module by its importmap name" do
@@ -220,4 +220,38 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_match(/geometryValueChanged\(\)\s*\{\s*this\.draw\(\)\s*\}/, src)
     refute_match(/connect\(\)/, src)
   end
+
+  test "anchor_grid writes its hidden input, dispatches a bubbling change and re-syncs after a morph" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/anchor_grid_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, %(dispatchEvent(new Event("change", { bubbles: true })))
+    %w[pick( resync(].each { |m| assert_includes src, m }
+    refute_match(/from\s+["']\.\.?\//, src)
+  end
+
+  test "cell_grid controller imports the pure module by its importmap name and drags from the handle" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/cell_grid_controller.js"))
+    assert_includes src, %("design-controllers/design/cell_grid")
+    %w[draw( dragStart( dragMove( dragEnd(].each { |m| assert_includes src, m }
+    assert_includes src, %(dispatchEvent(new Event("change", { bubbles: true })))
+    assert_includes src, "getBoundingClientRect()"
+    refute_match(/from\s+["']\.\.?\//, src)
+  end
+  # A control marked data-joint-with is saved with the fields it names, in one
+  # request, and its values are read by matching names — never by selector.
+  test "style_autosave builds joint writes from data-joint-with" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, "jointValues("
+    assert_includes src, "jointFields(el.dataset, field)"
+    assert_includes src, "valuesFor(this.element.querySelectorAll(\"[name]\"), this.fieldOf, fields)"
+    assert_includes src, "joint: this.jointValues(el, field)"
+  end
+
+  test "page_guides draws the copyright grid and box from server-sent cells" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/page_guides_controller.js"))
+    %w[rects.grid rects.box].each { |m| assert_includes src, m }
+    pure = File.read(ENGINE_JS.join("design-controllers/design/page_guides.js"))
+    assert_includes pure, %(kind === "grid")
+  end
+
 end
