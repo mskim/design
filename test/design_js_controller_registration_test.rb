@@ -237,4 +237,14 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "getBoundingClientRect()"
     refute_match(/from\s+["']\.\.?\//, src)
   end
+  # A control marked data-joint-with is saved with the fields it names, in one
+  # request, and its values are read by matching names — never by selector.
+  test "style_autosave builds joint writes from data-joint-with" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    assert_includes src, "jointValues("
+    assert_includes src, "jointFields(el.dataset, field)"
+    assert_includes src, "valuesFor(this.element.querySelectorAll(\"[name]\"), this.fieldOf, fields)"
+    assert_includes src, "joint: this.jointValues(el, field)"
+  end
+
 end

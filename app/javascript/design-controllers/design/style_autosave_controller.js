@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 import { StyleSaveQueue } from "design-controllers/design/style_save_queue"
 import { fieldMatcher, LocalValueKeeper, dropStreamsFor, keepsUserAttribute, PANEL_TARGET, FIELD_PREFIX, MENU, MARGIN_LINK }
   from "design-controllers/design/style_panel_morph"
-import { saveJobs, partnerInput } from "design-controllers/design/field_save_jobs"
+import { saveJobs, partnerInput, jointFields, valuesFor } from "design-controllers/design/field_save_jobs"
 
 // Autosave for the paragraph style panel (D2b) and the Layout tab's Page
 // section (D3: margins, binding, body lines, columns). Each committed field
@@ -15,6 +15,8 @@ import { saveJobs, partnerInput } from "design-controllers/design/field_save_job
 // overwrite: a value whose save is unanswered, an uncommitted (dirty) value —
 // typing or a scrub-drag — an open colour popover, each <details>' open
 // state, the ▾ menu's open state and the 🔗 margin link's pressed state.
+// A control marked `data-joint-with` (the Object section's two cell sizes) is
+// saved together with the fields it names, in one request.
 // Whether a control keeps its value is decided once per morphed element
 // (LocalValueKeeper). When the last request of a burst fails without a
 // stream, the preview is reloaded. Once the panel is gone (the frame moved
@@ -74,7 +76,8 @@ export default class extends Controller {
     const value = (el.value ?? "").trim()
     const linked = this.linked
     if (linked && value !== "") this.mirrorPartner(field, value)
-    this.enqueueAll(saveJobs({ field, value, url: this.fieldUrlValue, linked, required: this.requiredFieldsValue }))
+    this.enqueueAll(saveJobs({ field, value, url: this.fieldUrlValue, linked, required: this.requiredFieldsValue,
+                               joint: this.jointValues(el, field) }))
   }
 
   // × on a field (with the link on, × on Left or Right reverts both).
@@ -102,6 +105,14 @@ export default class extends Controller {
     if (!input || input.value === value) return
     input.value = value
     markCommitted(input)
+  }
+
+  // A control Ruby marked data-joint-with is written together with the fields
+  // it names (the Object section's two cell sizes), so the set is validated as
+  // a whole. The values come off this section's own controls.
+  jointValues(el, field) {
+    const fields = jointFields(el.dataset, field)
+    return fields && valuesFor(this.element.querySelectorAll("[name]"), this.fieldOf, fields)
   }
 
   enqueueAll(jobs) { jobs.forEach((job) => this.queue.enqueue(job)) }
