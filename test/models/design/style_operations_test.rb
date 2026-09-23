@@ -445,6 +445,38 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
     refute_equal after_create, fingerprint(@foreword), "a deleted chapter row must change the foreword preview"
   end
 
+  # ── D5 link groups ──
+
+  test "set_style_fields! writes a whole group on every size, and a value equal to the parent inherits" do
+    @base.update!(border_top_thickness: 1, border_right_thickness: 1, border_bottom_thickness: 1,
+                  border_left_thickness: 1)
+    values = Design::ParagraphStyle::BORDER_THICKNESS_FIELDS.index_with { "2" }
+    @foreword.set_style_fields!("zz_body", values.merge("border_left_thickness" => "1"))
+    @forewords.each do |dd|
+      row = row_of(dd, "zz_body")
+      assert_equal [ 2, 2, 2 ], %w[top right bottom].map { |s| row["border_#{s}_thickness"].to_i }
+      assert_nil row.border_left_thickness, "equal to the parent → inherit"
+      assert_equal %w[border_bottom_thickness border_right_thickness border_top_thickness], row.overridden_fields.sort
+    end
+  end
+
+  test "revert_style_fields! clears the group on every size and keeps other fields" do
+    @foreword.set_style_fields!("zz_body", Design::ParagraphStyle::CORNER_FIELDS.index_with { "full" })
+    @foreword.set_style_field!("zz_body", "font_size", 11)
+    @foreword.revert_style_fields!("zz_body", Design::ParagraphStyle::CORNER_FIELDS)
+    @forewords.each do |dd|
+      row = row_of(dd, "zz_body")
+      Design::ParagraphStyle::CORNER_FIELDS.each { |f| assert_nil row[f], f }
+      assert_equal 11, row.font_size.to_i
+      refute (row.overridden_fields & Design::ParagraphStyle::CORNER_FIELDS).any?
+    end
+  end
+
+  test "group operations refuse a non-style field" do
+    assert_raises(ArgumentError) { @foreword.set_style_fields!("zz_body", "name" => "x") }
+    assert_raises(ArgumentError) { @foreword.revert_style_fields!("zz_body", %w[name]) }
+  end
+
   private
 
   def design_for(ps, doc_type)

@@ -117,13 +117,9 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "parentValue"
   end
 
-  test "border and corner editors dispatch a bubbling change and know the parent value" do
-    %w[border_side_editor corner_editor].each do |c|
-      src = File.read(ENGINE_JS.join("design-controllers/design/#{c}_controller.js"))
-      assert_includes src, %(dispatchEvent(new Event("change", { bubbles: true }))), c
-      assert_includes src, "parent: String", c
-      assert_includes src, %("design-controllers/design/edge_flags"), c
-      assert_includes src, "toggleFlag(", c
+  test "the old border-side and corner editors are gone" do
+    %w[border_side_editor_controller.js corner_editor_controller.js edge_flags.js].each do |f|
+      refute File.exist?(ENGINE_JS.join("design-controllers/design", f)), "#{f} should have been removed"
     end
   end
 
@@ -186,7 +182,7 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "LocalValueKeeper"
   end
 
-  %w[style_save_queue style_panel_morph edge_flags field_save_jobs page_guides cell_grid].each do |mod|
+  %w[style_save_queue style_panel_morph field_save_jobs page_guides cell_grid].each do |mod|
     test "#{mod} is a pure module" do
       src = File.read(ENGINE_JS.join("design-controllers/design/#{mod}.js"))
       refute_match(/^import /, src)
@@ -254,4 +250,12 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes pure, %(kind === "grid")
   end
 
+  test "D5: the box sketch registers, and style_autosave handles 🔗 groups" do
+    assert File.exist?(ENGINE_JS.join("design-controllers/design/box_sketch_controller.js"))
+    pure = File.read(ENGINE_JS.join("design-controllers/design/box_sketch.js"))
+    %w[import document. window.].each { |word| refute_includes pure, word }
+    src = File.read(ENGINE_JS.join("design-controllers/design/style_autosave_controller.js"))
+    %w[groupChanged( revertGroup( groupJobs( mirrorTargets( fields[]].each { |m| assert_includes src, m }
+    assert_includes src, %(closest("[data-link-box]"))
+  end
 end

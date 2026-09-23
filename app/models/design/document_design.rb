@@ -500,6 +500,25 @@ module Design
       end
     end
 
+    # A whole 🔗 group (DocumentDesignStylesController, D5): set_style_field!
+    # for each field, in one transaction — every size, the equals-the-parent
+    # rule and the marks exactly as for one field. (touch_inheritors! runs per
+    # field; the timestamps land in one transaction, so the preview sees one change.)
+    def set_style_fields!(name, values)
+      values.each_key { |f| assert_style_field!(f) }
+      transaction { values.each { |f, v| set_style_field!(name, f, v) } }
+    end
+
+    # The group's fields back to inherit on every size, in one pass.
+    def revert_style_fields!(name, fields)
+      fields = fields.map(&:to_s)
+      fields.each { |f| assert_style_field!(f) }
+      transaction do
+        same_doc_type_designs.find_each { |dd| dd.clear_style_fields!(name, fields) }
+        touch_inheritors!
+      end
+    end
+
     # Delete the style's rows on every size (only where a parent exists — a
     # parentless style would vanish entirely).
     def revert_style!(name)
@@ -742,7 +761,9 @@ module Design
       space_before_in_lines space_after_in_lines left_indent right_indent
       bold_font emphasis_color
       fill_type fill_color fill_ending_color fill_gradient_direction
-      border_thickness border_color border_side rounded_corners corner_radius
+      border_top_thickness border_right_thickness border_bottom_thickness border_left_thickness
+      border_top_color border_right_color border_bottom_color border_left_color
+      corner_top_left corner_top_right corner_bottom_right corner_bottom_left
       padding_top padding_bottom bold_text_color emphasis_font
     ].freeze
 

@@ -100,15 +100,21 @@ module Design
           end
         end
 
+        # D5: a thickness and a colour per side, a preset per corner (no 🔗 here:
+        # this form submits as a whole).
         def border_section
           group_box("border", I18n.t("design.fields.border")) do
             rows do
-              number_field(I18n.t("design.fields.thickness"), :border_thickness, step: "0.1", min: 0)
-              color_row(I18n.t("design.fields.border_color"), :border_color)
-            end
-            div(class: "mt-1.5 grid grid-cols-2 gap-2") do
-              border_side_editor
-              corner_editor
+              Design::ParagraphStyle::SIDES.each do |s|
+                number_field(I18n.t("design.fields.border_#{s}_thickness"), :"border_#{s}_thickness", step: "0.1", min: 0)
+                color_row(I18n.t("design.fields.border_#{s}_color"), :"border_#{s}_color")
+              end
+              # Reading order (not ParagraphStyle::CORNERS' clockwise one), so the 2 x 2
+              # grid of selects looks like the box — as StylePanelContent::SECTIONS does.
+              %w[top_left top_right bottom_left bottom_right].each do |c|
+                select_field(I18n.t("design.fields.corner_#{c}"), :"corner_#{c}", Design::ParagraphStyle::CORNER_SIZES,
+                             include_blank: "—", i18n_scope: "corner_size")
+              end
             end
           end
         end
@@ -168,34 +174,6 @@ module Design
           render Design::Views::Inputs::ColorField.new(
             name: "paragraph_style[#{attr}]", value: @paragraph_style.public_send(attr),
             label: label_text, span: span, disabled: disabled_attr[:disabled] == true)
-        end
-
-        # ── Border side / corner editors (Inputs::BorderSides / Inputs::Corners) ──
-
-        def border_side_editor
-          render Design::Views::Inputs::BorderSides.new(
-            name: "paragraph_style[border_side]", value: field_value(@paragraph_style.border_side),
-            disabled: disabled_attr[:disabled] == true)
-        end
-
-        def corner_editor
-          div do
-            render Design::Views::Inputs::Corners.new(
-              name: "paragraph_style[rounded_corners]", value: field_value(@paragraph_style.rounded_corners),
-              disabled: disabled_attr[:disabled] == true)
-            div(class: "mt-1 flex items-center gap-1.5") do
-              label(class: "shrink-0 text-sm text-slate-600") { I18n.t("design.fields.corner_radius") }
-              select(name: "paragraph_style[corner_radius]", class: "h-8 min-w-0 flex-1 rounded border border-slate-300 px-2 text-sm", **disabled_attr) do
-                current = @paragraph_style.corner_radius
-                option(value: "") { "— none —" }
-                known = %w[none small medium large]
-                select_options(known, current).each do |opt|
-                  label = known.include?(opt) ? I18n.t("design.options.corner_radius.#{opt}") : opt
-                  option(value: opt, selected: opt == current) { label }
-                end
-              end
-            end
-          end
         end
 
         def disabled_attr

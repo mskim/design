@@ -7,9 +7,11 @@ module Design
       # formats: [:hex] for columns whose consumers only read hex (table styles, gradients).
       # form: ties the hidden value to another <form> (the Object section's), so the
       # enclosing form never submits it.
+      # empty_label: is what an empty field with no inherited colour says (default
+      # 상속; the linked border colour says 혼합).
       class ColorField < Design::Views::Base
         def initialize(name:, value:, label:, layout: :inline, formats: [ :cmyk, :hex ], disabled: false, span: false,
-                       inherited_value: nil, form: nil)
+                       inherited_value: nil, form: nil, empty_label: nil)
           @name = name
           @value = value.to_s
           @label = label
@@ -19,6 +21,7 @@ module Design
           @span = span
           @inherited_value = inherited_value.to_s.strip
           @form = form
+          @empty_label = empty_label.presence || I18n.t("design.inputs.inherit")
           # Stable when named (a morph must keep the row, its popover and focus).
           @uid = name.present? ? "cf-#{NumberField.dom_key(name)}" : "cf-#{SecureRandom.hex(4)}"
         end
@@ -27,7 +30,7 @@ module Design
           div(class: wrapper_class,
               data: { controller: "design--color-row",
                       "design--color-row-formats-value": @formats.join(","),
-                      "design--color-row-inherit-value": I18n.t("design.inputs.inherit"),
+                      "design--color-row-inherit-value": @empty_label,
                       "design--color-row-parent-value": @inherited_value.presence }) do
             span(id: label_id, class: label_class) { @label }
             div(class: "relative min-w-0 flex-1") do
@@ -59,7 +62,7 @@ module Design
             span(id: summary_id, class: "truncate data-[inherited]:italic data-[inherited]:text-slate-400",
                  data: { "design--color-row-target": "summary", inherited: (true if inherited?) }) do
               if @value.strip.empty?
-                inherited? ? ColorValue.summary(@inherited_value) : I18n.t("design.inputs.inherit")
+                inherited? ? ColorValue.summary(@inherited_value) : @empty_label
               else
                 ColorValue.summary(@value)
               end

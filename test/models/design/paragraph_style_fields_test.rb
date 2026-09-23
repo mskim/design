@@ -41,7 +41,7 @@ class Design::ParagraphStyleFieldsTest < ActiveSupport::TestCase
     f = Design::ParagraphStyle::SCALED_FIELDS
     assert (f - Design::ParagraphStyle::STYLE_FIELDS).empty?
     assert_includes f, "font_size"
-    %w[tracking scale space_before_in_lines border_thickness corner_radius].each { |x| refute_includes f, x }
+    %w[tracking scale space_before_in_lines border_top_thickness corner_top_left].each { |x| refute_includes f, x }
   end
 
   test "theme base rows keep their defaults and blanks untouched" do

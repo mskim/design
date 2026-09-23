@@ -1,7 +1,8 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { fieldFromName, keepsLocalValue, isDirty, LocalValueKeeper, dropStreamsFor, PANEL_TARGET,
-         fieldMatcher, keepsUserAttribute, MENU, MARGIN_LINK, FIELD_PREFIX }
+         fieldMatcher, keepsUserAttribute, MENU, MARGIN_LINK, FIELD_PREFIX,
+         LINK_TOGGLE, LINK_BOX }
   from "../../app/javascript/design-controllers/design/style_panel_morph.js"
 
 // Stand-ins for the DOM pieces the rules read (no DOM in node).
@@ -117,4 +118,59 @@ test("keepsUserAttribute: details open, the ▾ menu's class and the margin link
   assert.equal(keepsUserAttribute(el("BUTTON", MARGIN_LINK), "disabled"), false)
   assert.equal(keepsUserAttribute(el("BUTTON"), "aria-pressed"), false, "other toggles follow the server")
   assert.equal(keepsUserAttribute(el("INPUT"), "value"), false, "values are LocalValueKeeper's job")
+})
+
+test("keepsUserAttribute: a 🔗 toggle's aria-pressed and its box's data-linked survive a morph", () => {
+  const el = (tagName, selector = null) => ({ tagName, matches: (s) => s === selector })
+  assert.equal(keepsUserAttribute(el("BUTTON", LINK_TOGGLE), "aria-pressed"), true)
+  assert.equal(keepsUserAttribute(el("DIV", LINK_BOX), "data-linked"), true)
+  assert.equal(keepsUserAttribute(el("DIV"), "data-linked"), false)
+  assert.equal(keepsUserAttribute(el("BUTTON", LINK_TOGGLE), "class"), false)
+})
+
+// A control inside a 🔗 row: closest("[data-link-fields]") finds the row.
+const THICKNESS = "border_top_thickness border_right_thickness border_bottom_thickness border_left_thickness"
+function inRow(control, linkFields = THICKNESS) {
+  const row = { dataset: { linkGroup: "border_thickness", linkFields } }
+  return Object.assign(control, { closest: (sel) => sel === "[data-link-fields]" ? row : null })
+}
+
+test("LocalValueKeeper keeps a 🔗 row's linked control while it is dirty (typing in it)", () => {
+  const keeper = new LocalValueKeeper(() => false)
+  const typing = inRow(input("paragraph_style_link[border_thickness]", "1", "2.5"))
+  keeper.decide(typing)
+  assert.equal(keeper.keeps(typing), true)
+})
+
+test("LocalValueKeeper keeps a clean linked control while any field of its group is pending", () => {
+  const pending = new Set([ "border_left_thickness" ])
+  const keeper = new LocalValueKeeper((field) => pending.has(field))
+  const linked = inRow(input("paragraph_style_link[border_thickness]", "2", "2"))
+  keeper.decide(linked)
+  assert.equal(keeper.keeps(linked), true, "an older response must not put the old value back")
+  pending.clear()
+  keeper.decide(linked)
+  assert.equal(keeper.keeps(linked), false, "nothing pending: the morph updates it")
+})
+
+test("LocalValueKeeper: a clean linked control with nothing pending is updated", () => {
+  const keeper = new LocalValueKeeper((field) => field === "font_size")
+  const linked = inRow(select("paragraph_style_link[corners]", [ [ "", false ], [ "full", true ] ], "full"),
+                       "corner_top_left corner_top_right corner_bottom_right corner_bottom_left")
+  keeper.decide(linked)
+  assert.equal(keeper.keeps(linked), false)
+})
+
+test("LocalValueKeeper: a split control inside a box is decided by its own field, as before", () => {
+  const pending = new Set([ "border_left_thickness" ])
+  const keeper = new LocalValueKeeper((field) => pending.has(field))
+  const clean = input("paragraph_style[border_top_thickness]", "1", "1")
+  const saving = input("paragraph_style[border_left_thickness]", "1", "1")
+  const typing = input("paragraph_style[border_right_thickness]", "1", "3")
+  const unnamed = inRow(input("", "", "#ff0000"))
+  for (const el of [ clean, saving, typing, unnamed ]) keeper.decide(el)
+  assert.equal(keeper.keeps(clean), false, "a sibling field pending doesn't hold it")
+  assert.equal(keeper.keeps(saving), true)
+  assert.equal(keeper.keeps(typing), true)
+  assert.equal(keeper.keeps(unnamed), false, "a popover sub-field (no name) is never decided")
 })

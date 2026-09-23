@@ -94,8 +94,9 @@ module Design
           left_indent REAL, right_indent REAL,
           bold_font TEXT, bold_text_color TEXT, emphasis_color TEXT, emphasis_font TEXT,
           fill_type TEXT, fill_color TEXT, fill_ending_color TEXT, fill_gradient_direction TEXT,
-          border_thickness REAL, border_color TEXT, border_side TEXT,
-          rounded_corners TEXT, corner_radius TEXT,
+          border_top_thickness REAL, border_right_thickness REAL, border_bottom_thickness REAL, border_left_thickness REAL,
+          border_top_color TEXT, border_right_color TEXT, border_bottom_color TEXT, border_left_color TEXT,
+          corner_top_left TEXT, corner_top_right TEXT, corner_bottom_right TEXT, corner_bottom_left TEXT,
           padding_top REAL, padding_bottom REAL,
           vertical_align TEXT,
           created_at DATETIME, updated_at DATETIME
@@ -206,23 +207,22 @@ module Design
     def insert_style(db, style)
       styleable_type = STYLEABLE_TYPE_MAP.fetch(style.styleable_type, style.styleable_type)
 
-      db.execute(
-        "INSERT INTO paragraph_styles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [ style.id, styleable_type, style.styleable_id,
-          style.name, style.korean_name, style.font, f(style.font_size),
-          style.text_color, style.text_align, f(style.tracking), f(style.space_width),
-          f(style.scale), f(style.first_line_indent), f(style.text_line_spacing),
-          f(style.space_before), f(style.space_after),
-          f(style.space_before_in_lines), f(style.space_after_in_lines),
-          f(style.left_indent), f(style.right_indent),
-          style.bold_font, style.bold_text_color, style.emphasis_color, style.emphasis_font,
-          style.fill_type, style.fill_color, style.fill_ending_color, style.fill_gradient_direction,
-          f(style.border_thickness), style.border_color, style.border_side,
-          style.rounded_corners, style.corner_radius,
-          f(style.padding_top), f(style.padding_bottom),
-          style.vertical_align,
-          style.created_at&.iso8601, style.updated_at&.iso8601 ]
-      )
+      values = [ style.id, styleable_type, style.styleable_id,
+        style.name, style.korean_name, style.font, f(style.font_size),
+        style.text_color, style.text_align, f(style.tracking), f(style.space_width),
+        f(style.scale), f(style.first_line_indent), f(style.text_line_spacing),
+        f(style.space_before), f(style.space_after),
+        f(style.space_before_in_lines), f(style.space_after_in_lines),
+        f(style.left_indent), f(style.right_indent),
+        style.bold_font, style.bold_text_color, style.emphasis_color, style.emphasis_font,
+        style.fill_type, style.fill_color, style.fill_ending_color, style.fill_gradient_direction,
+        *Design::ParagraphStyle::BORDER_THICKNESS_FIELDS.map { |f| f(style[f]) },
+        *Design::ParagraphStyle::BORDER_COLOR_FIELDS.map { |f| style[f] },
+        *Design::ParagraphStyle::CORNER_FIELDS.map { |f| style[f] },
+        f(style.padding_top), f(style.padding_bottom),
+        style.vertical_align,
+        style.created_at&.iso8601, style.updated_at&.iso8601 ]
+      db.execute("INSERT INTO paragraph_styles VALUES (#{([ '?' ] * values.size).join(', ')})", values)
     end
 
     def insert_table_styles(db)

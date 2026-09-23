@@ -1,5 +1,18 @@
 en:
   design:
+    border_controls:
+      boxes:
+        border: "Border"
+        corners: "Corners"
+      groups:
+        border_thickness: "Thickness"
+        border_color: "Colour"
+        corners: "Corners"
+      link:
+        border: "Edit all four sides together"
+        corners: "Edit all four corners together"
+      mixed: "Mixed"
+      revert_group: "%{group} — revert all four"
     themes:
       index_title: "Design Themes"
       my_themes: "My Themes"
@@ -95,11 +108,11 @@ en:
         left_to_right: "Left → Right"
         right_to_left: "Right → Left"
         angle: "Angle"
-      corner_radius:
-        none: "None"
+      corner_size:
+        none: "Square"
         small: "Small"
         medium: "Medium"
-        large: "Large"
+        full: "Full"
 
     properties_panel:
       layout: "Layout"
@@ -190,11 +203,18 @@ en:
       ending_color: "Ending Color"
       gradient_dir: "Gradient Dir."
       border: "Border"
-      thickness: "Thickness (pt)"
-      border_color: "Border Color"
-      border_sides: "Border Sides"
-      rounded_corners: "Rounded Corners"
-      corner_radius: "Corner Radius"
+      border_top_thickness: "Top thickness"
+      border_right_thickness: "Right thickness"
+      border_bottom_thickness: "Bottom thickness"
+      border_left_thickness: "Left thickness"
+      border_top_color: "Top colour"
+      border_right_color: "Right colour"
+      border_bottom_color: "Bottom colour"
+      border_left_color: "Left colour"
+      corner_top_left: "Top left"
+      corner_top_right: "Top right"
+      corner_bottom_right: "Bottom right"
+      corner_bottom_left: "Bottom left"
       padding: "Padding"
       padding_top: "Padding Top (pt)"
       padding_bottom: "Padding Bottom (pt)"
@@ -260,7 +280,6 @@ en:
         positive: "Must be more than 0"
         too_large: "Must be between -%{max} and %{max}"
         invalid_option: "Choose a value from the list"
-        invalid_flags: "Must be four 0/1 flags (e.g. 1,0,1,0)"
         invalid_color: "Must be CMYK=c,m,y,k or #rrggbb"
         missing_chapter: "Can't apply: no chapter design on %{sizes}"
         name_blank: "Enter a name"
@@ -494,13 +513,7 @@ en:
       lines: "lines"
       inherit: "Inherit"
       inherit_with_value: "Inherit (%{value})"
-      none: "None"
       clear: "Clear"
       picker: "Pick…"
       cmyk: "CMYK"
       hex: "Hex"
-      corners:
-        tl: "top left"
-        tr: "top right"
-        br: "bottom right"
-        bl: "bottom left"

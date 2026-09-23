@@ -14,17 +14,13 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
     assert_includes html, %(name="paragraph_style[text_color]")
     assert_includes html, %(data-controller="design--color-row")
     assert_includes html, %(data-controller="design--scrub-input")
-    assert_includes html, %(data-controller="design--border-side-editor")
-    assert_includes html, %(data-controller="design--corner-editor")
-    assert_includes html, %(name="paragraph_style[border_side]")
-    assert_includes html, %(name="paragraph_style[corner_radius]")
   end
 
   test "non-negative number fields get min 0; indents and tracking stay unbounded" do
     doc = Nokogiri::HTML.fragment(Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style).call)
     min_of = ->(attr) { doc.at_css("input[name='paragraph_style[#{attr}]']").ancestors("[data-controller='design--scrub-input']").first["data-design--scrub-input-min-value"] }
     %w[font_size scale text_line_spacing space_before space_after space_before_in_lines space_after_in_lines
-       border_thickness padding_top padding_bottom].each { |attr| assert_equal "0", min_of.(attr), attr }
+       border_top_thickness padding_top padding_bottom].each { |attr| assert_equal "0", min_of.(attr), attr }
     %w[first_line_indent left_indent right_indent tracking space_width].each { |attr| assert_nil min_of.(attr), attr }
   end
 
@@ -52,27 +48,13 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
     refute_includes html, %(value="horizontal")
   end
 
-  # ── Interactive border/corner widgets (KEEP — not plain text inputs) ──
-
-  test "border section renders interactive border-side-editor (not plain text input)" do
+  test "border section: a thickness and a colour per side, a preset select per corner" do
     html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style).call
-    assert_includes html, %(data-controller="design--border-side-editor")
-    # The toggle buttons must be present
-    assert_includes html, %(click->design--border-side-editor#toggle)
-    # The hidden accumulator input must be present
-    assert_includes html, %(name="paragraph_style[border_side]")
-    doc = Nokogiri::HTML.fragment(html)
-    refute doc.at_css("[data-controller='design--border-side-editor']").key?("data-design--border-side-editor-parent-value"),
-           "the theme/paper form has no parent to inherit from"
-    refute doc.at_css("[data-controller='design--corner-editor']").key?("data-design--corner-editor-parent-value")
-  end
-
-  test "border section renders interactive corner-editor (not plain text input)" do
-    html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style).call
-    assert_includes html, %(data-controller="design--corner-editor")
-    assert_includes html, %(click->design--corner-editor#toggle)
-    assert_includes html, %(name="paragraph_style[rounded_corners]")
-    assert_includes html, %(name="paragraph_style[corner_radius]")
+    Design::ParagraphStyle::SIDES.each do |s|
+      assert_includes html, %(name="paragraph_style[border_#{s}_thickness]")
+      assert_includes html, %(name="paragraph_style[border_#{s}_color]")
+    end
+    Design::ParagraphStyle::CORNERS.each { |c| assert_includes html, %(name="paragraph_style[corner_#{c}]") }
   end
 
   test "padding section renders" do
@@ -103,22 +85,9 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
     assert_match(/data-design--color-row-target="trigger"[^>]*disabled|disabled[^>]*data-design--color-row-target="trigger"/, html)
   end
 
-  test "editable: false — border-side-editor buttons carry disabled" do
+  test "editable: false — corner_top_left select carries disabled" do
     html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style, editable: false).call
-    # There should be disabled on the buttons inside the border-side-editor
-    assert_includes html, %(data-controller="design--border-side-editor")
-    assert_match(/click->design--border-side-editor#toggle[^>]*disabled|disabled[^>]*click->design--border-side-editor#toggle/, html)
-  end
-
-  test "editable: false — corner-editor buttons carry disabled" do
-    html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style, editable: false).call
-    assert_includes html, %(data-controller="design--corner-editor")
-    assert_match(/click->design--corner-editor#toggle[^>]*disabled|disabled[^>]*click->design--corner-editor#toggle/, html)
-  end
-
-  test "editable: false — corner_radius select carries disabled" do
-    html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style, editable: false).call
-    assert_match(/name="paragraph_style\[corner_radius\]"[^>]*disabled|disabled[^>]*name="paragraph_style\[corner_radius\]"/, html)
+    assert_match(/name="paragraph_style\[corner_top_left\]"[^>]*disabled|disabled[^>]*name="paragraph_style\[corner_top_left\]"/, html)
   end
 
   test "editable: false — padding inputs carry disabled" do
@@ -132,15 +101,5 @@ class Design::ParagraphFieldsTest < ActiveSupport::TestCase
   test "editable: true (default) — font_size input is NOT disabled" do
     html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style).call
     refute_match(/name="paragraph_style\[font_size\]"[^>]*disabled/, html)
-  end
-
-  test "editable: true — border-side-editor buttons are NOT disabled" do
-    html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style, editable: true).call
-    refute_match(/click->design--border-side-editor#toggle[^>]*disabled/, html)
-  end
-
-  test "editable: true — corner-editor buttons are NOT disabled" do
-    html = Design::Views::ParagraphStyles::Fields.new(paragraph_style: @style, editable: true).call
-    refute_match(/click->design--corner-editor#toggle[^>]*disabled/, html)
   end
 end

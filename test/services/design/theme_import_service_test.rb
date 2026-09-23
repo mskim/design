@@ -146,4 +146,47 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     assert_equal id, resolved.id
     assert_equal theme1.paper_sizes.count, theme2.paper_sizes.count
   end
+
+  # The fixture's one bordered style is a document-design row "styled_para":
+  # 0.3 pt on all four sides (1,1,1,1), all four corners medium.
+  test "a pre-D5 file's borders arrive as the twelve fields" do
+    theme = Design::ThemeImportService.new(file_fixture("sample.book_design")).import!
+    boxed = theme.document_designs.flat_map { |dd| dd.paragraph_styles.where(name: "styled_para").to_a }.first
+    assert boxed, "the fixture's bordered style"
+    assert_equal [ 0.3 ] * 4, Design::ParagraphStyle::BORDER_THICKNESS_FIELDS.map { |f| boxed[f].to_f }
+    assert_equal %w[medium] * 4, Design::ParagraphStyle::CORNER_FIELDS.map { |f| boxed[f] }
+  end
+
+  # A schema-3 file (the fixture plus the twelve columns) imports them as they
+  # are: its old five are ignored, nothing is converted.
+  test "a D5 file's twelve fields import unchanged" do
+    file = Tempfile.new([ "d5", ".book_design" ])
+    FileUtils.cp(FIXTURE, file.path)
+    db = SQLite3::Database.new(file.path)
+    Design::ParagraphStyle::BORDER_FIELDS.each do |f|
+      type = Design::ParagraphStyle::BORDER_THICKNESS_FIELDS.include?(f) ? "REAL" : "TEXT"
+      db.execute("ALTER TABLE paragraph_styles ADD COLUMN #{f} #{type}")
+    end
+    db.execute("UPDATE metadata SET value = '3' WHERE key = 'schema_version'")
+    db.execute("UPDATE paragraph_styles SET border_top_thickness = 1.5, border_left_color = '#ff0000', " \
+               "corner_bottom_right = 'full' WHERE styleable_type = 'theme' AND name = 'body'")
+    db.execute("UPDATE paragraph_styles SET border_right_thickness = 2, corner_top_left = 'small' " \
+               "WHERE name = 'styled_para'")
+    db.close
+
+    theme = Design::ThemeImportService.new(file.path).import!
+    base = theme.base_paragraph_styles.find_by(name: "body")
+    assert_in_delta 1.5, base.border_top_thickness.to_f, 0.001
+    assert_equal "#ff0000", base.border_left_color
+    assert_equal "full", base.corner_bottom_right
+    assert_nil base.border_bottom_thickness, "unset fields stay unset"
+
+    boxed = theme.document_designs.flat_map { |dd| dd.paragraph_styles.where(name: "styled_para").to_a }.first
+    assert_in_delta 2.0, boxed.border_right_thickness.to_f, 0.001
+    assert_equal "small", boxed.corner_top_left
+    assert_nil boxed.border_top_thickness, "the old 0.3 pt was not converted"
+    assert_nil boxed.corner_top_right, "the old medium corners were not converted"
+  ensure
+    file&.close!
+  end
 end
