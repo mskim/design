@@ -27,6 +27,8 @@ class Design::LegacyBorderTest < ActiveSupport::TestCase
   test "convert: the cover order reads the same flags as left, top, right, bottom" do
     out = LB.convert({ "border_thickness" => 1, "border_side" => "0,1,0,1" }, order: :cover)
     assert_equal [ 1.0, 0, 1.0, 0 ], sides(out, "thickness"), "a cover's 0,1,0,1 is top and bottom"
+    left_only = LB.convert({ "border_thickness" => 1, "border_side" => "1,0,0,0" }, order: :cover)
+    assert_equal [ 0, 0, 0, 1.0 ], sides(left_only, "thickness"), "a cover's first flag is the LEFT side"
   end
 
   test "convert: blank or unreadable flags mean all four" do
