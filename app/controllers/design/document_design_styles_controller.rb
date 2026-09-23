@@ -75,26 +75,6 @@ module Design
       render_saved
     end
 
-    # PATCH styles/:name/field with values[...] (D5): one 🔗 group — the four
-    # sides' thicknesses, their colours, or the four corners — validated on the
-    # row it lands on for this size and written together; a failure writes nothing.
-    def update_group
-      values = group_values or return head(:bad_request)
-      row = target_row
-      values.each { |f, v| row[f] = v.strip }
-      return render_invalid_group(row, values) unless row.valid?(:style_panel)
-
-      @document_design.set_style_fields!(style_name, values)
-      render_saved
-    end
-
-    # DELETE styles/:name/field with fields[]: the group back to inherit on every size.
-    def revert_group
-      fields = group_fields or return head(:bad_request)
-      @document_design.revert_style_fields!(style_name, fields)
-      render_saved
-    end
-
     # DELETE styles/:name: every field back to inherit on every size.
     def destroy
       @document_design.revert_style!(style_name)
@@ -131,7 +111,8 @@ module Design
     end
 
     def ensure_style_field
-      return if params.key?(:values) || params.key?(:fields)
+      group_key = action_name == "update_field" ? :values : :fields
+      return if params.key?(group_key)
       head :bad_request unless Design::ParagraphStyle::STYLE_FIELDS.include?(field)
     end
 
@@ -144,6 +125,26 @@ module Design
       messages = row.errors[field].presence || row.errors.full_messages
       render turbo_stream: panel_streams(field_errors: { field => messages }, attempted: { field => value.to_s }),
              status: :unprocessable_entity
+    end
+
+    # PATCH styles/:name/field with values[...] (D5): one 🔗 group — the four
+    # sides' thicknesses, their colours, or the four corners — validated on the
+    # row it lands on for this size and written together; a failure writes nothing.
+    def update_group
+      values = group_values or return head(:bad_request)
+      row = target_row
+      values.each { |f, v| row[f] = v.strip }
+      return render_invalid_group(row, values) unless row.valid?(:style_panel)
+
+      @document_design.set_style_fields!(style_name, values)
+      render_saved
+    end
+
+    # DELETE styles/:name/field with fields[]: the group back to inherit on every size.
+    def revert_group
+      fields = group_fields or return head(:bad_request)
+      @document_design.revert_style_fields!(style_name, fields)
+      render_saved
     end
 
     # values[...] naming exactly one link group, every value a String.
@@ -161,11 +162,13 @@ module Design
     end
 
     # The group's messages go under the linked row: keyed by the group, with
-    # the attempted value (one value was typed for all four).
+    # the attempted value of the first field that actually has an error (a
+    # mixed group can have only one bad field; the others' values were fine).
     def render_invalid_group(row, values)
       group = Design::ParagraphStyle.link_group_for(values.keys)
       messages = values.keys.flat_map { |f| row.errors[f] }.uniq.presence || row.errors.full_messages
-      render turbo_stream: panel_streams(field_errors: { group => messages }, attempted: { group => values.values.first.to_s }),
+      attempted = values.find { |f, _| row.errors[f].any? }&.last || values.values.first
+      render turbo_stream: panel_streams(field_errors: { group => messages }, attempted: { group => attempted.to_s }),
              status: :unprocessable_entity
     end
 

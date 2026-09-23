@@ -277,10 +277,42 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     values = Design::ParagraphStyle::BORDER_THICKNESS_FIELDS.index_with { "-3" }
     stub_preview { patch field_path, params: { values: values }, headers: STREAM }
     assert_response :unprocessable_entity
+    assert(row_of(@fw).nil? || row_of(@fw).border_top_thickness.nil?)
     tpl = stream_template("style-panel-content")
     assert tpl.at_css("[data-field-error='border_thickness']"), "keyed by the group"
     assert_equal "-3", tpl.at_css("[name='paragraph_style_link[border_thickness]']")["value"]
+  end
+
+  test "422 for a mixed group: nothing written on either size" do
+    values = Design::ParagraphStyle::BORDER_THICKNESS_FIELDS.index_with { "2" }.merge("border_right_thickness" => "-3")
+    stub_preview { patch field_path, params: { values: values }, headers: STREAM }
+    assert_response :unprocessable_entity
     assert(row_of(@fw).nil? || row_of(@fw).border_top_thickness.nil?)
+    assert(row_of(@forewords.last).nil? || row_of(@forewords.last).border_top_thickness.nil?)
+  end
+
+  test "400: a group key belonging to the other verb doesn't skip the field check" do
+    patch field_path, params: { fields: %w[corner_top_left], field: "name", value: "x" }, headers: STREAM
+    assert_response :bad_request, "PATCH with fields[] (DELETE's key) must still check field"
+
+    patch field_path, params: { fields: %w[corner_top_left], field: "nope", value: "x" }, headers: STREAM
+    assert_response :bad_request, "PATCH with fields[] and an unknown field must not fall through to set_style_field!"
+
+    delete field_path, params: { values: { border_top_thickness: "1" }, field: "name" }, headers: STREAM
+    assert_response :bad_request, "DELETE with values[] (PATCH's key) must still check field"
+  end
+
+  test "403 on a read-only (system) theme for the group forms" do
+    theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = design_for(ps, "foreword")
+    theme.base_paragraph_styles.create!(name: "zz_body", font_size: 10)
+
+    values = Design::ParagraphStyle::BORDER_COLOR_FIELDS.index_with { "#ff0000" }
+    patch field_path(dd), params: { values: values }
+    assert_response :forbidden
+    delete field_path(dd), params: { fields: Design::ParagraphStyle::CORNER_FIELDS }
+    assert_response :forbidden
   end
 
   # ── DELETE style / POST push ──
