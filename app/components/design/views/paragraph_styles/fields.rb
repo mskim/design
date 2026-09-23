@@ -109,6 +109,8 @@ module Design
                 number_field(I18n.t("design.fields.border_#{s}_thickness"), :"border_#{s}_thickness", step: "0.1", min: 0)
                 color_row(I18n.t("design.fields.border_#{s}_color"), :"border_#{s}_color")
               end
+              # Reading order (not ParagraphStyle::CORNERS' clockwise one), so the 2 x 2
+              # grid of selects looks like the box — as StylePanelContent::SECTIONS does.
               %w[top_left top_right bottom_left bottom_right].each do |c|
                 select_field(I18n.t("design.fields.corner_#{c}"), :"corner_#{c}", Design::ParagraphStyle::CORNER_SIZES,
                              include_blank: "—", i18n_scope: "corner_size")
