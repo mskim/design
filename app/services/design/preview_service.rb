@@ -9,7 +9,7 @@ module Design
 
     PREVIEW_DPI = 150
     MAX_PREVIEW_PAGES = 4
-    CACHE_VERSION = "v4" # bump when the stamp/JPG layout changes; old stamps become misses
+    CACHE_VERSION = "v5" # bump when the stamp/JPG layout changes; old stamps become misses
     # The print key's own part: bump when only print-mode output changes
     # (normal caches stay warm). v2: doc_processor_rb cf4eb37 shifts every
     # margin-relative element by the binding, not just the body text box.
@@ -648,6 +648,17 @@ module Design
       Rails.logger.error "inject_page_background error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
     end
 
+    # 행간 (text_line_spacing) is the leading between lines, so the pitch is the
+    # font size plus the leading — as book_write prints it
+    # (PdfGenerationService#line_height_for). Without a leading, the design's
+    # body line height.
+    def line_height_for(style)
+      leading = style.text_line_spacing&.to_f
+      return body_line_height unless leading
+
+      (style.font_size&.to_f || theme.base_body_font_size.to_f) + leading
+    end
+
     def build_style_attrs(style, default_align: "left", first_line_indent: nil)
       {
         font_family: style.font || theme.base_body_font,
@@ -656,7 +667,7 @@ module Design
         font_style: "normal",
         color: style.text_color || "CMYK=0,0,0,100",
         text_align: style.text_align || default_align,
-        line_height: style.text_line_spacing&.to_f || body_line_height,
+        line_height: line_height_for(style),
         tracking: style.tracking&.to_f,
         space_width: style.space_width&.to_f,
         text_scale: style.scale&.to_f,
