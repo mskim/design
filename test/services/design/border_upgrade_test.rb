@@ -202,7 +202,7 @@ class Design::BorderUpgradeTest < ActiveSupport::TestCase
     PS::BORDER_FIELDS.each { |f| assert_nil epi[f], f }
   end
 
-  # Seoul's chapter `title`: only border_side, and nothing in its chain sets a
+  # Classic's chapter `title`: only border_side, and nothing in its chain sets a
   # thickness or a preset. The flagged-on sides stay latent, so a thickness
   # given to the base later draws them, as the old model would have.
   test "a row with only border_side pins its off sides and inherits the rest" do

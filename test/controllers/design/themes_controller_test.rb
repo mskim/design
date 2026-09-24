@@ -4,7 +4,7 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
   setup do
     sign_in :david # admin (can_design?)
     @system_theme = Design::Theme.system_themes.first ||
-      Design::Theme.create!(name: "Seoul", locale: "ko")
+      Design::Theme.create!(name: "Classic", locale: "ko")
   end
 
   test "index renders a clone control for each theme card" do

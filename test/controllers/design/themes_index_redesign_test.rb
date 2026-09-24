@@ -3,7 +3,7 @@ require "test_helper"
 class Design::ThemesIndexRedesignTest < ActionDispatch::IntegrationTest
   setup do
     sign_in :david # admin (can_design?)
-    @system = Design::Theme.system_themes.first || Design::Theme.create!(name: "Seoul", locale: "ko")
+    @system = Design::Theme.system_themes.first || Design::Theme.create!(name: "Classic", locale: "ko")
     @mine = Design::Theme.create!(name: "My Theme", locale: "ko", user: users(:david))
     get "/design/themes"
     assert_response :success

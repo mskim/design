@@ -32,7 +32,7 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
   end
 
   test "system theme edit returns forbidden (ensure_theme_editable guard)" do
-    system_theme = Design::Theme.create!(name: "Seoul #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    system_theme = Design::Theme.create!(name: "Classic #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
     sys_ps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     sys_dd = sys_ps.document_designs.create!(doc_type: "chapter")
     get design.edit_theme_paper_size_document_design_path(system_theme, sys_ps, sys_dd)
@@ -65,7 +65,7 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
   end
 
   test "properties_panel endpoint returns forbidden for system theme" do
-    system_theme = Design::Theme.create!(name: "Seoul #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
+    system_theme = Design::Theme.create!(name: "Classic #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
     sys_ps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     sys_dd = sys_ps.document_designs.create!(doc_type: "chapter")
     get design.properties_panel_theme_paper_size_document_design_path(system_theme, sys_ps, sys_dd)

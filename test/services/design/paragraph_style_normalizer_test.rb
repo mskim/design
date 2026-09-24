@@ -169,5 +169,5 @@ class Design::ParagraphStyleNormalizerTest < ActiveSupport::TestCase
     dd.merged_paragraph_styles.to_h { |s| [ s.name, FIELDS.index_with { |f| s[f] } ] }
   end
 
-  def db_path = File.join(Design.themes_dir, "#{@theme.name.parameterize}.db")
+  def db_path = File.join(Design.themes_dir, "#{@theme.file_basename}.db")
 end

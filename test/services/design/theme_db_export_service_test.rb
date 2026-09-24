@@ -91,4 +91,12 @@ class Design::ThemeDbExportServiceTest < ActiveSupport::TestCase
   ensure
     File.delete(path) if path && File.exist?(path)
   end
+
+  test "the .db is named <style>-<locale>" do
+    theme = Design::Theme.create!(name: "Avant-garde", locale: "ko")
+    path = Design::ThemeDbExportService.new(theme).export!
+    assert_equal "avant-garde-ko.db", File.basename(path)
+  ensure
+    File.delete(path) if path && File.exist?(path)
+  end
 end

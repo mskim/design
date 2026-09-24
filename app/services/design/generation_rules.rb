@@ -2,7 +2,7 @@ module Design
   module GenerationRules
     module_function
 
-    # All rules interpolate between two reference paper sizes (the live Seoul theme):
+    # All rules interpolate between two reference paper sizes (the live Classic theme):
     #   신국판 (sin-gukpan) = 152×225 mm  — the smaller anchor
     #   A4                  = 210×297 mm  — the larger anchor
     # t_h is the 0..1 (extrapolating beyond) position by height between them.

@@ -74,7 +74,7 @@ module Design
     end
 
     def self.classic_in(locale)
-      system_themes.where(locale: locale.to_s).detect { |t| t.name.to_s.parameterize == DEFAULT_STYLE }
+      system_themes.where(locale: locale.to_s).order(:id).detect { |t| t.name.to_s.parameterize == DEFAULT_STYLE }
     end
     private_class_method :classic_in
 

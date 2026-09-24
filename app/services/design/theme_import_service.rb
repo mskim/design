@@ -53,15 +53,17 @@ module Design
       end
     end
 
-    # Upsert by parameterized name, PRESERVING the existing Design::Theme.id so
-    # books referencing design_theme_<id> keep working.
+    # Upsert by parameterized name AND locale, PRESERVING the existing
+    # Design::Theme.id so books referencing design_theme_<id> keep working.
+    # The locale is part of the key: a Korean and an English "Classic" are
+    # different themes.
     def upsert_theme(db)
       row = db.get_first_row("SELECT * FROM theme LIMIT 1")
       raise "No theme row in #{@file_path}" unless row
       slug = row["name"].to_s.parameterize
-      theme = Design::Theme.system_themes.find_or_initialize_by(name: slug)
+      locale = row["locale"].presence || "ko"
+      theme = Design::Theme.system_themes.find_or_initialize_by(name: slug, locale: locale)
       theme.assign_attributes(
-        locale: row["locale"].presence || "ko",
         base_body_font: row["base_body_font"],
         base_body_font_size: row["base_body_font_size"],
         base_heading_font: row["base_heading_font"],

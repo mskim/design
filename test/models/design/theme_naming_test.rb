@@ -13,7 +13,7 @@ class Design::ThemeNamingTest < ActiveSupport::TestCase
   end
 
   test "a name that parameterizes to nothing falls back to the id" do
-    theme = system_theme("우리출판사 #{SecureRandom.hex(2)}".delete("0-9a-f"))
+    theme = system_theme("우리출판사")
     assert_equal "theme-#{theme.id}-ko", theme.file_basename
   end
 
