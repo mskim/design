@@ -33,8 +33,8 @@ class Design::ShellTest < ActiveSupport::TestCase
   end
 
   test "renders top bar with title + yielded main" do
-    html = shell(title: "Seoul") { plain "BODY" }
-    assert_includes html, "Seoul"
+    html = shell(title: "Classic") { plain "BODY" }
+    assert_includes html, "Classic"
     assert_includes html, "BODY"
   end
 

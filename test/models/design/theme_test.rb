@@ -51,7 +51,7 @@ class Design::ThemeTest < ActiveSupport::TestCase
   test "imported? is true once import provenance is stamped" do
     theme = Design::Theme.create!(name: "prov #{SecureRandom.hex(3)}", locale: "ko")
     assert_not theme.imported?
-    theme.update!(imported_at: Time.current, source_file: "seoul.book_design")
+    theme.update!(imported_at: Time.current, source_file: "classic-ko.book_design")
     assert theme.imported?
   end
 end

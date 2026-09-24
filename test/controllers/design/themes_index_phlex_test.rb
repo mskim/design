@@ -3,7 +3,7 @@ require "test_helper"
 class Design::ThemesIndexPhlexTest < ActionDispatch::IntegrationTest
   setup do
     sign_in :david   # admin (can_design?)
-    Design::Theme.create!(name: "Seoul", locale: "ko") unless Design::Theme.system_themes.exists?
+    Design::Theme.create!(name: "Classic", locale: "ko") unless Design::Theme.system_themes.exists?
   end
 
   test "themes index renders the Phlex page in the design layout" do
@@ -24,7 +24,7 @@ class Design::ThemesIndexPhlexTest < ActionDispatch::IntegrationTest
 
   test "theme show renders in the design layout" do
     sign_in :david
-    theme = Design::Theme.system_themes.first || Design::Theme.create!(name: "Seoul", locale: "ko")
+    theme = Design::Theme.system_themes.first || Design::Theme.create!(name: "Classic", locale: "ko")
     get "/design/themes/#{theme.id}"
     assert_response :success
     assert_select "body.design-studio"           # the isolated design layout (Phlex)

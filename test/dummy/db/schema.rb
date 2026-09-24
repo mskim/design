@@ -226,7 +226,7 @@ ActiveRecord::Schema[8.1].define(version: 2) do
     t.string "source_file"
     t.datetime "updated_at", null: false
     t.integer "user_id"
-    t.index ["user_id", "name"], name: "index_design_themes_on_user_id_and_name", unique: true
+    t.index ["user_id", "name", "locale"], name: "index_design_themes_on_user_id_and_name_and_locale", unique: true
     t.index ["user_id"], name: "index_design_themes_on_user_id"
   end
 end

@@ -7,7 +7,7 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
   test "imports a .book_design file as a system theme matched by parameterized name" do
     theme = Design::ThemeImportService.new(FIXTURE).import!
     assert theme.system?, "imported theme must be a system theme (user_id nil)"
-    assert_equal "seoul", theme.name           # parameterized from "Seoul"
+    assert_equal "classic", theme.name           # parameterized from "Classic"
     assert theme.imported?
     assert_equal "sample.book_design", theme.source_file
   end
@@ -141,10 +141,28 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     theme2 = Design::ThemeImportService.new(FIXTURE).import!
 
     assert_equal id, theme2.id, "re-import must preserve the theme id"
-    assert_equal 1, Design::Theme.system_themes.where(name: "seoul").count, "no duplicate theme"
+    assert_equal 1, Design::Theme.system_themes.where(name: "classic").count, "no duplicate theme"
     resolved = Design::Theme.find(book_theme_token.delete_prefix("design_theme_").to_i)
     assert_equal id, resolved.id
     assert_equal theme1.paper_sizes.count, theme2.paper_sizes.count
+  end
+
+  test "re-importing a theme updates the row with the same name AND locale, keeping its id" do
+    # The English row is created FIRST: the old name-only lookup returns the
+    # lowest id, so this is what makes the test fail before the fix.
+    other_language = Design::Theme.create!(name: "baroque", locale: "en")
+    existing = Design::Theme.create!(name: "baroque", locale: "ko")
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, "baroque-ko.book_design")
+      FileUtils.cp(FIXTURE, path)
+      SQLite3::Database.new(path) { |db| db.execute("UPDATE theme SET name = 'Baroque', locale = 'ko'") }
+      theme = Design::ThemeImportService.new(path).import!
+      assert_equal existing.id, theme.id
+    end
+    assert_equal "en", other_language.reload.locale, "the English one is untouched"
+    assert_equal 1, Design::Theme.system_themes.where(name: "baroque", locale: "ko").count
+  ensure
+    Dir.glob(File.join(Design.themes_dir.to_s, "baroque-*.db")).each { |f| File.delete(f) }
   end
 
   # The fixture's one bordered style is a document-design row "styled_para":

@@ -18,7 +18,7 @@ module Design
     def export!
       dir = export_dir
       FileUtils.mkdir_p(dir)
-      db_path = File.join(dir, "#{@theme.name.parameterize}.db")
+      db_path = File.join(dir, "#{@theme.file_basename}.db")
       File.delete(db_path) if File.exist?(db_path)
 
       db = SQLite3::Database.new(db_path)

@@ -16,6 +16,14 @@ module Design
     validates :name, presence: true
     validates :locale, presence: true, inclusion: { in: %w[ko en ja zh] }
 
+    # One style exists once per language (and per owner): a Korean and an
+    # English "Classic" sit side by side. For system themes this validation is
+    # the only guard — SQLite's unique index treats NULL user_ids as distinct.
+    validates :name, uniqueness: { scope: %i[user_id locale] }
+
+    # The style every new book defaults to.
+    DEFAULT_STYLE = "classic"
+
     AVAILABLE_FONTS = [
       "smShinShinMyungjoP-30", "smShinShinMyungjo", "smGothicP-10", "smGothicP-30", "Shinmoon",
       "NotoSerifKR-ExtraLight", "NotoSerifKR-Light", "NotoSerifKR-Regular", "NotoSerifKR-Medium",
@@ -51,6 +59,24 @@ module Design
     def default_paper_size
       paper_sizes.order(:id).first
     end
+
+    # The theme's file name without extension, used for every .db and
+    # .book_design file: the style plus the language ("classic-ko"). A name that
+    # parameterizes to nothing (all Korean, say) falls back to the id.
+    def file_basename
+      "#{name.to_s.parameterize.presence || "theme-#{id}"}-#{locale}"
+    end
+
+    # The default theme: the system Classic in `locale`, else the Korean one.
+    # Books have no language yet, so callers pass nothing and get Korean.
+    def self.default_for(locale = "ko")
+      classic_in(locale) || classic_in("ko")
+    end
+
+    def self.classic_in(locale)
+      system_themes.where(locale: locale.to_s).order(:id).detect { |t| t.name.to_s.parameterize == DEFAULT_STYLE }
+    end
+    private_class_method :classic_in
 
     private
 
