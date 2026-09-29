@@ -12,16 +12,19 @@ class Design::PreviewToolbarTest < ActionDispatch::IntegrationTest
 
   def edit_path(dd = @dd) = design.edit_theme_paper_size_document_design_path(@theme, @ps, dd)
 
-  test "the editor's preview section: 안내선 toggle outside #preview_frame, on by default" do
+  test "the editor's preview section: 안내선 toggle outside #preview_frame, off by default" do
     get edit_path
     assert_response :success
-    assert_select "#{TOOLBAR}[data-guides='on']"
-    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='guides'][aria-pressed='true']",
+    assert_select "#{TOOLBAR}[data-guides='off']"
+    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='guides'][aria-pressed='false']",
                   text: I18n.t("design.preview.guides")
     assert_select "#{TOOLBAR} turbo-frame#preview_frame[loading=lazy]" do |(frame)|
       assert_equal design.preview_theme_paper_size_document_design_path(@theme, @ps, @dd), frame["src"]
     end
     assert_select "turbo-frame#preview_frame button", 0
+    # The button says what it does: shows the guides.
+    assert_equal "안내선 보기", I18n.t("design.preview.guides", locale: :ko)
+    assert_equal "Show guides", I18n.t("design.preview.guides", locale: :en)
   end
 
   # The studio always previews in print mode: there is no 인쇄용 toggle, on any

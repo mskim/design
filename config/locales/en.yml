@@ -445,7 +445,7 @@ en:
       theme_page: "theme page"
 
     preview:
-      guides: "Guides"
+      guides: "Show guides"
       generation_failed: "Preview generation failed"
       heading_fallback: "Heading"
       body_fallback: "Body"

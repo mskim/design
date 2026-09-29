@@ -23,6 +23,7 @@ export default class extends Controller {
   }
 }
 
+// Off unless this browser turned the guides on.
 function readGuides() {
-  try { return window.localStorage.getItem(GUIDES_KEY) !== "off" } catch { return true }
+  try { return window.localStorage.getItem(GUIDES_KEY) === "on" } catch { return false }
 }

@@ -445,7 +445,7 @@ ko:
       theme_page: "테마 페이지"
 
     preview:
-      guides: "안내선"
+      guides: "안내선 보기"
       generation_failed: "미리보기 생성 실패"
       heading_fallback: "제목"
       body_fallback: "본문"

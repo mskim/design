@@ -205,6 +205,9 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     end
     src = File.read(ENGINE_JS.join("design-controllers/design/preview_toolbar_controller.js"))
     assert_includes src, "localStorage"
+    # 안내선 is off unless this browser turned it on (and off when storage throws).
+    assert_includes src, 'getItem(GUIDES_KEY) === "on"'
+    assert_includes src, "catch { return false }"
     refute_includes src, "cookie", "the studio always previews in print mode: no 인쇄용 cookie"
     refute_includes src, "togglePrint"
     refute_includes src, "previewUrl", "the toolbar no longer reloads the frame"
