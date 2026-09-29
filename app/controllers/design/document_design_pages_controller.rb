@@ -6,7 +6,7 @@ module Design
   # Validated in the :page_section context (PageSectionFields) — a failure
   # writes nothing — then the theme .db is re-exported and the answer is turbo
   # streams: a morph of #page-section-content and, unless render_preview=0
-  # (more saves are queued), the preview frame (in the print cookie's mode).
+  # (more saves are queued), the preview frame (always in print mode).
   class DocumentDesignPagesController < Design::ApplicationController
     include Design::DocumentDesignPreview
 

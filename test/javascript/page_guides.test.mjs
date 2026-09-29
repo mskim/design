@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { guideRects, printCookie, PRINT_COOKIE } from "../../app/javascript/design-controllers/design/page_guides.js"
+import { guideRects } from "../../app/javascript/design-controllers/design/page_guides.js"
 
 // 432 × 648 pt page; margins top 50, bottom 80, left 60, right 40; binding 10.
 const page = (over = {}) => ({ kind: "columns", width: 432, height: 648, top: 50, bottom: 80, left: 60, right: 40,
@@ -53,12 +53,6 @@ test("kinds: margins only draws no columns; none draws nothing", () => {
   assert.deepEqual(guideRects(page({ kind: "margins", columnCount: 2 })).columns, [])
   assert.equal(guideRects(page({ kind: "none" })), null)
   assert.equal(guideRects(null), null)
-})
-
-test("the print cookie: set for a year, cleared with max-age=0", () => {
-  assert.equal(PRINT_COOKIE, "design_preview_print")
-  assert.equal(printCookie(true), "design_preview_print=1; path=/; max-age=31536000; SameSite=Lax")
-  assert.equal(printCookie(false), "design_preview_print=; path=/; max-age=0; SameSite=Lax")
 })
 
 // Copyright's guides: the grid the engine lays over the page's content rect,

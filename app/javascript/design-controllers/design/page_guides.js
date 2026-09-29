@@ -1,13 +1,6 @@
-// Preview guides and the 인쇄용 cookie (pure; node-tested).
+// Preview guides (pure; node-tested).
 
-export const PRINT_COOKIE = "design_preview_print"
 export const GUIDES_KEY = "design.preview.guides"
-
-// The cookie string the 인쇄용 toggle assigns (every preview request reads
-// the cookie; kept a year, or cleared).
-export function printCookie(on) {
-  return `${PRINT_COOKIE}=${on ? "1" : ""}; path=/; max-age=${on ? 31536000 : 0}; SameSite=Lax`
-}
 
 // One preview page's guide boxes, in percent of the page: { margin, binding,
 // columns } — or null (no guides). g (lengths in pt, from Preview#guide_geometry):

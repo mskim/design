@@ -65,7 +65,8 @@ module Design
 
     attr_reader :document_design, :paper_size
 
-    # print_mode: render as the printed book does (인쇄용): the layout shifts
+    # print_mode: render as the printed book does (the studio always asks for
+    # it; book pipelines may render screen mode): the layout shifts
     # the page's content by the binding margin on the spine side (odd pages
     # left, even pages right; preview page 1 is odd). Only
     # DocumentDesign::BINDING_DOC_TYPES use it; elsewhere

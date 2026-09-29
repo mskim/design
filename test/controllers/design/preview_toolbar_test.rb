@@ -12,41 +12,29 @@ class Design::PreviewToolbarTest < ActionDispatch::IntegrationTest
 
   def edit_path(dd = @dd) = design.edit_theme_paper_size_document_design_path(@theme, @ps, dd)
 
-  test "the editor's preview section: toggles outside #preview_frame; 안내선 on, 인쇄용 off by default" do
+  test "the editor's preview section: 안내선 toggle outside #preview_frame, on by default" do
     get edit_path
     assert_response :success
-    assert_select "#{TOOLBAR}[data-guides='on']" do |(section)|
-      assert_equal design.preview_theme_paper_size_document_design_path(@theme, @ps, @dd),
-                   section["data-design--preview-toolbar-preview-url-value"]
-    end
+    assert_select "#{TOOLBAR}[data-guides='on']"
     assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='guides'][aria-pressed='true']",
                   text: I18n.t("design.preview.guides")
-    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='print'][aria-pressed='false']:not([disabled]):not([title])",
-                  text: I18n.t("design.preview.print")
-    assert_select "#{TOOLBAR} turbo-frame#preview_frame[src][loading=lazy]"
+    assert_select "#{TOOLBAR} turbo-frame#preview_frame[loading=lazy]" do |(frame)|
+      assert_equal design.preview_theme_paper_size_document_design_path(@theme, @ps, @dd), frame["src"]
+    end
     assert_select "turbo-frame#preview_frame button", 0
   end
 
-  test "인쇄용 is enabled on the non-chapter layouts the engine binds" do
-    cookies["design_preview_print"] = "1"
-    %w[poem title_page toc copyright].each do |t|
-      get edit_path(@ps.document_designs.create!(doc_type: t))
-      assert_select "button[data-design--preview-toolbar-target='print'][aria-pressed='true']:not([disabled]):not([title])", 1, t
-    end
-  end
-
-  test "the print cookie presses 인쇄용" do
-    cookies["design_preview_print"] = "1"
-    get edit_path
-    assert_select "button[data-design--preview-toolbar-target='print'][aria-pressed='true']"
-  end
-
-  test "인쇄용 is disabled with the reason on doc types without a print preview" do
-    cookies["design_preview_print"] = "1"
-    %w[blank_page front_page document_cover].each do |t|
-      get edit_path(@ps.document_designs.create!(doc_type: t))
-      assert_select "button[data-design--preview-toolbar-target='print'][disabled][aria-pressed='false'][title=?]",
-                    I18n.t("design.preview.print_unavailable")
+  # The studio always previews in print mode: there is no 인쇄용 toggle, on any
+  # doc type, whether or not the binding applies to it.
+  test "no 인쇄용 button on any doc type" do
+    %w[chapter poem title_page toc copyright blank_page front_page document_cover].each do |t|
+      dd = t == "chapter" ? @dd : @ps.document_designs.create!(doc_type: t)
+      get edit_path(dd)
+      assert_response :success
+      assert_select "#{TOOLBAR} button", 1, t
+      assert_select "button[data-design--preview-toolbar-target='print']", 0, t
+      assert_select "button[data-action*='togglePrint']", 0, t
+      assert_no_match "인쇄용", response.body, t
     end
   end
 
@@ -54,11 +42,8 @@ class Design::PreviewToolbarTest < ActionDispatch::IntegrationTest
     @theme.base_paragraph_styles.create!(name: "zz_body", font_size: 10)
     get design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, "zz_body")
     assert_response :success
-    assert_select "#{TOOLBAR}[data-design--preview-toolbar-preview-url-value*='preview_mode=single']"
     assert_select "#{TOOLBAR} turbo-frame#preview_frame[src*='preview_mode=single']"
-    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='print'][aria-pressed='false']:not([disabled])"
-    cookies["design_preview_print"] = "1"
-    get design.theme_paper_size_document_design_style_path(@theme, @ps, @dd, "zz_body")
-    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='print'][aria-pressed='true']:not([disabled])"
+    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='guides']"
+    assert_select "#{TOOLBAR} button[data-design--preview-toolbar-target='print']", 0
   end
 end

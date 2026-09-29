@@ -296,7 +296,7 @@ en:
       right: "Right"
       binding: "Binding"
       link_left_right: "Link left and right"
-      binding_hint: "Added on the spine side in print mode (left on odd pages, right on even) — body-flow documents only"
+      binding_hint: "Added on the spine side (left on odd pages, right on even) — body-flow documents only"
       body: "Body"
       body_line_count: "Body lines"
       from_paper_size: "From page size"
@@ -446,8 +446,6 @@ en:
 
     preview:
       guides: "Guides"
-      print: "Print"
-      print_unavailable: "This document type doesn't use the binding margin"
       generation_failed: "Preview generation failed"
       heading_fallback: "Heading"
       body_fallback: "Body"

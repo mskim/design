@@ -3,15 +3,13 @@ module Design
     module DocumentDesigns
       class Edit < Design::Views::Base
         # tab: the properties panel's open tab (see PropertiesPanel::TABS).
-        def initialize(theme:, paper_size:, document_design:, paragraph_styles:, editable: true, tab: nil,
-                       print_preview: false)
+        def initialize(theme:, paper_size:, document_design:, paragraph_styles:, editable: true, tab: nil)
           @theme = theme
           @paper_size = paper_size
           @document_design = document_design
           @paragraph_styles = paragraph_styles
           @editable = editable
           @tab = tab
-          @print_preview = print_preview
         end
 
         def view_template
@@ -26,7 +24,7 @@ module Design
 
               div(class: "flex flex-col lg:flex-row gap-6") do
                 div(class: "flex-1 min-w-0") do
-                  render PreviewSection.new(theme: @theme, document_design: @document_design, print_preview: @print_preview,
+                  render PreviewSection.new(theme: @theme, document_design: @document_design,
                                             preview_url: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design))
                 end
                 div(class: "lg:w-[28rem] lg:shrink-0") { render Design::Views::DocumentDesigns::PropertiesPanel.new(theme: @theme, paper_size: @paper_size, document_design: @document_design, editable: @editable, tab: @tab) }
