@@ -296,7 +296,7 @@ ko:
       right: "오른쪽"
       binding: "제본"
       link_left_right: "왼쪽·오른쪽 연결"
-      binding_hint: "인쇄용에서 제본 쪽에 더해짐 (홀수 쪽 왼쪽, 짝수 쪽 오른쪽) — 본문 흐름 문서만"
+      binding_hint: "제본 쪽에 더해짐 (홀수 쪽 왼쪽, 짝수 쪽 오른쪽) — 본문 흐름 문서만"
       body: "본문"
       body_line_count: "본문 줄 수"
       from_paper_size: "판형에서"
@@ -446,8 +446,6 @@ ko:
 
     preview:
       guides: "안내선"
-      print: "인쇄용"
-      print_unavailable: "이 문서 유형은 제본 여백을 쓰지 않음"
       generation_failed: "미리보기 생성 실패"
       heading_fallback: "제목"
       body_fallback: "본문"

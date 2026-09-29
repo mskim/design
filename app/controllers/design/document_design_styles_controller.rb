@@ -26,8 +26,7 @@ module Design
       else
         render Design::Views::ParagraphStyles::EditPage.new(
           theme: @theme, paper_size: @paper_size, document_design: @document_design, style_name: style_name,
-          urls: style_urls(preview_mode: "single"), back_url: editor_url, editable: editable?,
-          print_preview: print_preview?)
+          urls: style_urls(preview_mode: "single"), back_url: editor_url, editable: editable?)
       end
     end
 

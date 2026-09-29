@@ -5,18 +5,14 @@ module Design
   module DocumentDesignPreview
     extend ActiveSupport::Concern
 
-    # 인쇄용: set by design--preview-toolbar in the browser (a per-browser view
-    # setting, like 안내선); every preview render reads it.
-    PRINT_COOKIE = "design_preview_print"
-
     private
-
-    def print_preview? = cookies[PRINT_COOKIE] == "1"
 
     # The service for this request's preview (dd may be the live-preview copy,
     # rendered with live: true so it never touches the saved design's cache).
+    # The studio always previews as the printed book (print mode); the service
+    # drops it for doc types the binding doesn't apply to.
     def preview_service(dd = @document_design, live: false)
-      Design::PreviewService.new(dd, paper_size: @paper_size, print_mode: print_preview?, live: live)
+      Design::PreviewService.new(dd, paper_size: @paper_size, print_mode: true, live: live)
     end
 
     # Stale style link (a reverted style, or an old level/style_id link whose row
@@ -60,8 +56,8 @@ module Design
 
       stamp = Time.now.to_i
       pages = preview_pages(result).each_with_index.map do |pg, i|
-        # print=1 so a browser never reuses a normal image for a print one (the
-        # helper drops the nil param).
+        # print=1 makes preview_jpg serve the print-mode render (it is normal
+        # without, for the theme page's cards); the helper drops the nil param.
         { jpg_url: helpers.preview_jpg_theme_paper_size_document_design_path(
             @theme, @paper_size, @document_design, page: i + 1, t: stamp, print: ("1" if result[:print_mode]),
             live: result[:live_token]),

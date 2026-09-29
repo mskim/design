@@ -4,8 +4,7 @@ module Design
       # Full-page style editor (preview-overlay clicks): the document's
       # one-page preview on the left, the StylePanel on the right.
       class EditPage < Design::Views::Base
-        def initialize(theme:, paper_size:, document_design:, style_name:, urls:, back_url:, editable: true,
-                       print_preview: false)
+        def initialize(theme:, paper_size:, document_design:, style_name:, urls:, back_url:, editable: true)
           @theme = theme
           @paper_size = paper_size
           @document_design = document_design
@@ -13,7 +12,6 @@ module Design
           @urls = urls
           @back_url = back_url
           @editable = editable
-          @print_preview = print_preview
         end
 
         def view_template
@@ -24,7 +22,7 @@ module Design
                 # Page 1 only: this page is about one style, not the whole document.
                 div(class: "flex-1 min-w-0 lg:sticky lg:top-6 lg:self-start") do
                   render Design::Views::DocumentDesigns::PreviewSection.new(
-                    theme: @theme, document_design: @document_design, print_preview: @print_preview,
+                    theme: @theme, document_design: @document_design,
                     preview_url: helpers.preview_theme_paper_size_document_design_path(@theme, @paper_size, @document_design,
                                                                                        preview_mode: "single"))
                 end

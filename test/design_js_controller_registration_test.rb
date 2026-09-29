@@ -205,7 +205,10 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     end
     src = File.read(ENGINE_JS.join("design-controllers/design/preview_toolbar_controller.js"))
     assert_includes src, "localStorage"
-    assert_includes src, "document.cookie = printCookie("
+    refute_includes src, "cookie", "the studio always previews in print mode: no 인쇄용 cookie"
+    refute_includes src, "togglePrint"
+    refute_includes src, "previewUrl", "the toolbar no longer reloads the frame"
+    refute_includes File.read(ENGINE_JS.join("design-controllers/design/page_guides.js")), "cookie"
   end
 
   # A geometry value change (a morph that keeps the page box) redraws, and so

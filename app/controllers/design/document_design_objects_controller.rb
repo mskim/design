@@ -6,7 +6,7 @@ module Design
   # :object_section context, so a set that doesn't fit the grid writes
   # nothing. Then the theme .db is re-exported and the answer is turbo streams:
   # a morph of #object-section-content and, unless render_preview=0 (more saves
-  # are queued), the preview frame (in the print cookie's mode).
+  # are queued), the preview frame (always in print mode).
   #
   # Which fields exist is the doc type's business (DocumentDesign#object_fields):
   # anything else — a photo field on copyright, any of them on chapter — is a 400.

@@ -16,9 +16,9 @@ module Design
       end
     end
 
-    # print=1 comes from the frame's URLs (the cookie at render time); the
-    # theme page's cards and design_preview_img call this without it and must
-    # stay normal, so the cookie is not read here.
+    # print=1 comes from the studio frame's URLs (always print mode where the
+    # binding applies); the theme page's cards and design_preview_img call this
+    # without it and stay normal.
     def preview_jpg
       return send_live_jpg if params[:live].present?
 

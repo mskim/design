@@ -293,8 +293,7 @@ class Design::DocumentDesignPagesTest < ActionDispatch::IntegrationTest
     refute stream_attrs.any? { |a| a["target"] == "preview_frame" }
   end
 
-  test "the preview stream honours the print cookie" do
-    cookies["design_preview_print"] = "1"
+  test "the preview stream always renders in print mode (no cookie)" do
     modes = []
     original = Design::PreviewService.method(:new)
     Design::PreviewService.define_singleton_method(:new) do |_dd, **kw|

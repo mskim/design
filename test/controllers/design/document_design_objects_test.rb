@@ -231,8 +231,7 @@ class Design::DocumentDesignObjectsTest < ActionDispatch::IntegrationTest
   # The restore is stub_preview's own form (document_design_styles_test.rb:34-37):
   # define_singleton_method with the captured Method object, so nothing is left
   # behind for the next test in this worker.
-  test "the preview stream honours the print cookie" do
-    cookies["design_preview_print"] = "1"
+  test "the preview stream always renders in print mode (no cookie)" do
     modes = []
     original = Design::PreviewService.method(:new)
     Design::PreviewService.define_singleton_method(:new) do |_dd, **kw|
