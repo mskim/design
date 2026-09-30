@@ -1,5 +1,5 @@
 import { Controller } from "@hotwired/stimulus"
-import { parseOpen, toggled, cookieFor, gridState } from "design-controllers/design/book_tree"
+import { parseOpen, readCookieKeys, toggled, cookieFor, gridState } from "design-controllers/design/book_tree"
 
 // The sidebar's book tree: opening/closing a matter group (<details data-matter>)
 // remembers the open groups in a cookie (so the server renders the next page the
@@ -9,8 +9,17 @@ import { parseOpen, toggled, cookieFor, gridState } from "design-controllers/des
 export default class extends Controller {
   static values = { open: String }
 
+  // The cookie is the source of truth: on a Turbo restoration visit or cache
+  // preview the tree comes from a snapshot whose <details> may be stale. Reconcile
+  // before any queued toggle runs, so that toggle (and the ones these assignments
+  // queue) finds details.open agreeing with this.keys — a no-op; a pinned group's
+  // opening is ignored by toggle(), so it is never written to the cookie.
   connect() {
-    this.keys = parseOpen(this.openValue)
+    this.keys = readCookieKeys(document.cookie) ?? parseOpen(this.openValue)
+    this.element.querySelectorAll("details[data-matter]").forEach((d) => {
+      d.open = this.keys.includes(d.dataset.matter) || "pinnedOpen" in d.dataset
+    })
+    this.apply()
     this.reapply = () => this.apply()
     document.addEventListener("turbo:frame-load", this.reapply)
   }

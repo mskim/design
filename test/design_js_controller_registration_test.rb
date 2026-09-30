@@ -203,6 +203,16 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "[data-doc-grid-empty]"
     assert_includes src, "pinnedOpen", "the pinned (current design) group's opening is not saved"
     assert_includes src, "turbo:frame-load"
+    # A Turbo snapshot's <details> may be stale: connect() trusts the cookie and
+    # reconciles the tree before any queued toggle runs.
+    assert_includes src, "readCookieKeys(document.cookie) ?? parseOpen(this.openValue)"
+    assert_match(/d\.open = this\.keys\.includes\(d\.dataset\.matter\) \|\| "pinnedOpen" in d\.dataset/, src)
+  end
+
+  test "book_tree.js knows the same matter keys and default as Design::Views::BookTree" do
+    pure = File.read(ENGINE_JS.join("design-controllers/design/book_tree.js"))
+    assert_includes pure, "export const KEYS = #{Design::Views::BookTree::KEYS.to_json.gsub(",", ", ")}"
+    assert_includes pure, "export const DEFAULT = #{Design::Views::BookTree::DEFAULT.to_json}"
   end
 
   test "live_preview ignores the Page and Object sections' events (both bubble through the tabs form)" do
