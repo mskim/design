@@ -26,6 +26,13 @@ class Design::SidebarTest < ActiveSupport::TestCase
     Nokogiri::HTML.fragment(component.call)
   end
 
+  test "the Korean book-matter names are 표지 / 머리 / 본문 / 꼬리" do
+    I18n.with_locale(:ko) do
+      assert_equal %w[표지 머리 본문 꼬리],
+                   %w[cover frontmatter bodymatter rearmatter].map { |k| I18n.t("design.themes.#{k}") }
+    end
+  end
+
   test "renders one option per theme with the current theme selected" do
     doc = render_sidebar
     select = doc.at_css("select[data-sidebar='theme']")
@@ -90,10 +97,14 @@ class Design::SidebarTest < ActiveSupport::TestCase
                    I18n.t("design.sidebar.table_styles") ], summaries
   end
 
-  test "every group is open and each leaf links to the design editor" do
+  # No request (bare render) → no cookie → the default: only 본문 open. The
+  # table styles group is not a matter group and is always open.
+  test "only bodymatter and table styles are open by default; each leaf links to the design editor" do
     seed_designs
     doc = render_sidebar
-    assert_equal 4, doc.css("details[open]").size, "all four groups should be open"
+    assert_equal %w[bodymatter], doc.css("details[data-matter][open]").map { |d| d["data-matter"] }
+    assert_equal %w[cover frontmatter bodymatter], doc.css("details[data-matter]").map { |d| d["data-matter"] }
+    assert_equal 1, doc.css("details[open]:not([data-matter])").size, "table styles group stays open"
     link = doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/#{@ps.id}/document_designs/#{@chapter.id}/edit']")
     assert link, "chapter leaf missing"
     assert_equal I18n.t("design.doc_types.chapter"), link.text.strip
@@ -107,6 +118,14 @@ class Design::SidebarTest < ActiveSupport::TestCase
     assert_equal 1, current.size
     assert_includes current.first.text, I18n.t("design.doc_types.chapter")
     assert_includes current.first["class"], "bg-slate-900", "active leaf should carry the active classes"
+  end
+
+  test "the group holding the current design is open (pinned) so its leaf shows" do
+    seed_designs
+    doc = render_sidebar(current: { kind: :document_design, id: @title.id })
+    assert_equal %w[frontmatter bodymatter], doc.css("details[data-matter][open]").map { |d| d["data-matter"] }
+    assert doc.at_css("details[data-matter='frontmatter'][data-pinned-open]")
+    assert_nil doc.at_css("details[data-matter='bodymatter'][data-pinned-open]")
   end
 
   test "nothing is highlighted without current" do
