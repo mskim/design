@@ -18,7 +18,7 @@ en:
       my_themes: "My Themes"
       custom_themes: "Custom Themes"
       system_themes: "System Themes"
-      back_to_home: "← Home"
+      home: "Home"
       view: "View"
       rename: "Rename"
       new_theme_name: "New theme name"
