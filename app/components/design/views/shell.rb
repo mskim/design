@@ -30,11 +30,12 @@ module Design
 
       def top_bar
         # Header chrome copied from book_design's Pages::Themes::Show#render_header:
-        # flex items-center justify-between, with the home link styled like its
-        # "← Themes" back link (text-sm text-muted-foreground hover:text-foreground).
+        # flex items-center justify-between. The home link is an icon (the host's
+        # home_icon, else a built-in house) — see #home_icon.
         header(class: "flex items-center justify-between gap-4 border-b px-6 py-4") do
           div(class: "flex items-center gap-3 min-w-0") do
-            a(href: home_href, class: "design-studio__home text-sm text-muted-foreground hover:text-foreground flex-shrink-0") { I18n.t("design.themes.back_to_home") }
+            a(href: home_href, aria: { label: I18n.t("design.themes.home") }, title: I18n.t("design.themes.home"),
+              class: "design-studio__home flex-shrink-0 rounded-md p-1 hover:bg-slate-100") { home_icon }
             span(class: "truncate text-lg font-semibold") { @breadcrumb || @title }
           end
           div(class: "flex items-center gap-2 flex-shrink-0") { render_host_actions(@action_slot, @action_context) if @action_slot }
@@ -44,6 +45,19 @@ module Design
       def home_href
         url = Design.config.home_url
         url ? helpers.instance_exec(&url) : helpers.themes_path
+      end
+
+      # The host's icon (Design.config.home_icon, a lambda evaluated in the view
+      # context like home_url, returning an image URL) or a built-in house svg.
+      def home_icon
+        if (icon = Design.config.home_icon)
+          img(src: helpers.instance_exec(&icon), alt: "", class: "h-7 w-7")
+        else
+          svg(xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor",
+              stroke_width: "1.75", class: "h-6 w-6 text-slate-500", aria_hidden: "true") do |s|
+            s.path(d: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z")
+          end
+        end
       end
     end
   end

@@ -6,7 +6,10 @@ require_relative "design/action_registry"
 module Design
   class Configuration
     attr_accessor :current_user, :authorize, :authenticate, :user_class, :authoring,
-                  :home_url, :locale_for, :themes_dir, :table_style_preview
+                  :home_url, :locale_for, :themes_dir, :table_style_preview,
+                  # A lambda evaluated in the view context returning an image URL,
+                  # like home_url — nil falls back to the built-in house icon.
+                  :home_icon
     attr_writer :sample_content_dir
 
     def initialize

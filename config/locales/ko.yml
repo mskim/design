@@ -18,7 +18,7 @@ ko:
       my_themes: "내 테마"
       custom_themes: "커스텀 테마"
       system_themes: "시스템 테마"
-      back_to_home: "← 홈"
+      home: "홈"
       view: "보기"
       rename: "이름 변경"
       new_theme_name: "새 테마 이름"
