@@ -182,13 +182,27 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "LocalValueKeeper"
   end
 
-  %w[style_save_queue style_panel_morph field_save_jobs page_guides cell_grid].each do |mod|
+  %w[style_save_queue style_panel_morph field_save_jobs page_guides cell_grid book_tree].each do |mod|
     test "#{mod} is a pure module" do
       src = File.read(ENGINE_JS.join("design-controllers/design/#{mod}.js"))
       refute_match(/^import /, src)
       refute_includes src, "document."
       refute_includes src, "window."
     end
+  end
+
+  # The book tree's open groups drive the theme page grid and live in a cookie.
+  test "book_tree controller imports the pure module, writes the cookie and toggles grid sections" do
+    src = File.read(ENGINE_JS.join("design-controllers/design/book_tree_controller.js"))
+    assert_includes src, %(import { Controller } from "@hotwired/stimulus")
+    assert_includes src, %("design-controllers/design/book_tree")
+    refute_match(/from\s+["']\.\.?\//, src, "no relative imports (importmap)")
+    %w[toggle( apply( connect( disconnect(].each { |m| assert_includes src, m }
+    assert_includes src, "document.cookie = cookieFor("
+    assert_includes src, "section[data-matter]"
+    assert_includes src, "[data-doc-grid-empty]"
+    assert_includes src, "pinnedOpen", "the pinned (current design) group's opening is not saved"
+    assert_includes src, "turbo:frame-load"
   end
 
   test "live_preview ignores the Page and Object sections' events (both bubble through the tabs form)" do

@@ -24,7 +24,8 @@ module Design
       end
 
       def view_template
-        nav(class: "flex flex-col gap-3 p-3 text-sm", aria_label: "Studio") do
+        nav(class: "flex flex-col gap-3 p-3 text-sm", aria_label: "Studio",
+            data: { controller: "design--book-tree", "design--book-tree-open-value": open_matter_keys.join(",") }) do
           theme_select
           size_select if @theme.paper_sizes.any? # a theme with no sizes gets just "new size"
           size_links if editable?
@@ -121,7 +122,7 @@ module Design
         MATTER_ORDER.each do |group, key|
           designs = grouped[group]
           next if designs.blank?
-          group_box(I18n.t(key)) do
+          matter_box(group.to_s, I18n.t(key), pinned: holds_current?(designs)) do
             designs.each { |dd| leaf(doc_type_label(dd.doc_type), design_href(dd), active: current?(:document_design, dd.id)) }
           end
         end
@@ -137,11 +138,25 @@ module Design
         end
       end
 
-      def group_box(label_text, &leaves)
-        details(open: true) do
+      def group_box(label_text, open: true, **attrs, &leaves)
+        details(open: open, **attrs) do
           summary(class: "cursor-pointer select-none font-medium text-slate-700") { label_text }
           ul(class: "ml-3 mt-1 flex flex-col gap-0.5 list-none p-0", &leaves)
         end
+      end
+
+      # A matter group is open when this browser left it open (the book-tree cookie).
+      # The group holding the current design is pinned open so its active leaf shows;
+      # design--book-tree ignores that pinned opening when saving the cookie.
+      def matter_box(matter, label_text, pinned:, &leaves)
+        saved_open = open_matter_keys.include?(matter)
+        group_box(label_text, open: pinned || saved_open, data: {
+          matter: matter, pinned_open: (pinned && !saved_open) || nil, action: "toggle->design--book-tree#toggle"
+        }, &leaves)
+      end
+
+      def holds_current?(designs)
+        designs.any? { |dd| current?(:document_design, dd.id) }
       end
 
       # Read-only theme: plain text, nothing navigable (so active highlighting is moot).

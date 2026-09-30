@@ -47,6 +47,15 @@ module Design
         end
       end
 
+      # The open book-tree groups for this browser (Design::Views::BookTree). A bare
+      # render (component tests) has no view context/request, hence no cookie: the default.
+      def open_matter_keys
+        @open_matter_keys ||= begin
+          ctx = helpers
+          BookTree.open_keys(ctx.respond_to?(:request) ? ctx.request.cookies[BookTree::COOKIE] : nil)
+        end
+      end
+
       # Studio chrome convenience. The body block must be passed to render(...) and
       # consumed via yield inside Shell#view_template — a block stored at .new and
       # invoked later renders nothing in Phlex 2.4.1.

@@ -73,24 +73,31 @@ module Design
           [ :cover,       "design.themes.cover" ]
         ].freeze
 
+        # Every non-empty section is rendered; the ones whose book-tree group is closed
+        # are `hidden` (design--book-tree shows/hides them as groups toggle, so no
+        # reload), with a hint while nothing is visible.
         def doc_grid
           grouped = Design::DocumentDesign.grouped_by_matter(@document_designs)
+          sections = MATTER_SECTIONS.filter_map do |group, key|
+            [ group.to_s, key, grouped[group] ] if grouped[group].present?
+          end
           turbo_frame_tag "doc_grid" do
             div(class: "flex flex-col gap-8", data: { "doc-grid": true }) do
-              MATTER_SECTIONS.each do |group, key|
-                designs = grouped[group]
-                matter_section(key, designs) if designs.present?
+              any_open = sections.any? { |matter, _, _| open_matter_keys.include?(matter) }
+              p(class: "text-sm text-slate-500", hidden: any_open || sections.empty?, data: { "doc-grid-empty": true }) do
+                I18n.t("design.themes.tree_hint")
               end
+              sections.each { |matter, key, designs| matter_section(matter, key, designs) }
             end
           end
         end
 
-        def matter_section(key, designs)
-          section do
+        def matter_section(matter, key, designs)
+          section(data: { matter: matter }, hidden: !open_matter_keys.include?(matter)) do
             h3(class: "text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3") do
               I18n.t(key)
             end
-            div(class: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4") do
+            div(class: "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6") do
               designs.each { |dd| doc_card(dd) }
             end
           end

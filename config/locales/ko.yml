@@ -44,6 +44,7 @@ ko:
       deleted_notice: "테마가 삭제되었습니다."
       preview: "미리보기"
       no_preview: "미리보기 없음"
+      tree_hint: "왼쪽 목록에서 구역을 펼치면 해당 페이지가 표시됩니다"
       frontmatter: "전반부"
       bodymatter: "본문"
       rearmatter: "후반부"

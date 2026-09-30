@@ -44,6 +44,7 @@ en:
       deleted_notice: "Theme deleted."
       preview: "Preview"
       no_preview: "No preview"
+      tree_hint: "Expand a section in the list on the left to show its pages"
       frontmatter: "Front Matter"
       bodymatter: "Body Matter"
       rearmatter: "Rear Matter"
