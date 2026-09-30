@@ -2,7 +2,7 @@ module Design
   module Views
     # Left rail for every studio page inside a theme: theme + paper size selects on
     # top, then (for editable themes) the size actions — new size, size settings,
-    # generate other sizes — then the book structure (표지/전반부/본문/후반부, the
+    # generate other sizes — then the book structure (표지/머리/본문/꼬리, the
     # studio's existing matter labels; cover first like bookcheego's tree) with one
     # leaf per doc_type design, and finally the theme's table styles group.
     # On a read-only theme the structure is listed as plain text (spans, no links):

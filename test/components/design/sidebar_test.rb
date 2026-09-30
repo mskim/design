@@ -26,6 +26,13 @@ class Design::SidebarTest < ActiveSupport::TestCase
     Nokogiri::HTML.fragment(component.call)
   end
 
+  test "the Korean book-matter names are 표지 / 머리 / 본문 / 꼬리" do
+    I18n.with_locale(:ko) do
+      assert_equal %w[표지 머리 본문 꼬리],
+                   %w[cover frontmatter bodymatter rearmatter].map { |k| I18n.t("design.themes.#{k}") }
+    end
+  end
+
   test "renders one option per theme with the current theme selected" do
     doc = render_sidebar
     select = doc.at_css("select[data-sidebar='theme']")
