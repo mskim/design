@@ -208,7 +208,7 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
     assert_response :redirect
   end
 
-  test "show offers per-document edit links for an editable (custom) theme only" do
+  test "show links page thumbnails to their editor for an editable (custom) theme only" do
     custom = Design::Theme.create!(name: "Mine #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     ps = custom.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     dd = ps.document_designs.create!(doc_type: "chapter")

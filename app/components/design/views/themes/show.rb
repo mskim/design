@@ -75,27 +75,23 @@ module Design
 
         def doc_grid
           grouped = Design::DocumentDesign.grouped_by_matter(@document_designs)
-          index = 0
           turbo_frame_tag "doc_grid" do
-            div(class: "flex flex-col gap-8",
-                data: { controller: "design--preview-gallery", "doc-grid": true }) do
+            div(class: "flex flex-col gap-8", data: { "doc-grid": true }) do
               MATTER_SECTIONS.each do |group, key|
                 designs = grouped[group]
-                next if designs.blank?
-                matter_section(key, designs, index)
-                index += designs.size
+                matter_section(key, designs) if designs.present?
               end
             end
           end
         end
 
-        def matter_section(key, designs, start_index)
+        def matter_section(key, designs)
           section do
             h3(class: "text-sm font-medium text-muted-foreground uppercase tracking-wide mb-3") do
               I18n.t(key)
             end
             div(class: "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4") do
-              designs.each_with_index { |dd, i| doc_card(dd, start_index + i) }
+              designs.each { |dd| doc_card(dd) }
             end
           end
         end
@@ -106,7 +102,7 @@ module Design
         WING_PREVIEW_WIDTH_MM = 100
         SENECA_PREVIEW_WIDTH_MM = 10
 
-        def doc_card(dd, index)
+        def doc_card(dd)
           card_width =
             if dd.doc_type == "seneca" then SENECA_PREVIEW_WIDTH_MM
             elsif Design::DocumentDesign::WING_PANEL_TYPES.include?(dd.doc_type) then WING_PREVIEW_WIDTH_MM
@@ -114,22 +110,12 @@ module Design
             end.to_i
           page_h = @selected_paper_size.height_mm.to_i
           page_w = @selected_paper_size.width_mm.to_i
-          jpg_url = helpers.preview_jpg_theme_paper_size_document_design_path(@theme, @selected_paper_size, dd)
           label = doc_type_label(dd.doc_type)
           div(class: "doc-card flex flex-col gap-1") do
             # Page-shaped row keeps every cover card the SAME height (the page height);
-            # the preview button inside is the panel's true width (spine/wings narrower).
+            # the thumbnail inside is the panel's true width (spine/wings narrower).
             div(class: "w-full flex justify-center", style: "aspect-ratio: #{page_w} / #{page_h};") do
-              button(
-                type: "button",
-                class: "doc-card__open block h-full max-w-full bg-white border border-slate-200 shadow-sm overflow-hidden",
-                style: "aspect-ratio: #{card_width} / #{page_h};",
-                data: {
-                  "design--preview-gallery-target": "item",
-                  action: "design--preview-gallery#open",
-                  index: index, url: jpg_url, label: label
-                }
-              ) do
+              doc_thumbnail(dd, label, style: "aspect-ratio: #{card_width} / #{page_h};") do
                 design_preview_img(@theme, @selected_paper_size, dd, img_class: "w-full h-full object-contain") do
                   div(class: "flex h-full w-full items-center justify-center text-xs text-slate-400") do
                     I18n.t("design.themes.no_preview")
@@ -137,17 +123,23 @@ module Design
                 end
               end
             end
-            div(class: "flex items-center justify-between gap-1") do
-              span(class: "text-xs text-slate-600") { label }
-              if @theme.editable_by?(Design.current_user)
-                # Break out of the doc_grid turbo-frame — the edit page is a full-page
-                # editor with no doc_grid frame, so a frame-scoped click would render
-                # "Content missing" instead of navigating to the editor.
-                a(href: helpers.edit_theme_paper_size_document_design_path(@theme, @selected_paper_size, dd),
-                  data: { turbo_frame: "_top" },
-                  class: "text-xs text-blue-600 hover:underline") { I18n.t("design.themes.edit") }
-              end
-            end
+            span(class: "text-xs text-slate-600") { label }
+          end
+        end
+
+        THUMBNAIL_CLASS = "doc-card__open block h-full max-w-full bg-white border border-slate-200 shadow-sm overflow-hidden"
+
+        # An editable theme's thumbnail opens the page's editor (which previews the page
+        # itself); a read-only theme's thumbnail is just the picture. The link breaks out
+        # of the doc_grid turbo-frame — the editor is a full page with no doc_grid frame,
+        # so a frame-scoped click would render "Content missing".
+        def doc_thumbnail(dd, label, style:, &)
+          if @theme.editable_by?(Design.current_user)
+            a(href: helpers.edit_theme_paper_size_document_design_path(@theme, @selected_paper_size, dd),
+              data: { turbo_frame: "_top" }, aria_label: label, style: style,
+              class: "#{THUMBNAIL_CLASS} transition-colors hover:border-blue-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400", &)
+          else
+            div(class: THUMBNAIL_CLASS, style: style, &)
           end
         end
 
