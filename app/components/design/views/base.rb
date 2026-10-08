@@ -15,7 +15,7 @@ module Design
 
       def render_action_descriptor(d)
         method = (d[:method] || :get).to_sym
-        data = {}
+        data = (d[:data] || {}).dup
         data[:turbo_confirm] = d[:confirm] if d[:confirm]
         if method == :get
           a(href: d[:path], class: action_button_class, data: data) { d[:label] }

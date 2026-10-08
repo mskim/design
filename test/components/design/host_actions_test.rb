@@ -29,6 +29,11 @@ class Design::HostActionsTest < ActiveSupport::TestCase
     assert_includes html, %(href="/themes/7/export")   # main_app resolved at render time
   end
 
+  test "a descriptor's data: becomes data-* attributes (turbo: 'false' for a file download; Phlex drops a bare false)" do
+    Design.config.actions.for(:dl) { [{ label: "Download", path: "/themes/7/download", method: :get, data: { turbo: "false" } }] }
+    assert_includes render(slot: :dl), %(data-turbo="false")
+  end
+
   test "renders nothing for an unregistered slot" do
     assert_equal "", render(slot: :missing).strip
   end
