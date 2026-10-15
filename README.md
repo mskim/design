@@ -22,8 +22,14 @@ Design.configure do |c|
   c.home_url     = -> { main_app.root_path }
   c.locale_for   = -> { session[:locale] }
   c.authenticate = -> { ... } # resume the host session; sets the current user
+  c.designcraft  = true       # or a lambda: previews laid out by DesignCraft
 end
 ```
+
+With `designcraft` on, the previews of the text pages (chapters and the like, poems, title
+pages, TOC, copyright and blank pages) are laid out by DesignCraft through designcraft_rb, as
+the host prints its books; the host brings designcraft_rb and designcraft-cli. The cover panels,
+wings and document cover, and any preview DesignCraft can't lay out, stay with doc_processor_rb.
 
 The host owns the `design_*` migrations and the `design-controllers` importmap pin
 (`pin_all_from Design::Engine.root.join("app/javascript/design-controllers")`).

@@ -122,9 +122,12 @@ module Design
         GENERATION_LOCK.synchronize do
           db_doc = create_db_document(db_path)
           populate_database(db_doc)
-          generate_pdf(db_doc, pdf_path)
-          # Per-page overlays must be read while the DBDocument is open (inside the lock).
-          pages = extract_pages_overlay_data(db_doc)
+          pages = render_with_designcraft(db_path, pdf_path) if designcraft?
+          unless pages
+            generate_pdf(db_doc, pdf_path)
+            # Per-page overlays must be read while the DBDocument is open (inside the lock).
+            pages = extract_pages_overlay_data(db_doc)
+          end
         ensure
           db_doc&.close # release the connection before the next thread rebinds the models
           db_doc = nil
@@ -206,7 +209,7 @@ module Design
       # Sub-second precision: two edits within the same second must not collide.
       parts = timestamps.map { |t| t.respond_to?(:iso8601) ? t.iso8601(6) : t.to_s }
       # The normal key is unchanged (existing caches stay warm); print mode adds a part.
-      parts + [ sample_content.fingerprint, (PRINT_CACHE_VERSION if @print_mode) ].compact
+      parts + [ sample_content.fingerprint, (PRINT_CACHE_VERSION if @print_mode), ("designcraft" if designcraft?) ].compact
     end
 
     def cache_fingerprint = "#{CACHE_VERSION}:" + Digest::MD5.hexdigest(cache_fingerprint_parts.join("-"))
@@ -887,6 +890,34 @@ module Design
     # trims the list to what libvips actually rasterized — the PDF, not the renderer's
     # `pages` table, is the source of truth for the page count. The TOC renderer emits no
     # heading overlay, so synthesize one on page 1.
+    # The doc types DesignCraft lays out (designcraft_rb's doc_processor_rb adapter). The cover
+    # panels, the wings and the document cover stay with doc_processor_rb.
+    DESIGNCRAFT_DOC_TYPES = (DocumentDesign::BODY_FLOW_DOC_TYPES +
+                             %w[ poem title_page inside_cover part_cover thanks dedication toc copyright blank_page ]).freeze
+
+    # The host lays books out with DesignCraft (Design.config.designcraft), and this doc type with it.
+    def designcraft? = Design.designcraft? && DESIGNCRAFT_DOC_TYPES.include?(document_design.doc_type)
+
+    # The design laid out by DesignCraft from the DB just populated, as the host prints books:
+    # the PDF, its page and heading backgrounds, and each page's overlays from where DesignCraft
+    # set the lines (the same rows doc_processor_rb records). The binding margin only in print
+    # mode, as doc_processor_rb applies it. Nil when it can't (logged): doc_processor_rb lays the
+    # design out instead, so a preview never goes missing.
+    def render_with_designcraft(db_path, pdf_path)
+      require "designcraft_rb"
+
+      spec = DesignCraftRb::UnitSpec.from_doc_processor_db(db_path).to_h
+      spec["page"]["binding"] = 0 unless @print_mode
+      result = DesignCraftRb.render(DesignCraftRb::UnitSpec.new(spec, base_dir: File.dirname(db_path)), pdf: pdf_path,
+                                    font_dir: DocProcessorRb::DocLayout::Book::RendererChoice::FONT_DIR)
+      inject_page_background(pdf_path) if document_design.page_bg_color.present?
+      inject_heading_background(pdf_path) if heading_bg_color_present?
+      (1..MAX_PREVIEW_PAGES).map { |n| { jpg_path: page_jpg_path(n), overlay_data: result.overlays.fetch(n - 1, []) } }
+    rescue StandardError, LoadError => e
+      Rails.logger.error "Design::PreviewService DesignCraft #{document_design.doc_type} failed; laid out by doc_processor_rb: #{e.class}: #{e.message}"
+      nil
+    end
+
     def extract_pages_overlay_data(db_doc)
       (1..MAX_PREVIEW_PAGES).map do |page_number|
         overlays = overlay_rows(db_doc.block_overlays(document_id: 1, page_number: page_number))

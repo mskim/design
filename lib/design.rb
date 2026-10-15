@@ -9,7 +9,10 @@ module Design
                   :home_url, :locale_for, :themes_dir, :table_style_preview,
                   # A lambda evaluated in the view context returning an image URL,
                   # like home_url — nil falls back to the built-in house icon.
-                  :home_icon
+                  :home_icon,
+                  # true, or a lambda returning it: lay previews out with DesignCraft (designcraft_rb
+                  # and designcraft-cli, the host's), as the host prints books. Design::PreviewService.
+                  :designcraft
     attr_writer :sample_content_dir
 
     def initialize
@@ -53,6 +56,11 @@ module Design
 
     def locale_for
       config.locale_for
+    end
+
+    def designcraft?
+      value = config.designcraft
+      !!(value.respond_to?(:call) ? value.call : value)
     end
 
     # Back-compat: keep Design.themes_dir / Design.themes_dir= working.

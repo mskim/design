@@ -37,4 +37,7 @@ gem "image_processing", "~> 1.13"
 
 group :development, :test do
   gem "rubocop-rails-omakase", require: false
+  # The DesignCraft preview path (Design.config.designcraft); hosts bring their own. Locally
+  # overridden via .bundle/config (BUNDLE_LOCAL__DESIGNCRAFT_RB), as doc_processor_rb is.
+  gem "designcraft_rb", github: "mskim/designcraft_rb", branch: "main", require: false
 end
