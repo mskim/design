@@ -8,6 +8,19 @@ class Design::DocumentDesignsEditTest < ActionDispatch::IntegrationTest
     @dd = @ps.document_designs.create!(doc_type: "chapter")
   end
 
+  test "edit renders the host's :document_design_edit buttons, given the design" do
+    Design.config.actions.for(:document_design_edit) do |ctx|
+      design = ctx[:document_design]
+      [{ label: "Sample #{design.doc_type}", path: "/sample/#{design.id}", method: :get }]
+    end
+
+    get design.edit_theme_paper_size_document_design_path(@theme, @ps, @dd)
+
+    assert_select "a[href=?]", "/sample/#{@dd.id}", text: "Sample chapter"
+  ensure
+    Design.config.actions.for(:document_design_edit) { [] }
+  end
+
   # ── Tabbed PropertiesPanel is now the right pane ──
 
   test "edit renders the tabbed PropertiesPanel (ruby-ui--tabs data-controller present)" do

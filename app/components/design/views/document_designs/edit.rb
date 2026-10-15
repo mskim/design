@@ -13,7 +13,9 @@ module Design
         end
 
         def view_template
-          shell(title: doc_type_label(@document_design.doc_type), action_slot: nil,
+          # Host buttons for this design (book_design: its sample as .designcraft / IDML).
+          shell(title: doc_type_label(@document_design.doc_type), action_slot: :document_design_edit,
+                action_context: { theme: @theme, paper_size: @paper_size, document_design: @document_design },
                 sidebar: design_sidebar(@theme, @paper_size, @document_design)) do
             div(class: "px-6 py-8 flex flex-col gap-8") do
               render Design::Views::DocumentDesigns::EditorToolbar.new(
