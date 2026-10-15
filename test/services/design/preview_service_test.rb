@@ -54,8 +54,8 @@ class Design::PreviewServiceTest < ActiveSupport::TestCase
     stale = [ 5, 6 ].map { |n| File.join(preview_dir, "preview_#{n}.jpg") }
     stale.each { |f| File.binwrite(f, "stale") }
 
-    # GENERATION_LOCK staggers the threads, so left alone they would reach publish_pages
-    # one at a time and never race. Rendezvous after rasterizing so all 5 publish at once.
+    # Left alone the threads would reach publish_pages at different times and might never
+    # race. Rendezvous after rasterizing so all 5 publish at once.
     n = 5
     barrier = Queue.new
     services = n.times.map do

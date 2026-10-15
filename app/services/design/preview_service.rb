@@ -1,19 +1,11 @@
 module Design
   class PreviewService
-    # doc_processor_rb's DBDocument rebinds its global Sequel::Model classes to the
-    # active SQLite file on every instantiation (setup_models → model.dataset = db[...]).
-    # That shared global state means two DBDocuments can't be alive at once in a single
-    # process without clobbering each other's model bindings (UNIQUE/readonly errors).
-    # Serialize the model-touching phase of generation across all threads in the process.
-    # DesignCraft's previews (Design.config.designcraft) touch no DB and don't take it.
-    GENERATION_LOCK = Mutex.new
-
     PREVIEW_DPI = 150
     MAX_PREVIEW_PAGES = 4
     CACHE_VERSION = "v5" # bump when the stamp/JPG layout changes; old stamps become misses
     # The print key's own part: bump when only print-mode output changes
-    # (normal caches stay warm). v2: doc_processor_rb cf4eb37 shifts every
-    # margin-relative element by the binding, not just the body text box.
+    # (normal caches stay warm). v2: the binding shifts every margin-relative
+    # element, not just the body text box.
     PRINT_CACHE_VERSION = "print-v2"
     FALLBACK_HEADING = {
       "title" => "첫번째 이야기",
@@ -106,50 +98,33 @@ module Design
       # Render into a private per-call working dir, then atomically publish the
       # JPG + cache stamp into preview_dir. Two requests for the same document can
       # overlap (lazy preview frame + a save), and a shared working dir let one
-      # request's rm_rf/recreate corrupt the other's half-written SQLite DB. The
+      # request's rm_rf/recreate corrupt the other's half-written PDF. The
       # working dir sits under tmp/previews so the final rename stays on one FS.
       work = work_dir
       FileUtils.mkdir_p(work)
       @work_dir = work # sample wing covers/photos are generated here, read back at render time
 
-      db_path = File.join(work, "preview.db")
       pdf_path = File.join(work, "preview.pdf")
 
-      db_doc = nil
-      pages = nil
       begin
-        # DesignCraft lays the design out from rows in memory: no DB, so no lock, and previews
+        # DesignCraft lays the design out from rows in memory: no DB and no lock, so previews
         # render side by side (each its own designcraft-cli).
-        pages = render_with_designcraft(pdf_path) if designcraft?
-        # doc_processor_rb's DB build, PDF render, and overlay read all go through its
-        # global Sequel models, so they must run one-at-a-time per process.
-        GENERATION_LOCK.synchronize do
-          db_doc = create_db_document(db_path)
-          populate_database(PreviewDbWriter.new(db_doc))
-          generate_pdf(db_doc, pdf_path)
-          # Per-page overlays must be read while the DBDocument is open (inside the lock).
-          pages = extract_pages_overlay_data(db_doc)
-        ensure
-          db_doc&.close # release the connection before the next thread rebinds the models
-          db_doc = nil
-        end unless pages
+        pages = render_with_designcraft(pdf_path)
 
-        # Rasterize (libvips, no Sequel models — safe outside the lock) into the work dir,
-        # then publish page by page + the stamp that validates them.
+        # Rasterize into the work dir, then publish page by page + the stamp that validates them.
         rendered = convert_pdf_to_jpgs(pdf_path, work)
         raise "no pages rasterized from #{pdf_path}" if rendered.zero?
-        # DB page rows and the PDF can disagree (wings never save_page); trust what was actually rasterized.
+        # The PDF, not the MAX_PREVIEW_PAGES overlay slots, is the page count.
         pages = pages.first(rendered)
         publish_pages(work, pages.size)
         @live_token ? prune_live_renders : save_cache_stamp(pages)
 
         result_hash(pages)
-      rescue => e
-        Rails.logger.error "DesignPreviewService error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
+      rescue StandardError, LoadError => e
+        Rails.logger.error "DesignPreviewService #{document_design.doc_type} error: #{e.class}: #{e.message}\n#{Array(e.backtrace).first(5).join("\n")}"
         { success: false, page_count: 0, pages: [], jpg_path: nil, overlay_data: [],
           page_width: preview_page_width_pt, page_height: paper_size.height_pt, print_mode: @print_mode, error: e.message }
       ensure
-        db_doc&.close
         FileUtils.rm_rf(work)
       end
     end
@@ -186,7 +161,7 @@ module Design
     end
 
     # Private per-call working dir (unique per generation) so concurrent renders of
-    # the same document never share a SQLite DB. Under tmp/previews so the published
+    # the same document never share a PDF. Under tmp/previews so the published
     # JPG rename stays on a single filesystem (atomic).
     def work_dir
       Rails.root.join("tmp", "previews", ".work", "dd_#{document_design.id}_#{SecureRandom.hex(8)}")
@@ -209,19 +184,15 @@ module Design
       ].compact
       # Sub-second precision: two edits within the same second must not collide.
       parts = timestamps.map { |t| t.respond_to?(:iso8601) ? t.iso8601(6) : t.to_s }
-      # The normal key is unchanged (existing caches stay warm); print mode adds a part.
-      parts + [ sample_content.fingerprint, (PRINT_CACHE_VERSION if @print_mode), designcraft_cache_part ].compact
+      # Print mode adds a part (the normal key is unchanged by it).
+      parts + [ sample_content.fingerprint, designcraft_cache_part, (PRINT_CACHE_VERSION if @print_mode) ].compact
     end
 
     # DesignCraft's previews are redrawn when its layout changes (designcraft_rb's sources or
     # designcraft-cli), not only when the design does.
     def designcraft_cache_part
-      return unless designcraft?
-
       require "designcraft_rb"
       "designcraft-#{DesignCraftRb.layout_digest}"
-    rescue LoadError
-      "designcraft"
     end
 
     def cache_fingerprint = "#{CACHE_VERSION}:" + Digest::MD5.hexdigest(cache_fingerprint_parts.join("-"))
@@ -280,13 +251,8 @@ module Design
       end
     end
 
-    def create_db_document(db_path)
-      File.delete(db_path) if File.exist?(db_path)
-      DocProcessorRb::Database::DBDocument.new(path: db_path, create_if_needed: true)
-    end
-
-    # Writes the preview's unit to `out`: a PreviewDbWriter (a doc_processor_rb DB) or
-    # DesignCraftRb::UnitRows (the same rows, for DesignCraft, without one).
+    # Writes the preview's unit to `out`, a DesignCraftRb::UnitRows: the rows of a
+    # doc_processor_rb unit DB, without one.
     def populate_database(out)
       populate_document(out)
       populate_master_page(out)
@@ -565,27 +531,6 @@ module Design
       end
     end
 
-    def generate_pdf(db_doc, pdf_path)
-      doc_info = db_doc.document_info
-      component = if wing?
-        # Wing renderers extend BaseRenderer (options: keyword), not the DocLayout
-        # components (**options), so they're instantiated separately.
-        wing_renderer_class.new(db_document: db_doc, doc_info: doc_info, options: { svg: true })
-      else
-        doc_layout_class.new(db_document: db_doc, doc_info: doc_info, svg: true, print_mode: @print_mode)
-      end
-
-      component.render_to_pdf(pdf_path)
-
-      # Page background: DocumentCover component handles it via preview DB;
-      # for all other doc types, inject via content stream.
-      if document_design.page_bg_color.present? && document_design.doc_type != "document_cover"
-        inject_page_background(pdf_path)
-      end
-
-      inject_heading_background(pdf_path) if heading_bg_color_present?
-    end
-
     BLEED_PT = 3 * 72.0 / 25.4  # 3mm in points
 
     def inject_page_background(pdf_path)
@@ -593,7 +538,6 @@ module Design
       ps = paper_size
       color = parse_color_to_cmyk(document_design.page_bg_color)
 
-      # Insert page bg BEFORE text commands but AFTER any white fill from the component
       c, m, y, k = color.map { |v| v / 100.0 }
       bg_commands = "q\n"
       bg_commands += "#{c} #{m} #{y} #{k} k\n"
@@ -709,7 +653,6 @@ module Design
 
       doc = HexaPDF::Document.open(pdf_path)
       page = doc.pages[0]
-      # Insert heading bg BEFORE text commands (BT or /F) but AFTER page background
       c, m, y, k = color.map { |v| v / 100.0 }
       bg_commands = "q\n"
       bg_commands += "#{c} #{m} #{y} #{k} k\n"
@@ -727,22 +670,14 @@ module Design
 
     BEHIND = "%behind\n" # ends what paint_behind drew under a DesignCraft page
 
-    # Draws `commands` (a q … Q block) under the page's content. doc_processor_rb's pages: before
-    # their text, after their white fill. DesignCraft's (@designcraft_pdf): first of all, in the
-    # page's own coordinates — its stream sets up its own transform before anything it draws —
+    # Draws `commands` (a q … Q block) under the page's content: first of all, in the page's own
+    # coordinates — DesignCraft's stream sets up its own transform before anything it draws —
     # after whatever was painted behind it already, so a heading band lies over the page colour.
     def paint_behind(doc, page, commands)
       contents = page[:Contents]
       existing = contents.is_a?(Array) ? contents.map(&:stream).join("\n") : contents.stream
-      stream = if @designcraft_pdf
-        at = existing.rindex(BEHIND)&.+(BEHIND.size) || 0
-        existing[0...at] + commands + BEHIND + existing[at..]
-      elsif (text_start = existing.index(%r{^/F}m) || existing.index(/^BT/m))
-        existing[0...text_start] + commands + existing[text_start..]
-      else
-        existing + commands
-      end
-      page[:Contents] = doc.add({}, stream: stream)
+      at = existing.rindex(BEHIND)&.+(BEHIND.size) || 0
+      page[:Contents] = doc.add({}, stream: existing[0...at] + commands + BEHIND + existing[at..])
     end
 
     def parse_cmyk_color(color_str)
@@ -789,82 +724,14 @@ module Design
       end
     end
 
-    DOC_LAYOUT_MAP = {
-      "chapter"      => DocProcessorRb::DocLayout::Book::Chapter,
-      "title_page"   => DocProcessorRb::DocLayout::Book::TitlePage,
-      "inside_cover" => DocProcessorRb::DocLayout::Book::InsideCover,
-      "part_cover"   => DocProcessorRb::DocLayout::Book::PartCover,
-      "toc"          => DocProcessorRb::DocLayout::Book::Toc,
-      "blank_page"   => DocProcessorRb::DocLayout::Book::BlankPage,
-      "copyright"    => DocProcessorRb::DocLayout::Book::Copyright,
-      "poem"         => DocProcessorRb::DocLayout::Book::Poem,
-      "document_cover" => DocProcessorRb::DocLayout::Book::DocumentCover
-    }.freeze
-
-    def doc_layout_class
-      type_name = case document_design.doc_type
-      when "foreword", "prologue", "epilogue", "appendix", "help", "information"
-        "chapter"
-      when "thanks", "dedication"
-        "title_page"
-      when "document_cover"
-        "document_cover"
-      else
-        document_design.doc_type
-      end
-
-      DOC_LAYOUT_MAP.fetch(type_name, DocProcessorRb::DocLayout::Book::Chapter)
-    end
-
     def convert_pdf_to_jpgs(pdf_path, dir)
       Design::PdfToJpg.convert_pages(pdf_path, dir, max_pages: MAX_PREVIEW_PAGES, dpi: PREVIEW_DPI)
     end
 
-    def synthesize_toc_heading_overlay
-      ps = paper_size
-      dd = document_design
-      heading_h = dd.heading_height_in_lines * body_line_height
-
-      # TOC renderer always places heading at the top of the content area
-      heading_x = ps.left_margin_pt
-      heading_y = ps.top_margin_pt
-      heading_w = ps.width_pt - ps.left_margin_pt - ps.right_margin_pt
-      title_text = sample_content.title.presence || "Contents"
-
-      [
-        {
-          type: "heading_area",
-          x: heading_x, y: heading_y,
-          width: heading_w, height: heading_h,
-          markup: "heading", content_preview: "Heading Area",
-          is_continuation: false
-        },
-        {
-          type: "heading_title",
-          x: heading_x, y: heading_y,
-          width: heading_w, height: heading_h,
-          markup: "title", content_preview: title_text,
-          is_continuation: false
-        }
-      ]
-    end
-
-    # One entry per page up to the cap, each with that page's overlays (an empty array for
-    # pages the renderer wrote no rows for). The DBDocument must still be open. `generate`
-    # trims the list to what libvips actually rasterized — the PDF, not the renderer's
-    # `pages` table, is the source of truth for the page count. The TOC renderer emits no
-    # heading overlay, so synthesize one on page 1.
-    # The doc types DesignCraft lays out (designcraft_rb's doc_processor_rb adapter). The cover
-    # panels and the wings go through its Cover; the rest as units (a document cover is a title page
-    # on its page background, which inject_page_background paints).
-    DESIGNCRAFT_DOC_TYPES = (DocumentDesign::BODY_FLOW_DOC_TYPES +
-                             %w[ poem title_page inside_cover part_cover thanks dedication toc copyright blank_page document_cover ] +
-                             DocumentDesign::COVER_PANEL_TYPES).freeze
     # The studio has no page count to size a spine from: one as wide as a 300-page book's.
     COVER_SPINE_MM = 20
 
-    # The host lays books out with DesignCraft (Design.config.designcraft), and this doc type with it.
-    # How a layout type sets its page, as doc_processor_rb's DocumentType table has it: title
+    # How a layout type sets its page (doc_processor_rb's DocumentType table, kept): title
     # pages and covers centre a page heading; all but those and a blank page flow body text in a
     # text box. KNOWN: the types the studio's doc types resolve to (resolved_doc_type).
     LayoutType = Data.define(:name) do
@@ -875,14 +742,10 @@ module Design
     PAGE_HEADING_TYPES = %w[ title_page part_cover document_cover front_page ].freeze
     NO_TEXT_BOX_TYPES = (PAGE_HEADING_TYPES + %w[ blank_page ]).freeze
 
-    def designcraft? = Design.designcraft? && DESIGNCRAFT_DOC_TYPES.include?(document_design.doc_type)
-
     # The design laid out by DesignCraft, as the host prints books, from the preview's unit
-    # written as rows (DesignCraftRb::UnitRows: the rows the doc_processor_rb DB would hold,
-    # without one): the PDF, its page and heading backgrounds, and each page's overlays from where
-    # DesignCraft set the lines (the same rows doc_processor_rb records). The binding margin only
-    # in print mode, as doc_processor_rb applies it. Nil when it can't (logged): doc_processor_rb
-    # lays the design out instead, so a preview never goes missing.
+    # written as rows (DesignCraftRb::UnitRows): the PDF, its page and heading backgrounds, and
+    # each page's overlays from where DesignCraft set the lines. The binding margin only in print
+    # mode. A failure raises; generate reports it as the preview's error.
     def render_with_designcraft(pdf_path)
       require "designcraft_rb"
       rows = DesignCraftRb::UnitRows.new
@@ -892,15 +755,9 @@ module Design
       spec = rows.to_spec(base_dir: File.dirname(pdf_path)).to_h
       spec["page"]["binding"] = 0 unless @print_mode
       result = DesignCraftRb.render(DesignCraftRb::UnitSpec.new(spec, base_dir: File.dirname(pdf_path)), pdf: pdf_path)
-      untype_to_unicode_cmaps(pdf_path)
-      @designcraft_pdf = true
       inject_page_background(pdf_path) if document_design.page_bg_color.present?
       inject_heading_background(pdf_path) if heading_bg_color_present?
       (1..MAX_PREVIEW_PAGES).map { |n| { jpg_path: page_jpg_path(n), overlay_data: result.overlays.fetch(n - 1, []) } }
-    rescue StandardError, LoadError => e
-      @designcraft_pdf = false # doc_processor_rb lays it out: its own way of painting behind
-      Rails.logger.error "Design::PreviewService DesignCraft #{document_design.doc_type} failed; laid out by doc_processor_rb: #{e.class}: #{e.message}"
-      nil
     end
 
     # A cover panel as the printed cover lays it out (designcraft_rb's Cover, book_write's cover):
@@ -918,47 +775,11 @@ module Design
         cover.build(client)
         client.execute("file.exportPdf", path: pdf_path, pages: [ cover.types.index(type) + 1 ])
       end
-      untype_to_unicode_cmaps(pdf_path)
-      @designcraft_pdf = true
       inject_page_background(pdf_path) if document_design.page_bg_color.present?
       overlays = cover.overlays.select { it[:panel] == type }.map do |row|
         row.except(:panel).merge(y: paper_size.height_pt - row[:y] - row[:height], is_continuation: false)
       end
       [ { jpg_path: page_jpg_path(1), overlay_data: overlays } ]
-    end
-
-    # DesignCraft's PDF writer (krilla) gives its ToUnicode streams /Type /CMap but not the
-    # CMapName and CIDSystemInfo a typed CMap stream must have, and HexaPDF refuses to write the
-    # file, so the page and heading backgrounds failed to go in. A ToUnicode stream needs no type.
-    # (book_write's DesignCraftRenderer does the same.)
-    def untype_to_unicode_cmaps(pdf_path)
-      require "hexapdf"
-      HexaPDF::Document.open(pdf_path) do |doc|
-        cmaps = doc.each(only_current: false).select { |obj| obj.value.is_a?(Hash) && obj[:Type] == :CMap && !obj.key?(:CMapName) }
-        next if cmaps.empty?
-
-        cmaps.each { |obj| obj.delete(:Type) }
-        doc.write("#{pdf_path}.tmp", validate: false)
-        File.rename("#{pdf_path}.tmp", pdf_path)
-      end
-    end
-
-    def extract_pages_overlay_data(db_doc)
-      (1..MAX_PREVIEW_PAGES).map do |page_number|
-        overlays = overlay_rows(db_doc.block_overlays(document_id: 1, page_number: page_number))
-        if page_number == 1 && document_design.doc_type == "toc" && document_design.heading_height_in_lines.to_i > 0
-          overlays = synthesize_toc_heading_overlay + overlays
-        end
-        { jpg_path: page_jpg_path(page_number), overlay_data: overlays }
-      end
-    end
-
-    def overlay_rows(overlays)
-      overlays.map do |o|
-        { type: o.overlay_type, x: o.rendered_x.to_f, y: o.rendered_y.to_f,
-          width: o.rendered_width.to_f, height: o.rendered_height.to_f,
-          markup: o.markup, content_preview: o.content_preview, is_continuation: o.is_continuation == 1 }
-      end
     end
 
     def resolved_doc_type
@@ -1003,16 +824,9 @@ module Design
     # Page width used for layout, the master page, and the overlay/aspect. Wings
     # render at the fixed flap width; every other doc_type uses the book page width.
     def preview_page_width_pt
-      return COVER_SPINE_MM * Design::PaperSize::MM2PT if document_design.doc_type == "seneca" && designcraft?
+      return COVER_SPINE_MM * Design::PaperSize::MM2PT if document_design.doc_type == "seneca"
 
       wing? ? WING_FLAP_WIDTH_MM * Design::PaperSize::MM2PT : paper_size.width_pt
-    end
-
-    def wing_renderer_class
-      case document_design.doc_type
-      when "back_wing"  then DocProcessorRb::DocumentTypes::BackWingRenderer
-      when "front_wing" then DocProcessorRb::DocumentTypes::FrontWingRenderer
-      end
     end
 
     def wing_locale
@@ -1029,7 +843,7 @@ module Design
     end
 
     # Insert component-scoped sample blocks matching what book_write's cover
-    # pipeline builds, so the wing renderers lay out real-looking content.
+    # pipeline builds, so the wings lay out real-looking content.
     def populate_wing_blocks(out)
       document_design.doc_type == "back_wing" ? populate_back_wing_blocks(out) : populate_front_wing_blocks(out)
     end

@@ -23,7 +23,8 @@ Gem::Specification.new do |spec|
   spec.add_dependency "rails", ">= 8.1.2"
   spec.add_dependency "phlex-rails"
   spec.add_dependency "tailwind_merge" # used by app/components/ruby_ui/base.rb
-  spec.add_dependency "doc_processor_rb"
+  # Previews are laid out by DesignCraft. Not on RubyGems: hosts source it from GitHub.
+  spec.add_dependency "designcraft_rb", ">= 0.2"
   spec.add_dependency "hexapdf"
   spec.add_dependency "sqlite3"
 end

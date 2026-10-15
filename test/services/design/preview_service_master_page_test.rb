@@ -1,5 +1,4 @@
 require "test_helper"
-require "tmpdir"
 
 class Design::PreviewServiceMasterPageTest < ActiveSupport::TestCase
   setup do
@@ -9,16 +8,14 @@ class Design::PreviewServiceMasterPageTest < ActiveSupport::TestCase
   end
 
   test "master_page gets dd-level body_line_count and toc_v_align" do
-    Dir.mktmpdir do |dir|
-      svc = Design::PreviewService.new(@dd, paper_size: @ps)
-      db_doc = svc.send(:create_db_document, File.join(dir, "t.db"))
-      svc.send(:populate_document, Design::PreviewDbWriter.new(db_doc))
-      svc.send(:populate_master_page, Design::PreviewDbWriter.new(db_doc))
-      mp = db_doc.master_page
-      assert_equal 18, mp.body_line_count
-      assert_equal "center", mp.toc_v_align
-      assert_in_delta @dd.body_line_height, mp.body_line_height, 0.001
-      db_doc.close
-    end
+    require "designcraft_rb"
+    svc = Design::PreviewService.new(@dd, paper_size: @ps)
+    rows = DesignCraftRb::UnitRows.new
+    svc.send(:populate_document, rows)
+    svc.send(:populate_master_page, rows)
+    mp = rows.rows["master_page"].first
+    assert_equal 18, mp["body_line_count"]
+    assert_equal "center", mp["toc_v_align"]
+    assert_in_delta @dd.body_line_height, mp["body_line_height"], 0.001
   end
 end

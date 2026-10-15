@@ -19,12 +19,7 @@ module Design
       pdf_file = Tempfile.new(%w[ts_preview .pdf])
       jpg_file = Tempfile.new(%w[ts_preview .jpg])
       begin
-        designcraft_table(pdf_file.path, style_hash) ||
-          Design::SingleTablePdf.write(
-            pdf_file.path,
-            rows: Design::TableStylePreviewSample::SAMPLE[:rows],
-            style_hash: style_hash
-          )
+        designcraft_table(pdf_file.path, style_hash)
         Design::PdfToJpg.convert(pdf_file.path, jpg_file.path, dpi: PREVIEW_DPI)
         File.binread(jpg_file.path)
       ensure
@@ -35,13 +30,9 @@ module Design
 
     private
 
-    # The sample table as DesignCraft lays the book's tables out (Design.config.designcraft):
-    # one table in a unit the size of SingleTablePdf's page, in the theme's table style; the
-    # theme's body font for cells whose style names none. Nil when DesignCraft isn't on or
-    # fails (logged): SingleTablePdf draws it.
+    # The sample table as DesignCraft lays the book's tables out: one table in an A4-wide unit,
+    # in the theme's table style; the theme's body font for cells whose style names none.
     def designcraft_table(path, style_hash)
-      return unless Design.designcraft?
-
       require "designcraft_rb"
       body = { font_family: @theme.base_body_font, font_size: @theme.base_body_font_size }.compact
       spec = { version: 1, type: "chapter",
@@ -49,10 +40,6 @@ module Design
                styles: (body.empty? ? {} : { body: body }),
                blocks: [ { type: "table", rows: Design::TableStylePreviewSample::SAMPLE[:rows], style_hash: style_hash } ] }
       DesignCraftRb.render(JSON.parse(spec.to_json), pdf: path)
-      path
-    rescue StandardError, LoadError => e
-      Rails.logger.error "Design::TableStylePreviewService DesignCraft failed; SingleTablePdf draws it: #{e.class}: #{e.message}"
-      nil
     end
   end
 end

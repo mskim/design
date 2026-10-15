@@ -1,8 +1,8 @@
 require "test_helper"
 
-# Wing panels (back_wing / front_wing) must preview with their real engine
-# renderers and panel-appropriate sample content — not the generic Chapter/lorem
-# fallback. back_wing = promotional "other books"; front_wing = author profile.
+# Wing panels (back_wing / front_wing) must preview as the printed cover's flaps,
+# with panel-appropriate sample content — not the generic Chapter/lorem fallback.
+# back_wing = promotional "other books"; front_wing = author profile.
 class Design::PreviewWingTest < ActiveSupport::TestCase
   setup do
     @theme = Design::Theme.create!(name: "Wing #{SecureRandom.hex(3)}", locale: "ko")
@@ -14,21 +14,16 @@ class Design::PreviewWingTest < ActiveSupport::TestCase
     svc = Design::PreviewService.new(dd, paper_size: @ps)
     Dir.mktmpdir do |dir|
       svc.instance_variable_set(:@work_dir, dir)
-      db_doc = DocProcessorRb::Database::DBDocument.new(path: File.join(dir, "t.db"), create_if_needed: true)
-      db_doc.document_info # create the documents row the paragraphs FK references (populate_document does this in the real flow)
-      svc.send(:populate_wing_blocks, Design::PreviewDbWriter.new(db_doc))
+      blocks = wing_blocks(svc, "back_wing")
+      assert_equal "heading", blocks.first["block_type"]
+      assert blocks.first["content"].present?, "heading should have text"
 
-      blocks = db_doc.blocks_for_component(component: "back_wing")
-      assert_equal "heading", blocks.first.block_type
-      assert blocks.first.content.present?, "heading should have text"
-
-      items = blocks.select { |b| b.block_type == "promoted_item" }
+      items = blocks.select { |b| b["block_type"] == "promoted_item" }
       assert items.size >= 3, "expected several sample books, got #{items.size}"
-      meta = items.first.parsed_metadata
-      assert meta[:description].present?, "each book needs a description"
-      assert meta[:image_path].present?, "each book needs a cover image path"
-      assert File.exist?(meta[:image_path]), "cover image should be generated on disk"
-      db_doc.close
+      meta = JSON.parse(items.first["metadata"])
+      assert meta["description"].present?, "each book needs a description"
+      assert meta["image_path"].present?, "each book needs a cover image path"
+      assert File.exist?(meta["image_path"]), "cover image should be generated on disk"
     end
   end
 
@@ -37,17 +32,12 @@ class Design::PreviewWingTest < ActiveSupport::TestCase
     svc = Design::PreviewService.new(dd, paper_size: @ps)
     Dir.mktmpdir do |dir|
       svc.instance_variable_set(:@work_dir, dir)
-      db_doc = DocProcessorRb::Database::DBDocument.new(path: File.join(dir, "t.db"), create_if_needed: true)
-      db_doc.document_info # create the documents row the paragraphs FK references (populate_document does this in the real flow)
-      svc.send(:populate_wing_blocks, Design::PreviewDbWriter.new(db_doc))
-
-      blocks = db_doc.blocks_for_component(component: "front_wing")
-      name = blocks.find { |b| b.block_type == "heading" }
-      bio  = blocks.find { |b| b.block_type == "body" }
-      assert name&.content.present?, "author name heading required"
-      assert bio&.content.present?, "author bio body required"
-      assert File.exist?(name.parsed_metadata[:image_path]), "author photo should be generated"
-      db_doc.close
+      blocks = wing_blocks(svc, "front_wing")
+      name = blocks.find { |b| b["block_type"] == "heading" }
+      bio  = blocks.find { |b| b["block_type"] == "body" }
+      assert name&.dig("content").present?, "author name heading required"
+      assert bio&.dig("content").present?, "author bio body required"
+      assert File.exist?(JSON.parse(name["metadata"])["image_path"]), "author photo should be generated"
     end
   end
 
@@ -96,5 +86,14 @@ class Design::PreviewWingTest < ActiveSupport::TestCase
     ensure
       svc&.clear_cache
     end
+  end
+
+  private
+
+  # The wing's blocks as populate_wing_blocks writes them (DesignCraftRb::UnitRows' paragraphs).
+  def wing_blocks(svc, component)
+    require "designcraft_rb"
+    rows = DesignCraftRb::UnitRows.new.tap { svc.send(:populate_wing_blocks, it) }.rows
+    rows["paragraphs"].select { it["component"] == component }.sort_by { it["sequence"].to_i }
   end
 end

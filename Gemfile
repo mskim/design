@@ -1,17 +1,12 @@
 source "https://rubygems.org"
 
 # Specify the gem's dependencies in design.gemspec
-# (rails, phlex-rails, doc_processor_rb, sqlite3).
+# (rails, phlex-rails, designcraft_rb, hexapdf, sqlite3).
 gemspec
 
-# doc_processor_rb is sourced from GitHub (not on RubyGems). Locally it is
-# overridden via .bundle/config (BUNDLE_LOCAL__DOC_PROCESSOR_RB), mirroring
-# book_write — see .bundle/config in this gem.
-gem "doc_processor_rb", github: "mskim/doc_processor_rb", branch: "main"
-
-# Bundled stdlib gems doc_processor_rb requires (default gems in Ruby 3.4+).
-gem "csv"
-gem "ostruct"
+# designcraft_rb lays the previews out; sourced from GitHub (not on RubyGems), as the
+# hosts do. Locally overridden via .bundle/config (BUNDLE_LOCAL__DESIGNCRAFT_RB).
+gem "designcraft_rb", github: "mskim/designcraft_rb", branch: "main", require: false
 
 # Dummy test app runtime.
 gem "puma", ">= 5.0"
@@ -37,7 +32,4 @@ gem "image_processing", "~> 1.13"
 
 group :development, :test do
   gem "rubocop-rails-omakase", require: false
-  # The DesignCraft preview path (Design.config.designcraft); hosts bring their own. Locally
-  # overridden via .bundle/config (BUNDLE_LOCAL__DESIGNCRAFT_RB), as doc_processor_rb is.
-  gem "designcraft_rb", github: "mskim/designcraft_rb", branch: "main", require: false
 end

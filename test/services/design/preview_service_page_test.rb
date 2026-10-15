@@ -1,5 +1,4 @@
 require "test_helper"
-require "tmpdir"
 
 class Design::PreviewServicePageTest < ActiveSupport::TestCase
   setup do
@@ -13,12 +12,9 @@ class Design::PreviewServicePageTest < ActiveSupport::TestCase
     svc = Design::PreviewService.new(@dd, paper_size: @ps)
     style = @theme.base_paragraph_styles.create!(name: "zz_lh", font_size: 10)
     assert_in_delta @dd.body_line_height, svc.send(:build_style_attrs, style)[:line_height], 0.001
-    Dir.mktmpdir do |dir|
-      db = svc.send(:create_db_document, File.join(dir, "t.db"))
-      svc.send(:populate_document, Design::PreviewDbWriter.new(db))
-      assert_in_delta @dd.body_line_height, db.document_info.body_line_height, 0.001
-      db.close
-    end
+    require "designcraft_rb"
+    rows = DesignCraftRb::UnitRows.new.tap { svc.send(:populate_document, it) }
+    assert_in_delta @dd.body_line_height, rows.rows["documents"].first["body_line_height"], 0.001
   end
 
   test "without its own body_line_count, text uses the paper size's line height" do
@@ -42,10 +38,18 @@ class Design::PreviewServicePageTest < ActiveSupport::TestCase
   end
 
   test "the TOC heading overlay is sized with the design's line height" do
+    begin
+      require "designcraft_rb"
+      DesignCraftRb::Client.find_cli
+    rescue LoadError, DesignCraftRb::CliNotFound => e
+      skip e.message
+    end
     toc = @ps.document_designs.create!(doc_type: "toc", body_line_count: 18, heading_height_in_lines: 4)
-    overlay = Design::PreviewService.new(toc, paper_size: @ps).send(:synthesize_toc_heading_overlay)
-    assert_in_delta 4 * toc.body_line_height, overlay.first[:height], 0.001
-    refute_in_delta 4 * @ps.body_line_height, overlay.first[:height], 0.001
+    result = Design::PreviewService.new(toc, paper_size: @ps, live: true).generate
+    assert result[:success], result[:error]
+    overlay = result[:pages].first[:overlay_data].find { it[:type] == "heading_area" }
+    assert_in_delta 4 * toc.body_line_height, overlay[:height], 0.01
+    refute_in_delta 4 * @ps.body_line_height, overlay[:height], 0.01
   end
 
   # The rendered line height changed (D3: the design's own body_line_count; then

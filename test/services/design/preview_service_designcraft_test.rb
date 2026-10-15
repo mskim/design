@@ -1,18 +1,11 @@
 require "test_helper"
 
-# With Design.config.designcraft the studio's previews are laid out by DesignCraft, as the host
-# prints books: the same result hash and overlay rows, and doc_processor_rb when DesignCraft
-# can't (or for a doc type it doesn't lay out).
+# The studio's previews are laid out by DesignCraft, as the host prints books: the result hash
+# and overlay rows the studio reads, or the preview's error when DesignCraft can't.
 class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
   setup do
-    @was = Design.config.designcraft
-    Design.config.designcraft = true
     @theme = Design::Theme.create!(name: "DC #{SecureRandom.hex(3)}", locale: "ko")
     @ps = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-  end
-
-  teardown do
-    Design.config.designcraft = @was
   end
 
   def designcraft_cli!
@@ -27,36 +20,14 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     Design::PreviewService.new(dd, paper_size: @ps, live: true, **options).generate
   end
 
-  # DesignCraft's previews are written as rows, without a DB: for every studio doc type the spec
-  # is the one the same calls give through doc_processor_rb's DB.
-  test "every doc type's rows make the spec its DB does" do
-    require "designcraft_rb"
-    Dir.mktmpdir do |dir|
-      Design::DocumentDesign::ALL_DOC_TYPES.each do |type|
-        service = Design::PreviewService.new(@ps.document_designs.create!(doc_type: type), paper_size: @ps)
-        service.instance_variable_set(:@work_dir, dir) # the wings' sample images
-        rows = DesignCraftRb::UnitRows.new.tap { service.send(:populate_database, it) }
-        db_path = File.join(dir, "#{type}.db")
-        Design::PreviewService::GENERATION_LOCK.synchronize do
-          db_doc = service.send(:create_db_document, db_path)
-          service.send(:populate_database, Design::PreviewDbWriter.new(db_doc))
-          db_doc.close
-        end
+  # The page-heading / text-box table the populate methods ask (doc_processor_rb's DocumentType).
+  test "title pages and covers centre a page heading; all but those and a blank page have a text box" do
+    layout = ->(type) { Design::PreviewService.new(@ps.document_designs.find_or_create_by!(doc_type: type), paper_size: @ps).send(:resolved_doc_type) }
+    heading, text_box = Design::DocumentDesign::ALL_DOC_TYPES.partition { layout.(it).uses_page_heading? }
 
-        assert_equal DesignCraftRb::UnitSpec.from_doc_processor_db(db_path).to_h, rows.to_spec.to_h, type
-      end
-    end
-  end
-
-  # The page-heading / text-box table the populate methods ask, copied from doc_processor_rb's
-  # DocumentType; pinned to it while it is installed.
-  test "every doc type's layout type answers as doc_processor_rb's DocumentType" do
-    require "doc_processor_rb/loader"
-    Design::DocumentDesign::ALL_DOC_TYPES.each do |type|
-      mine = Design::PreviewService.new(@ps.document_designs.create!(doc_type: type), paper_size: @ps).send(:resolved_doc_type)
-      engine = DocProcessorRb::DocumentTypes::DocumentType.new(mine.name)
-      assert_equal [ engine.uses_page_heading?, engine.needs_text_box? ], [ mine.uses_page_heading?, mine.needs_text_box? ], type
-    end
+    assert_equal %w[ dedication document_cover front_page inside_cover part_cover thanks title_page ], heading.sort
+    assert_equal %w[ blank_page ], text_box.reject { layout.(it).needs_text_box? }
+    assert_equal "chapter", layout.("foreword").name
   end
 
   test "a chapter is laid out by DesignCraft, its overlays where DesignCraft set the lines" do
@@ -70,14 +41,11 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     assert File.exist?(result[:jpg_path])
   end
 
-  test "a DesignCraft preview takes no DB and no lock, so previews render side by side" do
+  test "previews take no lock, so they render side by side" do
     designcraft_cli!
-    Design::PreviewService::GENERATION_LOCK.synchronize do # held: a preview that needed it couldn't take it
-      threads = %w[chapter title_page front_page].map { |type| Thread.new { preview(type) } }
-      results = threads.map { it.join(120) ? it.value : flunk("waited for the lock") }
+    threads = %w[chapter title_page front_page].map { |type| Thread.new { preview(type) } }
 
-      results.each { assert it[:success], it[:error] }
-    end
+    threads.map { it.join(120) ? it.value : flunk("a preview never finished") }.each { assert it[:success], it[:error] }
   end
 
   test "the TOC's entries and its heading come from DesignCraft, not synthesized" do
@@ -95,14 +63,15 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     assert_operator x.(preview("chapter", print_mode: true)), :>, x.(preview("foreword"))
   end
 
-  test "when DesignCraft can't, doc_processor_rb lays the design out" do
+  test "when DesignCraft can't, the preview is its error" do
     service = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "chapter"), paper_size: @ps, live: true)
-    service.define_singleton_method(:render_with_designcraft) { |*| nil }
+    service.define_singleton_method(:render_with_designcraft) { |*| raise "no font" }
 
     result = service.generate
 
-    assert result[:success], result[:error]
-    assert_operator result[:pages].first[:overlay_data].size, :>, 0
+    refute result[:success]
+    assert_equal "no font", result[:error]
+    assert_empty result[:pages]
   end
 
   test "the cover panels are laid out as the printed cover: the front's heading measured from the top" do
@@ -127,7 +96,7 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
   end
 
   # The document cover's colour bleeds over the page, behind its title page; DesignCraft's PDFs need
-  # it painted under their content (their stream transforms first) and their CMaps untyped first.
+  # it painted under their content (their stream transforms first).
   test "a document cover's page colour lies under DesignCraft's page" do
     designcraft_cli!
     dd = @ps.document_designs.create!(doc_type: "document_cover", page_bg_color: "CMYK=0,10,30,0")
@@ -137,14 +106,6 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     corner = Vips::Image.new_from_file(result[:jpg_path].to_s).getpoint(5, 5)
     assert_operator corner[2], :<, 230, "the corner is the page colour, not white: #{corner.inspect}" # its blue channel
     assert result[:pages].first[:overlay_data].any? { it[:type] == "heading_title" }
-  end
-
-  test "every doc type is DesignCraft's, and turning DesignCraft on is a new cache key" do
-    assert_empty Design::DocumentDesign::ALL_DOC_TYPES - Design::PreviewService::DESIGNCRAFT_DOC_TYPES
-    chapter = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "chapter"), paper_size: @ps)
-    on = chapter.send(:cache_fingerprint)
-    Design.config.designcraft = -> { false }
-    assert_not_equal on, chapter.send(:cache_fingerprint)
   end
 
   test "a change to DesignCraft's layout is a new cache key" do

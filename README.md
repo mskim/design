@@ -22,18 +22,16 @@ Design.configure do |c|
   c.home_url     = -> { main_app.root_path }
   c.locale_for   = -> { session[:locale] }
   c.authenticate = -> { ... } # resume the host session; sets the current user
-  c.designcraft  = true       # or a lambda: previews laid out by DesignCraft
 end
 ```
 
-With `designcraft` on, the previews are laid out by DesignCraft through designcraft_rb, as the
-host prints its books: the text pages (chapters and the like, poems, title pages, TOC, copyright
+The previews are laid out by DesignCraft through designcraft_rb, as the host prints its books: the text pages (chapters and the like, poems, title pages, TOC, copyright
 and blank pages) and the cover panels (front, back, spine at a nominal 20 mm, the flaps) as the
 printed cover lays them out, the document cover (a title page on its page colour), and each
-table style's sample table, as the book's tables are drawn in that style. The host brings
-designcraft_rb and designcraft-cli. These previews build their unit in memory (no SQLite DB) and
-take no lock, so several render at once. Any preview DesignCraft can't lay out falls back to
-doc_processor_rb, which builds its DB and renders one at a time.
+table style's sample table, as the book's tables are drawn in that style. designcraft_rb is a
+dependency (from GitHub, so the host's Gemfile names its source); the host brings designcraft-cli
+and the fonts (`DESIGNCRAFT_FONT_DIR`). Previews build their unit in memory and take no lock, so
+several render at once. A preview DesignCraft can't lay out shows its error.
 
 The host owns the `design_*` migrations and the `design-controllers` importmap pin
 (`pin_all_from Design::Engine.root.join("app/javascript/design-controllers")`).
