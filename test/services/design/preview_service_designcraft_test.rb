@@ -27,6 +27,27 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     Design::PreviewService.new(dd, paper_size: @ps, live: true, **options).generate
   end
 
+  # DesignCraft's previews are written as rows, without a DB: for every studio doc type the spec
+  # is the one the same calls give through doc_processor_rb's DB.
+  test "every doc type's rows make the spec its DB does" do
+    require "designcraft_rb"
+    Dir.mktmpdir do |dir|
+      Design::DocumentDesign::ALL_DOC_TYPES.each do |type|
+        service = Design::PreviewService.new(@ps.document_designs.create!(doc_type: type), paper_size: @ps)
+        service.instance_variable_set(:@work_dir, dir) # the wings' sample images
+        rows = DesignCraftRb::UnitRows.new.tap { service.send(:populate_database, it) }
+        db_path = File.join(dir, "#{type}.db")
+        Design::PreviewService::GENERATION_LOCK.synchronize do
+          db_doc = service.send(:create_db_document, db_path)
+          service.send(:populate_database, Design::PreviewDbWriter.new(db_doc))
+          db_doc.close
+        end
+
+        assert_equal DesignCraftRb::UnitSpec.from_doc_processor_db(db_path).to_h, rows.to_spec.to_h, type
+      end
+    end
+  end
+
   test "a chapter is laid out by DesignCraft, its overlays where DesignCraft set the lines" do
     designcraft_cli!
     result = preview("chapter")
@@ -36,6 +57,16 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     assert_equal %w[ heading_area heading_title ], rows.first(2).map { it[:type] }
     assert rows.any? { it[:type] == "paragraph" && it[:markup].present? && it[:width].positive? }
     assert File.exist?(result[:jpg_path])
+  end
+
+  test "a DesignCraft preview takes no DB and no lock, so previews render side by side" do
+    designcraft_cli!
+    Design::PreviewService::GENERATION_LOCK.synchronize do # held: a preview that needed it couldn't take it
+      threads = %w[chapter title_page front_page].map { |type| Thread.new { preview(type) } }
+      results = threads.map { it.join(120) ? it.value : flunk("waited for the lock") }
+
+      results.each { assert it[:success], it[:error] }
+    end
   end
 
   test "the TOC's entries and its heading come from DesignCraft, not synthesized" do

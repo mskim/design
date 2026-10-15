@@ -5,6 +5,7 @@ module Design
     # That shared global state means two DBDocuments can't be alive at once in a single
     # process without clobbering each other's model bindings (UNIQUE/readonly errors).
     # Serialize the model-touching phase of generation across all threads in the process.
+    # DesignCraft's previews (Design.config.designcraft) touch no DB and don't take it.
     GENERATION_LOCK = Mutex.new
 
     PREVIEW_DPI = 150
@@ -117,21 +118,21 @@ module Design
       db_doc = nil
       pages = nil
       begin
-        # The DB build, PDF render, and overlay read all go through doc_processor's
+        # DesignCraft lays the design out from rows in memory: no DB, so no lock, and previews
+        # render side by side (each its own designcraft-cli).
+        pages = render_with_designcraft(pdf_path) if designcraft?
+        # doc_processor_rb's DB build, PDF render, and overlay read all go through its
         # global Sequel models, so they must run one-at-a-time per process.
         GENERATION_LOCK.synchronize do
           db_doc = create_db_document(db_path)
-          populate_database(db_doc)
-          pages = render_with_designcraft(db_path, pdf_path) if designcraft?
-          unless pages
-            generate_pdf(db_doc, pdf_path)
-            # Per-page overlays must be read while the DBDocument is open (inside the lock).
-            pages = extract_pages_overlay_data(db_doc)
-          end
+          populate_database(PreviewDbWriter.new(db_doc))
+          generate_pdf(db_doc, pdf_path)
+          # Per-page overlays must be read while the DBDocument is open (inside the lock).
+          pages = extract_pages_overlay_data(db_doc)
         ensure
           db_doc&.close # release the connection before the next thread rebinds the models
           db_doc = nil
-        end
+        end unless pages
 
         # Rasterize (libvips, no Sequel models — safe outside the lock) into the work dir,
         # then publish page by page + the stamp that validates them.
@@ -273,24 +274,26 @@ module Design
       DocProcessorRb::Database::DBDocument.new(path: db_path, create_if_needed: true)
     end
 
-    def populate_database(db_doc)
-      populate_document(db_doc)
-      populate_master_page(db_doc)
+    # Writes the preview's unit to `out`: a PreviewDbWriter (a doc_processor_rb DB) or
+    # DesignCraftRb::UnitRows (the same rows, for DesignCraft, without one).
+    def populate_database(out)
+      populate_document(out)
+      populate_master_page(out)
       if wing?
         # Wing panels read component-scoped blocks + bare-named styles, not the
         # generic heading/body/toc sample content.
-        populate_wing_styles(db_doc)
-        populate_wing_blocks(db_doc)
+        populate_wing_styles(out)
+        populate_wing_blocks(out)
       else
-        populate_heading_items(db_doc)
-        populate_paragraph_styles(db_doc)
-        populate_toc_items(db_doc)
-        populate_sample_blocks(db_doc)
+        populate_heading_items(out)
+        populate_paragraph_styles(out)
+        populate_toc_items(out)
+        populate_sample_blocks(out)
       end
-      populate_header_footer_slots(db_doc)
+      populate_header_footer_slots(out)
     end
 
-    def populate_document(db_doc)
+    def populate_document(out)
       ps = paper_size
       dd = document_design
 
@@ -313,8 +316,7 @@ module Design
       # Include book_title for header/footer interpolation
       heading_data[:book_title] = FALLBACK_BOOK_TITLE
 
-      doc = db_doc.document_info
-      doc.update(
+      out.update_document(
         doc_type: dd.doc_type,
         page_width: preview_page_width_pt,
         page_height: ps.height_pt,
@@ -327,28 +329,19 @@ module Design
         body_font: theme.base_body_font,
         body_font_size: theme.base_body_font_size,
         body_line_height: body_line_height,
-        heading: heading_data.to_json
-      )
-
-      # Set text_box positioning via raw SQL to avoid Sequel column cache issues
-      db = db_doc.instance_variable_get(:@db)
-      extra_attrs = {
+        heading: heading_data.to_json,
         text_box_anchor_position: dd.effective_text_box_anchor_position,
         text_box_grid_width: dd.effective_text_box_grid_width,
-        text_box_grid_height: dd.effective_text_box_grid_height
-      }
-      if dd.page_bg_color.present? && db[:documents].columns.include?(:page_bg_color)
-        extra_attrs[:page_bg_color] = dd.page_bg_color
-      end
-      db[:documents].where(id: doc.id).update(extra_attrs)
+        text_box_grid_height: dd.effective_text_box_grid_height,
+        **({ page_bg_color: dd.page_bg_color } if dd.page_bg_color.present?)
+      )
     end
 
-    def populate_master_page(db_doc)
+    def populate_master_page(out)
       ps = paper_size
       dd = document_design
 
-      mp = db_doc.master_page
-      mp.update(
+      out.update_master(
         width: preview_page_width_pt,
         height: ps.height_pt,
         left_margin: ps.left_margin_pt,
@@ -366,7 +359,7 @@ module Design
       )
     end
 
-    def populate_heading_items(db_doc)
+    def populate_heading_items(out)
       elements = document_design.heading_elements.to_a
 
       # If no heading elements configured but using page heading renderer,
@@ -374,52 +367,35 @@ module Design
       placeholders = heading_placeholder
       if elements.empty? && resolved_doc_type.uses_page_heading?
         placeholders.each do |item_type, content|
-          DocProcessorRb::Database::Models::HeadingItem.create(
-            document_id: 1,
-            item_type: item_type,
-            item_content: content
-          )
+          out.add_heading_item(item_type, content)
         end
       elsif elements.empty? && document_design.heading_height_in_lines.to_i > 0
         # Chapter-like types with heading area but no heading elements:
         # add a default title so the heading zone isn't blank
-        DocProcessorRb::Database::Models::HeadingItem.create(
-          document_id: 1,
-          item_type: "title",
-          item_content: placeholders["title"] || FALLBACK_HEADING["title"]
-        )
+        out.add_heading_item("title", placeholders["title"] || FALLBACK_HEADING["title"])
       else
         elements.each do |el|
           content = placeholders[el.element_type] || el.element_type.capitalize
-          DocProcessorRb::Database::Models::HeadingItem.create(
-            document_id: 1,
-            item_type: el.element_type,
-            item_content: content
-          )
+          out.add_heading_item(el.element_type, content)
         end
       end
     end
 
-    def populate_paragraph_styles(db_doc)
+    def populate_paragraph_styles(out)
       # Clear default styles and insert merged styles from document_design
-      db_doc.instance_variable_get(:@db)[:paragraph_styles].delete
+      out.clear_styles
 
       merged = document_design.merged_paragraph_styles
       merged.each do |style|
         attrs = build_style_attrs(style)
 
-        DocProcessorRb::Database::Models::ParagraphStyle.create(
-          name: style.name,
-          display_name: style.korean_name || style.name,
-          attributes: attrs.to_json
-        )
+        out.add_style(name: style.name, display_name: style.korean_name || style.name, attributes: attrs.to_json)
       end
 
       # TitlePageRenderer looks up styles as h1/h2/h3/body, not title/subtitle/author/publisher.
       # Overwrite h1/h2/h3/body with heading element style values for title page types.
       if resolved_doc_type.uses_page_heading?
         style_aliases = { "title" => "h1", "subtitle" => "h2", "author" => "h3", "publisher" => "body" }
-        db = db_doc.instance_variable_get(:@db)
 
         style_aliases.each do |source_name, target_name|
           source = merged.find { |s| s.name == source_name }
@@ -428,18 +404,14 @@ module Design
           attrs = build_style_attrs(source, default_align: "center", first_line_indent: 0.0)
 
           # Delete existing style with this name, then create with heading element values
-          db[:paragraph_styles].where(name: target_name).delete
-          DocProcessorRb::Database::Models::ParagraphStyle.create(
-            name: target_name,
-            display_name: source.korean_name || target_name,
-            attributes: attrs.to_json
-          )
+          out.delete_style(target_name)
+          out.add_style(name: target_name, display_name: source.korean_name || target_name, attributes: attrs.to_json)
         end
       end
 
       # Ensure body style exists
       unless merged.any? { |s| s.name == "body" }
-        DocProcessorRb::Database::Models::ParagraphStyle.create(
+        out.add_style(
           name: "body",
           display_name: "Body Text",
           attributes: {
@@ -457,7 +429,7 @@ module Design
       end
     end
 
-    def populate_sample_blocks(db_doc)
+    def populate_sample_blocks(out)
       doc_type = resolved_doc_type
       seq = 1
 
@@ -467,7 +439,7 @@ module Design
       if doc_type.uses_page_heading? && document_design.heading_height_in_lines.to_i > 0
         document_design.heading_elements.each do |el|
           content = placeholders[el.element_type] || el.element_type.capitalize
-          db_doc.add_block(
+          out.add_block(
             sequence: seq,
             content: content,
             block_type: el.element_type
@@ -501,12 +473,12 @@ module Design
             h2_style = document_design.merged_paragraph_styles.find { |s| s.name == "h2" }
             lines_before = h2_style&.space_before_in_lines.to_i
             lines_before.times do
-              db_doc.add_block(sequence: seq, content: "", block_type: "body")
+              out.add_block(sequence: seq, content: "", block_type: "body")
               seq += 1
             end
           end
 
-          db_doc.add_block(
+          out.add_block(
             sequence: seq,
             content: text,
             block_type: block_type
@@ -516,7 +488,7 @@ module Design
       end
     end
 
-    def populate_toc_items(db_doc)
+    def populate_toc_items(out)
       return unless document_design.doc_type == "toc"
 
       content = sample_content
@@ -542,8 +514,7 @@ module Design
         page_num = parts[2].strip.to_i
 
         seq += 1
-        DocProcessorRb::Database::Models::TocItem.create(
-          document_id: 1,
+        out.add_toc_item(
           heading_level: level,
           title: title,
           page_number: page_num,
@@ -552,11 +523,8 @@ module Design
       end
     end
 
-    def populate_header_footer_slots(db_doc)
+    def populate_header_footer_slots(out)
       dd = document_design
-      db = db_doc.instance_variable_get(:@db)
-
-      return unless db.table_exists?(:header_footer_slots)
 
       slots = []
       if dd.has_header
@@ -576,8 +544,7 @@ module Design
       slots.each do |slot|
         next if slot[:content_string].blank?
 
-        db[:header_footer_slots].insert(
-          document_id: 1,
+        out.add_slot(
           slot_name: slot[:slot_name],
           y_offset: slot[:y_offset].to_f,
           x_offset: 0.0,
@@ -888,18 +855,21 @@ module Design
     # The host lays books out with DesignCraft (Design.config.designcraft), and this doc type with it.
     def designcraft? = Design.designcraft? && DESIGNCRAFT_DOC_TYPES.include?(document_design.doc_type)
 
-    # The design laid out by DesignCraft from the DB just populated, as the host prints books:
-    # the PDF, its page and heading backgrounds, and each page's overlays from where DesignCraft
-    # set the lines (the same rows doc_processor_rb records). The binding margin only in print
-    # mode, as doc_processor_rb applies it. Nil when it can't (logged): doc_processor_rb lays the
-    # design out instead, so a preview never goes missing.
-    def render_with_designcraft(db_path, pdf_path)
+    # The design laid out by DesignCraft, as the host prints books, from the preview's unit
+    # written as rows (DesignCraftRb::UnitRows: the rows the doc_processor_rb DB would hold,
+    # without one): the PDF, its page and heading backgrounds, and each page's overlays from where
+    # DesignCraft set the lines (the same rows doc_processor_rb records). The binding margin only
+    # in print mode, as doc_processor_rb applies it. Nil when it can't (logged): doc_processor_rb
+    # lays the design out instead, so a preview never goes missing.
+    def render_with_designcraft(pdf_path)
       require "designcraft_rb"
-      return render_cover_panel_with_designcraft(db_path, pdf_path) if DocumentDesign::COVER_PANEL_TYPES.include?(document_design.doc_type)
+      rows = DesignCraftRb::UnitRows.new
+      populate_database(rows)
+      return render_cover_panel_with_designcraft(rows, pdf_path) if DocumentDesign::COVER_PANEL_TYPES.include?(document_design.doc_type)
 
-      spec = DesignCraftRb::UnitSpec.from_doc_processor_db(db_path).to_h
+      spec = rows.to_spec(base_dir: File.dirname(pdf_path)).to_h
       spec["page"]["binding"] = 0 unless @print_mode
-      result = DesignCraftRb.render(DesignCraftRb::UnitSpec.new(spec, base_dir: File.dirname(db_path)), pdf: pdf_path,
+      result = DesignCraftRb.render(DesignCraftRb::UnitSpec.new(spec, base_dir: File.dirname(pdf_path)), pdf: pdf_path,
                                     font_dir: DocProcessorRb::DocLayout::Book::RendererChoice::FONT_DIR)
       untype_to_unicode_cmaps(pdf_path)
       @designcraft_pdf = true
@@ -915,12 +885,12 @@ module Design
     # A cover panel as the printed cover lays it out (designcraft_rb's Cover, book_write's cover):
     # one panel of a cover, no bleed, its page exported alone; the spine COVER_SPINE_MM wide, a flap
     # WING_FLAP_WIDTH_MM. Its overlays measured from the top, as the studio's are.
-    def render_cover_panel_with_designcraft(db_path, pdf_path)
+    def render_cover_panel_with_designcraft(rows, pdf_path)
       type = document_design.doc_type
       mm = Design::PaperSize::MM2PT
       cover = DesignCraftRb::DocProcessor::Cover.new(
         width: paper_size.width_pt, height: paper_size.height_pt, spine: COVER_SPINE_MM * mm,
-        flap: (WING_FLAP_WIDTH_MM * mm if wing?), bleed: 0, panels: { type => db_path },
+        flap: (WING_FLAP_WIDTH_MM * mm if wing?), bleed: 0, panels: { type => rows.rows },
         font_dir: DocProcessorRb::DocLayout::Book::RendererChoice::FONT_DIR, title: theme.name
       )
       DesignCraftRb::Client.open do |client|
@@ -1043,31 +1013,30 @@ module Design
 
     # Insert component-scoped sample blocks matching what book_write's cover
     # pipeline builds, so the wing renderers lay out real-looking content.
-    def populate_wing_blocks(db_doc)
-      db = db_doc.instance_variable_get(:@db)
-      document_design.doc_type == "back_wing" ? populate_back_wing_blocks(db) : populate_front_wing_blocks(db)
+    def populate_wing_blocks(out)
+      document_design.doc_type == "back_wing" ? populate_back_wing_blocks(out) : populate_front_wing_blocks(out)
     end
 
-    def populate_back_wing_blocks(db)
+    def populate_back_wing_blocks(out)
       sample = back_wing_sample
-      db[:paragraphs].insert(
-        document_id: 1, component: "back_wing", sequence: 0,
+      out.add_block(
+        component: "back_wing", sequence: 0,
         content: sample[:heading], block_type: "heading", markup: "back_wing.heading"
       )
       sample[:books].each_with_index do |book, idx|
-        db[:paragraphs].insert(
-          document_id: 1, component: "back_wing", sequence: idx + 1,
+        out.add_block(
+          component: "back_wing", sequence: idx + 1,
           content: book[:title], block_type: "promoted_item", markup: "back_wing.item",
           metadata: { description: book[:description], image_path: sample_cover_image(idx), from_book: true }.to_json
         )
       end
     end
 
-    def populate_front_wing_blocks(db)
+    def populate_front_wing_blocks(out)
       sample = front_wing_sample
       dd = document_design
-      db[:paragraphs].insert(
-        document_id: 1, component: "front_wing", sequence: 0,
+      out.add_block(
+        component: "front_wing", sequence: 0,
         content: sample[:name], block_type: "heading", markup: "front_wing.author_name",
         metadata: {
           image_path: sample_photo_image,
@@ -1077,8 +1046,8 @@ module Design
           photo_border_color: photo_border_hex(dd.photo_border_color)
         }.compact.to_json
       )
-      db[:paragraphs].insert(
-        document_id: 1, component: "front_wing", sequence: 1,
+      out.add_block(
+        component: "front_wing", sequence: 1,
         content: sample[:bio], block_type: "body", markup: "front_wing.author_bio"
       )
     end
@@ -1105,18 +1074,13 @@ module Design
     # Absent styles fall back to the renderers' own built-in defaults.
     WING_STYLE_SOURCES = { "heading" => "title", "title" => "title", "body" => "body" }.freeze
 
-    def populate_wing_styles(db_doc)
-      db = db_doc.instance_variable_get(:@db)
-      db[:paragraph_styles].delete
+    def populate_wing_styles(out)
+      out.clear_styles
       merged = document_design.merged_paragraph_styles.index_by(&:name)
       WING_STYLE_SOURCES.each do |bare_name, theme_name|
         style = merged[theme_name]
         next unless style
-        DocProcessorRb::Database::Models::ParagraphStyle.create(
-          name: bare_name,
-          display_name: bare_name,
-          attributes: build_style_attrs(style).to_json
-        )
+        out.add_style(name: bare_name, display_name: bare_name, attributes: build_style_attrs(style).to_json)
       end
     end
 

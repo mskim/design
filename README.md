@@ -31,8 +31,9 @@ host prints its books: the text pages (chapters and the like, poems, title pages
 and blank pages) and the cover panels (front, back, spine at a nominal 20 mm, the flaps) as the
 printed cover lays them out, the document cover (a title page on its page colour), and each
 table style's sample table, as the book's tables are drawn in that style. The host brings
-designcraft_rb and designcraft-cli. Any preview DesignCraft can't lay out falls back to
-doc_processor_rb.
+designcraft_rb and designcraft-cli. These previews build their unit in memory (no SQLite DB) and
+take no lock, so several render at once. Any preview DesignCraft can't lay out falls back to
+doc_processor_rb, which builds its DB and renders one at a time.
 
 The host owns the `design_*` migrations and the `design-controllers` importmap pin
 (`pin_all_from Design::Engine.root.join("app/javascript/design-controllers")`).

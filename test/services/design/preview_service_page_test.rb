@@ -15,7 +15,7 @@ class Design::PreviewServicePageTest < ActiveSupport::TestCase
     assert_in_delta @dd.body_line_height, svc.send(:build_style_attrs, style)[:line_height], 0.001
     Dir.mktmpdir do |dir|
       db = svc.send(:create_db_document, File.join(dir, "t.db"))
-      svc.send(:populate_document, db)
+      svc.send(:populate_document, Design::PreviewDbWriter.new(db))
       assert_in_delta @dd.body_line_height, db.document_info.body_line_height, 0.001
       db.close
     end

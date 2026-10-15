@@ -16,7 +16,7 @@ class Design::PreviewWingTest < ActiveSupport::TestCase
       svc.instance_variable_set(:@work_dir, dir)
       db_doc = DocProcessorRb::Database::DBDocument.new(path: File.join(dir, "t.db"), create_if_needed: true)
       db_doc.document_info # create the documents row the paragraphs FK references (populate_document does this in the real flow)
-      svc.send(:populate_wing_blocks, db_doc)
+      svc.send(:populate_wing_blocks, Design::PreviewDbWriter.new(db_doc))
 
       blocks = db_doc.blocks_for_component(component: "back_wing")
       assert_equal "heading", blocks.first.block_type
@@ -39,7 +39,7 @@ class Design::PreviewWingTest < ActiveSupport::TestCase
       svc.instance_variable_set(:@work_dir, dir)
       db_doc = DocProcessorRb::Database::DBDocument.new(path: File.join(dir, "t.db"), create_if_needed: true)
       db_doc.document_info # create the documents row the paragraphs FK references (populate_document does this in the real flow)
-      svc.send(:populate_wing_blocks, db_doc)
+      svc.send(:populate_wing_blocks, Design::PreviewDbWriter.new(db_doc))
 
       blocks = db_doc.blocks_for_component(component: "front_wing")
       name = blocks.find { |b| b.block_type == "heading" }
