@@ -84,12 +84,22 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     assert_equal [ %w[ paragraph body ] ], back[:pages].first[:overlay_data].map { it.values_at(:type, :markup) }
   end
 
-  test "the document cover stays with doc_processor_rb, and turning DesignCraft on is a new cache key" do
-    document_cover = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "document_cover"), paper_size: @ps)
-    chapter = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "chapter"), paper_size: @ps)
+  # The document cover's colour bleeds over the page, behind its title page; DesignCraft's PDFs need
+  # it painted under their content (their stream transforms first) and their CMaps untyped first.
+  test "a document cover's page colour lies under DesignCraft's page" do
+    designcraft_cli!
+    dd = @ps.document_designs.create!(doc_type: "document_cover", page_bg_color: "CMYK=0,10,30,0")
+    result = Design::PreviewService.new(dd, paper_size: @ps, live: true).generate
 
-    assert_not document_cover.send(:designcraft?)
-    assert chapter.send(:designcraft?)
+    assert result[:success], result[:error]
+    corner = Vips::Image.new_from_file(result[:jpg_path].to_s).getpoint(5, 5)
+    assert_operator corner[2], :<, 230, "the corner is the page colour, not white: #{corner.inspect}" # its blue channel
+    assert result[:pages].first[:overlay_data].any? { it[:type] == "heading_title" }
+  end
+
+  test "every doc type is DesignCraft's, and turning DesignCraft on is a new cache key" do
+    assert_empty Design::DocumentDesign::ALL_DOC_TYPES - Design::PreviewService::DESIGNCRAFT_DOC_TYPES
+    chapter = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "chapter"), paper_size: @ps)
     on = chapter.send(:cache_fingerprint)
     Design.config.designcraft = -> { false }
     assert_not_equal on, chapter.send(:cache_fingerprint)

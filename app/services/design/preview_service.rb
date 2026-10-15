@@ -625,24 +625,7 @@ module Design
       doc = HexaPDF::Document.open(pdf_path)
       # Every page carries the background, not just the first (the preview shows several).
       doc.pages.each do |page|
-        contents_ref = page[:Contents]
-
-        existing_stream = if contents_ref.is_a?(Array)
-          contents_ref.map { |ref| ref.stream }.join("\n")
-        else
-          contents_ref.stream
-        end
-
-        # Find where text content starts (first /F or BT command)
-        text_start = existing_stream.index(%r{^/F}m) || existing_stream.index(/^BT/m)
-        if text_start
-          new_stream = existing_stream[0...text_start] + bg_commands + existing_stream[text_start..]
-        else
-          new_stream = existing_stream + bg_commands
-        end
-
-        new_obj = doc.add({}, stream: new_stream)
-        page[:Contents] = new_obj
+        paint_behind(doc, page, bg_commands)
       end
 
       tmp_path = "#{pdf_path}.tmp"
@@ -748,14 +731,6 @@ module Design
 
       doc = HexaPDF::Document.open(pdf_path)
       page = doc.pages[0]
-      contents_ref = page[:Contents]
-
-      existing_stream = if contents_ref.is_a?(Array)
-        contents_ref.map { |ref| ref.stream }.join("\n")
-      else
-        contents_ref.stream
-      end
-
       # Insert heading bg BEFORE text commands (BT or /F) but AFTER page background
       c, m, y, k = color.map { |v| v / 100.0 }
       bg_commands = "q\n"
@@ -763,22 +738,33 @@ module Design
       bg_commands += "0 #{rect_y} #{ps.width_pt} #{rect_h} re\n"
       bg_commands += "f\nQ\n"
 
-      # Find where text content starts (first /F or BT command)
-      text_start = existing_stream.index(%r{^/F}m) || existing_stream.index(/^BT/m)
-      if text_start
-        new_stream = existing_stream[0...text_start] + bg_commands + existing_stream[text_start..]
-      else
-        new_stream = existing_stream + bg_commands
-      end
-
-      new_obj = doc.add({}, stream: new_stream)
-      page[:Contents] = new_obj
+      paint_behind(doc, page, bg_commands)
 
       tmp_path = "#{pdf_path}.tmp"
       doc.write(tmp_path)
       FileUtils.mv(tmp_path, pdf_path)
     rescue => e
       Rails.logger.error "inject_heading_background error: #{e.message}\n#{e.backtrace.first(3).join("\n")}"
+    end
+
+    BEHIND = "%behind\n" # ends what paint_behind drew under a DesignCraft page
+
+    # Draws `commands` (a q … Q block) under the page's content. doc_processor_rb's pages: before
+    # their text, after their white fill. DesignCraft's (@designcraft_pdf): first of all, in the
+    # page's own coordinates — its stream sets up its own transform before anything it draws —
+    # after whatever was painted behind it already, so a heading band lies over the page colour.
+    def paint_behind(doc, page, commands)
+      contents = page[:Contents]
+      existing = contents.is_a?(Array) ? contents.map(&:stream).join("\n") : contents.stream
+      stream = if @designcraft_pdf
+        at = existing.rindex(BEHIND)&.+(BEHIND.size) || 0
+        existing[0...at] + commands + BEHIND + existing[at..]
+      elsif (text_start = existing.index(%r{^/F}m) || existing.index(/^BT/m))
+        existing[0...text_start] + commands + existing[text_start..]
+      else
+        existing + commands
+      end
+      page[:Contents] = doc.add({}, stream: stream)
     end
 
     def parse_cmyk_color(color_str)
@@ -891,9 +877,10 @@ module Design
     # `pages` table, is the source of truth for the page count. The TOC renderer emits no
     # heading overlay, so synthesize one on page 1.
     # The doc types DesignCraft lays out (designcraft_rb's doc_processor_rb adapter). The cover
-    # panels, the wings and the document cover stay with doc_processor_rb.
+    # panels and the wings go through its Cover; the rest as units (a document cover is a title page
+    # on its page background, which inject_page_background paints).
     DESIGNCRAFT_DOC_TYPES = (DocumentDesign::BODY_FLOW_DOC_TYPES +
-                             %w[ poem title_page inside_cover part_cover thanks dedication toc copyright blank_page ] +
+                             %w[ poem title_page inside_cover part_cover thanks dedication toc copyright blank_page document_cover ] +
                              DocumentDesign::COVER_PANEL_TYPES).freeze
     # The studio has no page count to size a spine from: one as wide as a 300-page book's.
     COVER_SPINE_MM = 20
@@ -914,10 +901,13 @@ module Design
       spec["page"]["binding"] = 0 unless @print_mode
       result = DesignCraftRb.render(DesignCraftRb::UnitSpec.new(spec, base_dir: File.dirname(db_path)), pdf: pdf_path,
                                     font_dir: DocProcessorRb::DocLayout::Book::RendererChoice::FONT_DIR)
+      untype_to_unicode_cmaps(pdf_path)
+      @designcraft_pdf = true
       inject_page_background(pdf_path) if document_design.page_bg_color.present?
       inject_heading_background(pdf_path) if heading_bg_color_present?
       (1..MAX_PREVIEW_PAGES).map { |n| { jpg_path: page_jpg_path(n), overlay_data: result.overlays.fetch(n - 1, []) } }
     rescue StandardError, LoadError => e
+      @designcraft_pdf = false # doc_processor_rb lays it out: its own way of painting behind
       Rails.logger.error "Design::PreviewService DesignCraft #{document_design.doc_type} failed; laid out by doc_processor_rb: #{e.class}: #{e.message}"
       nil
     end
@@ -937,11 +927,29 @@ module Design
         cover.build(client)
         client.execute("file.exportPdf", path: pdf_path, pages: [ cover.types.index(type) + 1 ])
       end
+      untype_to_unicode_cmaps(pdf_path)
+      @designcraft_pdf = true
       inject_page_background(pdf_path) if document_design.page_bg_color.present?
       overlays = cover.overlays.select { it[:panel] == type }.map do |row|
         row.except(:panel).merge(y: paper_size.height_pt - row[:y] - row[:height], is_continuation: false)
       end
       [ { jpg_path: page_jpg_path(1), overlay_data: overlays } ]
+    end
+
+    # DesignCraft's PDF writer (krilla) gives its ToUnicode streams /Type /CMap but not the
+    # CMapName and CIDSystemInfo a typed CMap stream must have, and HexaPDF refuses to write the
+    # file, so the page and heading backgrounds failed to go in. A ToUnicode stream needs no type.
+    # (book_write's DesignCraftRenderer does the same.)
+    def untype_to_unicode_cmaps(pdf_path)
+      require "hexapdf"
+      HexaPDF::Document.open(pdf_path) do |doc|
+        cmaps = doc.each(only_current: false).select { |obj| obj.value.is_a?(Hash) && obj[:Type] == :CMap && !obj.key?(:CMapName) }
+        next if cmaps.empty?
+
+        cmaps.each { |obj| obj.delete(:Type) }
+        doc.write("#{pdf_path}.tmp", validate: false)
+        File.rename("#{pdf_path}.tmp", pdf_path)
+      end
     end
 
     def extract_pages_overlay_data(db_doc)
