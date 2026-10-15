@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/mskim/designcraft_rb.git
-  revision: b2fb0da73cb4c50650ecee9fc9644fd8b4386e47
+  revision: 98516a24d06b0bef1cbabeee00c0e07213eda604
   branch: main
   specs:
     designcraft_rb (0.2.0)
