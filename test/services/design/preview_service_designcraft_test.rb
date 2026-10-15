@@ -48,6 +48,17 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     end
   end
 
+  # The page-heading / text-box table the populate methods ask, copied from doc_processor_rb's
+  # DocumentType; pinned to it while it is installed.
+  test "every doc type's layout type answers as doc_processor_rb's DocumentType" do
+    require "doc_processor_rb/loader"
+    Design::DocumentDesign::ALL_DOC_TYPES.each do |type|
+      mine = Design::PreviewService.new(@ps.document_designs.create!(doc_type: type), paper_size: @ps).send(:resolved_doc_type)
+      engine = DocProcessorRb::DocumentTypes::DocumentType.new(mine.name)
+      assert_equal [ engine.uses_page_heading?, engine.needs_text_box? ], [ mine.uses_page_heading?, mine.needs_text_box? ], type
+    end
+  end
+
   test "a chapter is laid out by DesignCraft, its overlays where DesignCraft set the lines" do
     designcraft_cli!
     result = preview("chapter")

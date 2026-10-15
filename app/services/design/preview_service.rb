@@ -864,6 +864,17 @@ module Design
     COVER_SPINE_MM = 20
 
     # The host lays books out with DesignCraft (Design.config.designcraft), and this doc type with it.
+    # How a layout type sets its page, as doc_processor_rb's DocumentType table has it: title
+    # pages and covers centre a page heading; all but those and a blank page flow body text in a
+    # text box. KNOWN: the types the studio's doc types resolve to (resolved_doc_type).
+    LayoutType = Data.define(:name) do
+      def uses_page_heading? = PAGE_HEADING_TYPES.include?(name)
+      def needs_text_box? = !NO_TEXT_BOX_TYPES.include?(name)
+    end
+    LayoutType::KNOWN = %w[ chapter title_page poem copyright toc blank_page front_page back_page seneca front_wing back_wing ].freeze
+    PAGE_HEADING_TYPES = %w[ title_page part_cover document_cover front_page ].freeze
+    NO_TEXT_BOX_TYPES = (PAGE_HEADING_TYPES + %w[ blank_page ]).freeze
+
     def designcraft? = Design.designcraft? && DESIGNCRAFT_DOC_TYPES.include?(document_design.doc_type)
 
     # The design laid out by DesignCraft, as the host prints books, from the preview's unit
@@ -961,11 +972,7 @@ module Design
           document_design.doc_type
         end
 
-        unless DocProcessorRb::DocumentTypes::DocumentType.valid?(type_name)
-          type_name = "chapter"
-        end
-
-        DocProcessorRb::DocumentTypes::DocumentType.new(type_name)
+        LayoutType.new(LayoutType::KNOWN.include?(type_name) ? type_name : "chapter")
       end
     end
 
