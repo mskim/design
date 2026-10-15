@@ -26,10 +26,11 @@ Design.configure do |c|
 end
 ```
 
-With `designcraft` on, the previews of the text pages (chapters and the like, poems, title
-pages, TOC, copyright and blank pages) are laid out by DesignCraft through designcraft_rb, as
-the host prints its books; the host brings designcraft_rb and designcraft-cli. The cover panels,
-wings and document cover, and any preview DesignCraft can't lay out, stay with doc_processor_rb.
+With `designcraft` on, the previews are laid out by DesignCraft through designcraft_rb, as the
+host prints its books: the text pages (chapters and the like, poems, title pages, TOC, copyright
+and blank pages) and the cover panels (front, back, spine at a nominal 20 mm, the flaps) as the
+printed cover lays them out. The host brings designcraft_rb and designcraft-cli. The document
+cover, and any preview DesignCraft can't lay out, stay with doc_processor_rb.
 
 The host owns the `design_*` migrations and the `design-controllers` importmap pin
 (`pin_all_from Design::Engine.root.join("app/javascript/design-controllers")`).

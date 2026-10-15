@@ -63,11 +63,32 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     assert_operator result[:pages].first[:overlay_data].size, :>, 0
   end
 
-  test "a cover panel stays with doc_processor_rb, and turning DesignCraft on is a new cache key" do
-    front = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "front_page"), paper_size: @ps)
+  test "the cover panels are laid out as the printed cover: the front's heading measured from the top" do
+    designcraft_cli!
+    result = preview("front_page")
+
+    assert result[:success], result[:error]
+    title = result[:pages].first[:overlay_data].find { it[:type] == "heading_title" }
+    assert title, "the title's region"
+    assert_operator title[:y], :>, @ps.height_pt / 4 # centred down the page, as the printed front cover
+    assert_operator title[:y] + title[:height], :<, @ps.height_pt
+  end
+
+  test "the spine is a spine's width, the back page's text its copy" do
+    designcraft_cli!
+    spine = preview("seneca")
+    back = preview("back_page")
+
+    assert_in_delta Design::PreviewService::COVER_SPINE_MM * Design::PaperSize::MM2PT, spine[:page_width], 0.01
+    assert spine[:pages].first[:overlay_data].any? { it[:type] == "heading_title" }
+    assert_equal [ %w[ paragraph body ] ], back[:pages].first[:overlay_data].map { it.values_at(:type, :markup) }
+  end
+
+  test "the document cover stays with doc_processor_rb, and turning DesignCraft on is a new cache key" do
+    document_cover = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "document_cover"), paper_size: @ps)
     chapter = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "chapter"), paper_size: @ps)
 
-    assert_not front.send(:designcraft?)
+    assert_not document_cover.send(:designcraft?)
     assert chapter.send(:designcraft?)
     on = chapter.send(:cache_fingerprint)
     Design.config.designcraft = -> { false }

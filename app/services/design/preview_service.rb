@@ -893,7 +893,10 @@ module Design
     # The doc types DesignCraft lays out (designcraft_rb's doc_processor_rb adapter). The cover
     # panels, the wings and the document cover stay with doc_processor_rb.
     DESIGNCRAFT_DOC_TYPES = (DocumentDesign::BODY_FLOW_DOC_TYPES +
-                             %w[ poem title_page inside_cover part_cover thanks dedication toc copyright blank_page ]).freeze
+                             %w[ poem title_page inside_cover part_cover thanks dedication toc copyright blank_page ] +
+                             DocumentDesign::COVER_PANEL_TYPES).freeze
+    # The studio has no page count to size a spine from: one as wide as a 300-page book's.
+    COVER_SPINE_MM = 20
 
     # The host lays books out with DesignCraft (Design.config.designcraft), and this doc type with it.
     def designcraft? = Design.designcraft? && DESIGNCRAFT_DOC_TYPES.include?(document_design.doc_type)
@@ -905,6 +908,7 @@ module Design
     # design out instead, so a preview never goes missing.
     def render_with_designcraft(db_path, pdf_path)
       require "designcraft_rb"
+      return render_cover_panel_with_designcraft(db_path, pdf_path) if DocumentDesign::COVER_PANEL_TYPES.include?(document_design.doc_type)
 
       spec = DesignCraftRb::UnitSpec.from_doc_processor_db(db_path).to_h
       spec["page"]["binding"] = 0 unless @print_mode
@@ -916,6 +920,28 @@ module Design
     rescue StandardError, LoadError => e
       Rails.logger.error "Design::PreviewService DesignCraft #{document_design.doc_type} failed; laid out by doc_processor_rb: #{e.class}: #{e.message}"
       nil
+    end
+
+    # A cover panel as the printed cover lays it out (designcraft_rb's Cover, book_write's cover):
+    # one panel of a cover, no bleed, its page exported alone; the spine COVER_SPINE_MM wide, a flap
+    # WING_FLAP_WIDTH_MM. Its overlays measured from the top, as the studio's are.
+    def render_cover_panel_with_designcraft(db_path, pdf_path)
+      type = document_design.doc_type
+      mm = Design::PaperSize::MM2PT
+      cover = DesignCraftRb::DocProcessor::Cover.new(
+        width: paper_size.width_pt, height: paper_size.height_pt, spine: COVER_SPINE_MM * mm,
+        flap: (WING_FLAP_WIDTH_MM * mm if wing?), bleed: 0, panels: { type => db_path },
+        font_dir: DocProcessorRb::DocLayout::Book::RendererChoice::FONT_DIR, title: theme.name
+      )
+      DesignCraftRb::Client.open do |client|
+        cover.build(client)
+        client.execute("file.exportPdf", path: pdf_path, pages: [ cover.types.index(type) + 1 ])
+      end
+      inject_page_background(pdf_path) if document_design.page_bg_color.present?
+      overlays = cover.overlays.select { it[:panel] == type }.map do |row|
+        row.except(:panel).merge(y: paper_size.height_pt - row[:y] - row[:height], is_continuation: false)
+      end
+      [ { jpg_path: page_jpg_path(1), overlay_data: overlays } ]
     end
 
     def extract_pages_overlay_data(db_doc)
@@ -982,6 +1008,8 @@ module Design
     # Page width used for layout, the master page, and the overlay/aspect. Wings
     # render at the fixed flap width; every other doc_type uses the book page width.
     def preview_page_width_pt
+      return COVER_SPINE_MM * Design::PaperSize::MM2PT if document_design.doc_type == "seneca" && designcraft?
+
       wing? ? WING_FLAP_WIDTH_MM * Design::PaperSize::MM2PT : paper_size.width_pt
     end
 
