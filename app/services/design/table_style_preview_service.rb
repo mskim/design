@@ -48,7 +48,7 @@ module Design
                page: { width: 595.28, height: 200.0, margins: { top: 30, bottom: 30, inside: 30, outside: 30 }, line_height: 14 },
                styles: (body.empty? ? {} : { body: body }),
                blocks: [ { type: "table", rows: Design::TableStylePreviewSample::SAMPLE[:rows], style_hash: style_hash } ] }
-      DesignCraftRb.render(JSON.parse(spec.to_json), pdf: path, font_dir: DocProcessorRb::DocLayout::Book::RendererChoice::FONT_DIR)
+      DesignCraftRb.render(JSON.parse(spec.to_json), pdf: path)
       path
     rescue StandardError, LoadError => e
       Rails.logger.error "Design::TableStylePreviewService DesignCraft failed; SingleTablePdf draws it: #{e.class}: #{e.message}"

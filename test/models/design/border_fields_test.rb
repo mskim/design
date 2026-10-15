@@ -79,5 +79,10 @@ class Design::BorderFieldsTest < ActiveSupport::TestCase
     assert_equal "CMYK=0,0,0,50", attrs[:border_bottom_color]
     assert_equal "small", attrs[:corner_top_right]
     OLD.each { |f| refute attrs.key?(f.to_sym), f }
+  end  # The key lists the apps pass to the engines: doc_processor_rb's, while it is installed.
+  test "the border and legacy keys are the engines' BoxDecoration keys" do
+    require "doc_processor_rb/loader"
+    assert_equal DocProcessorRb::BoxDecoration::KEYS.sort, Design::ParagraphStyle::BORDER_KEYS.sort
+    assert_equal DocProcessorRb::BoxDecoration::LEGACY_KEYS.sort, Design::LegacyBorder::OLD_KEYS.sort
   end
 end

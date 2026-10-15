@@ -31,6 +31,9 @@ module Design
     BORDER_COLOR_FIELDS = %w[border_top_color border_right_color border_bottom_color border_left_color].freeze
     CORNER_FIELDS = %w[corner_top_left corner_top_right corner_bottom_right corner_bottom_left].freeze
     BORDER_FIELDS = (BORDER_THICKNESS_FIELDS + BORDER_COLOR_FIELDS + CORNER_FIELDS).freeze
+    # As symbols: the keys of the style attributes the layout engines read for a box's borders
+    # and corners (doc_processor_rb's BoxDecoration::KEYS, designcraft_rb's adapter).
+    BORDER_KEYS = BORDER_FIELDS.map(&:to_sym).freeze
     # Relative to the box's shorter side s (DocProcessorRb::BoxDecoration.radius):
     # small 6% (≥ 2 pt), medium 15% (≥ 4 pt), full s/2.
     CORNER_SIZES = %w[none small medium full].freeze

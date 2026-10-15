@@ -15,6 +15,7 @@ module Design
   # (there nil and 0 draw the same, so it need not tell unset from off).
   module LegacyBorder
     OLD_FIELDS = %w[border_thickness border_color border_side rounded_corners corner_radius].freeze
+    OLD_KEYS = OLD_FIELDS.map(&:to_sym).freeze # as the engines read them (BoxDecoration::LEGACY_KEYS)
     SIDES = %w[top right bottom left].freeze
     CORNERS = %w[top_left top_right bottom_right bottom_left].freeze
     NEW_FIELDS = (SIDES.map { |s| "border_#{s}_thickness" } + SIDES.map { |s| "border_#{s}_color" } +

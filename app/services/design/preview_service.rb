@@ -880,8 +880,7 @@ module Design
 
       spec = rows.to_spec(base_dir: File.dirname(pdf_path)).to_h
       spec["page"]["binding"] = 0 unless @print_mode
-      result = DesignCraftRb.render(DesignCraftRb::UnitSpec.new(spec, base_dir: File.dirname(pdf_path)), pdf: pdf_path,
-                                    font_dir: DocProcessorRb::DocLayout::Book::RendererChoice::FONT_DIR)
+      result = DesignCraftRb.render(DesignCraftRb::UnitSpec.new(spec, base_dir: File.dirname(pdf_path)), pdf: pdf_path)
       untype_to_unicode_cmaps(pdf_path)
       @designcraft_pdf = true
       inject_page_background(pdf_path) if document_design.page_bg_color.present?
@@ -902,7 +901,7 @@ module Design
       cover = DesignCraftRb::DocProcessor::Cover.new(
         width: paper_size.width_pt, height: paper_size.height_pt, spine: COVER_SPINE_MM * mm,
         flap: (WING_FLAP_WIDTH_MM * mm if wing?), bleed: 0, panels: { type => rows.rows },
-        font_dir: DocProcessorRb::DocLayout::Book::RendererChoice::FONT_DIR, title: theme.name
+        title: theme.name
       )
       DesignCraftRb::Client.open do |client|
         cover.build(client)
