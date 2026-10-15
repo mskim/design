@@ -135,4 +135,16 @@ class Design::PreviewServiceDesignCraftTest < ActiveSupport::TestCase
     Design.config.designcraft = -> { false }
     assert_not_equal on, chapter.send(:cache_fingerprint)
   end
+
+  test "a change to DesignCraft's layout is a new cache key" do
+    require "designcraft_rb"
+    chapter = Design::PreviewService.new(@ps.document_designs.create!(doc_type: "chapter"), paper_size: @ps)
+    was = DesignCraftRb.layout_digest
+    before = chapter.send(:cache_fingerprint)
+    DesignCraftRb.instance_variable_set(:@layout_digest, "0123456789abcdef")
+
+    assert_not_equal before, chapter.send(:cache_fingerprint)
+  ensure
+    DesignCraftRb.instance_variable_set(:@layout_digest, was)
+  end
 end

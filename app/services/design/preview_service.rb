@@ -210,7 +210,18 @@ module Design
       # Sub-second precision: two edits within the same second must not collide.
       parts = timestamps.map { |t| t.respond_to?(:iso8601) ? t.iso8601(6) : t.to_s }
       # The normal key is unchanged (existing caches stay warm); print mode adds a part.
-      parts + [ sample_content.fingerprint, (PRINT_CACHE_VERSION if @print_mode), ("designcraft" if designcraft?) ].compact
+      parts + [ sample_content.fingerprint, (PRINT_CACHE_VERSION if @print_mode), designcraft_cache_part ].compact
+    end
+
+    # DesignCraft's previews are redrawn when its layout changes (designcraft_rb's sources or
+    # designcraft-cli), not only when the design does.
+    def designcraft_cache_part
+      return unless designcraft?
+
+      require "designcraft_rb"
+      "designcraft-#{DesignCraftRb.layout_digest}"
+    rescue LoadError
+      "designcraft"
     end
 
     def cache_fingerprint = "#{CACHE_VERSION}:" + Digest::MD5.hexdigest(cache_fingerprint_parts.join("-"))
