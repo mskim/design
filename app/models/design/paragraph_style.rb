@@ -103,7 +103,7 @@ module Design
       return nil unless value.is_a?(Hash)
 
       value = value.transform_keys(&:to_s)
-      return DROPCAP_OFF.dup if [ false, "false", "0" ].include?(value["enabled"])
+      return DROPCAP_OFF.dup if ActiveModel::Type::Boolean.new.cast(value["enabled"]) == false
 
       out = {}
       %w[lines chars].each do |k|
@@ -115,6 +115,13 @@ module Design
         out[k] = ActiveModel::Type::Boolean.new.cast(value[k]) unless value[k].nil? || value[k] == ""
       end
       out.presence
+    end
+
+    # For comparison only: an enabled cap with its missing keys taken from DROPCAP_DEFAULT,
+    # so {"lines"=>2} equals the default. nil and the explicit off stay as they are.
+    def self.comparable_dropcap(value)
+      cap = normalize_dropcap(value)
+      cap.nil? || cap == DROPCAP_OFF ? cap : DROPCAP_DEFAULT.merge(cap)
     end
 
     # Only the style panel's field save asks for these (row.valid?(:style_panel));
@@ -136,7 +143,7 @@ module Design
     # tolerance, numeric values within it (inclusive) are equal.
     def self.same_value?(field, a, b, tolerance: 0)
       # The JSON type's cast alone would tell "2" from 2 and a JSON string from a Hash.
-      return normalize_dropcap(a) == normalize_dropcap(b) if field.to_s == "dropcap"
+      return comparable_dropcap(a) == comparable_dropcap(b) if field.to_s == "dropcap"
 
       type = type_for_attribute(field)
       ca = type.cast(a.is_a?(String) ? a.strip.presence : a)
@@ -209,11 +216,14 @@ module Design
       return if cap.nil? || cap == DROPCAP_OFF
 
       error = ->(key) { errors.add(:dropcap, I18n.t("design.style_panel.errors.dropcap_#{key}")) }
-      error.(:lines) unless DROPCAP_LINES.include?(cap.fetch("lines", DROPCAP_DEFAULT["lines"]))
-      error.(:chars) unless DROPCAP_CHARS.include?(cap.fetch("chars", DROPCAP_DEFAULT["chars"]))
+      error.(:lines) unless whole_in?(cap.fetch("lines", DROPCAP_DEFAULT["lines"]), DROPCAP_LINES)
+      error.(:chars) unless whole_in?(cap.fetch("chars", DROPCAP_DEFAULT["chars"]), DROPCAP_CHARS)
       error.(:color) if cap["color"] && !cap["color"].match?(COLOR)
       error.(:font) if cap["font"] && !allowed_dropcap_fonts.include?(cap["font"])
     end
+
+    # Range#include? on a numeric range is cover?, which a Float like 2.5 passes.
+    def whole_in?(n, range) = n.is_a?(Integer) && range.include?(n)
 
     def allowed_dropcap_fonts
       stored = self.class.normalize_dropcap(attribute_in_database("dropcap"))

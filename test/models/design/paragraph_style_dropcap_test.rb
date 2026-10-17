@@ -45,6 +45,32 @@ class Design::ParagraphStyleDropcapTest < ActiveSupport::TestCase
     assert_equal "0x2", PS.normalize_dropcap("lines" => "0x2")["lines"]
   end
 
+  test "normalize_dropcap: enabled is cast like the flags" do
+    [ 0, "0", "off", "false", false, "f" ].each do |v|
+      assert_equal({ "enabled" => false }, PS.normalize_dropcap("enabled" => v), v.inspect)
+    end
+  end
+
+  test "same_value? fills an enabled cap's missing keys from the default" do
+    assert PS.same_value?("dropcap", { "lines" => 2 }, PS::DROPCAP_DEFAULT)
+    assert PS.same_value?("dropcap", { "chars" => "1" }, '{"lines":2}')
+    refute PS.same_value?("dropcap", { "lines" => 3 }, PS::DROPCAP_DEFAULT)
+    refute PS.same_value?("dropcap", nil, PS::DROPCAP_DEFAULT)
+    refute PS.same_value?("dropcap", { "enabled" => false }, PS::DROPCAP_DEFAULT)
+    assert PS.same_value?("dropcap", { "enabled" => "off" }, { "enabled" => false })
+  end
+
+  test "style panel validation: fractional counts are not whole numbers" do
+    [ { "lines" => 2.5 }, '{"lines":2.5}' ].each do |v|
+      r = row(dropcap: v)
+      refute panel_valid?(r), v.inspect
+      assert_includes r.errors[:dropcap], I18n.t("design.style_panel.errors.dropcap_lines"), v.inspect
+    end
+    r = row(dropcap: { "lines" => 2, "chars" => 3.7 })
+    refute panel_valid?(r)
+    assert_includes r.errors[:dropcap], I18n.t("design.style_panel.errors.dropcap_chars")
+  end
+
   test "same_value? compares dropcap by its normalized form" do
     assert PS.same_value?("dropcap", { "lines" => 2 }, '{"lines":"2"}')
     refute PS.same_value?("dropcap", { "lines" => 2 }, { "lines" => 3 })
