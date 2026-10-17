@@ -188,13 +188,17 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     @forewords.each { |dd| assert_equal({ "lines" => 2, "chars" => 1, "align_left_edge" => true }, row_of(dd).dropcap) }
   end
 
-  test "dropcap: an out-of-range part is a 422, nothing written (the panel shows the message from Task 7)" do
+  test "dropcap: an out-of-range part is a 422, nothing written, the message under the row" do
+    @theme.base_paragraph_styles.create!(name: "body", font: "Base Font", font_size: 10)
     exports = count_exports do
-      stub_preview { patch field_path, params: "field=dropcap&value[lines]=9", headers: STREAM }
+      stub_preview { patch field_path(@fw, "body"), params: "field=dropcap&value[lines]=9", headers: STREAM }
     end
     assert_response :unprocessable_entity
-    assert_nil row_of(@fw)
+    assert_nil row_of(@fw, "body")
     assert_equal 0, exports
+    panel = stream_template("style-panel-content")
+    assert_equal I18n.t("design.style_panel.errors.dropcap_lines"), panel.at_css("[data-field-error='dropcap']")&.text
+    assert_equal "9", panel.at_css("[data-group='dropcap'] input[name='value[lines]']")["value"], "the attempted value"
   end
 
   test "dropcap: a JSON string value is normalised like the hash; a non-JSON string stores nothing" do

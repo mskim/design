@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { fieldFromName, keepsLocalValue, isDirty, LocalValueKeeper, dropStreamsFor, PANEL_TARGET,
          fieldMatcher, keepsUserAttribute, MENU, MARGIN_LINK, FIELD_PREFIX,
-         LINK_TOGGLE, LINK_BOX }
+         LINK_TOGGLE, LINK_BOX, HASH_BOX }
   from "../../app/javascript/design-controllers/design/style_panel_morph.js"
 
 // Stand-ins for the DOM pieces the rules read (no DOM in node).
@@ -173,4 +173,27 @@ test("LocalValueKeeper: a split control inside a box is decided by its own field
   assert.equal(keeper.keeps(saving), true)
   assert.equal(keeper.keeps(typing), true)
   assert.equal(keeper.keeps(unnamed), false, "a popover sub-field (no name) is never decided")
+})
+
+// A value[...] part of a hash field's box (the drop cap, Task 7): pending while the field is.
+function inHashBox(control, field = "dropcap") {
+  const box = { dataset: { hashField: field } }
+  return Object.assign(control, { closest: (sel) => sel === HASH_BOX ? box : null })
+}
+
+test("LocalValueKeeper keeps a hash field's part while it is dirty or the field's save is pending", () => {
+  let pending = false
+  const keeper = new LocalValueKeeper((f) => pending && f === "dropcap")
+  const typing = inHashBox(input("value[lines]", "2", "3"))
+  keeper.decide(typing)
+  assert.equal(keeper.keeps(typing), true)
+  const clean = inHashBox(input("value[lines]", "3", "3"))
+  keeper.decide(clean)
+  assert.equal(keeper.keeps(clean), false, "nothing pending: the morph updates it")
+  pending = true
+  keeper.decide(clean)
+  assert.equal(keeper.keeps(clean), true)
+  const outside = Object.assign(input("value[lines]", "2", "3"), { closest: () => null })
+  keeper.decide(outside)
+  assert.equal(keeper.keeps(outside), false, "a value[...] control outside a hash box is not the panel's")
 })

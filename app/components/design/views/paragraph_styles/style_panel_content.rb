@@ -10,6 +10,7 @@ module Design
       class StylePanelContent < Design::Views::Base
         include Design::Views::FieldGroups
         include BorderSection
+        include DropcapSection
 
         # Panel order; together exactly ParagraphStyle::STYLE_FIELDS (tested).
         SECTIONS = {
@@ -178,7 +179,7 @@ module Design
         # ── sections and fields ──
 
         def section(key, fields)
-          return if key == "dropcap" # not rendered yet (drop cap plan, Task 7)
+          return if key == "dropcap" && @name != "body" # spec decision 5: body only
 
           has_change = fields.intersect?(changed)
           details(open: (key == ALWAYS_OPEN || has_change), data: { section: key },
@@ -187,7 +188,15 @@ module Design
               plain I18n.t("design.style_panel.sections.#{key}")
               span(class: "h-1.5 w-1.5 rounded-full bg-blue-600", data: { section_dot: true }) if has_change
             end
-            div(class: "mt-2") { key == "border" ? border_section_body : rows { fields.each { |f| field(f) } } }
+            div(class: "mt-2") { section_body(key, fields) }
+          end
+        end
+
+        def section_body(key, fields)
+          case key
+          when "border" then border_section_body
+          when "dropcap" then dropcap_section_body
+          else rows { fields.each { |f| field(f) } }
           end
         end
 

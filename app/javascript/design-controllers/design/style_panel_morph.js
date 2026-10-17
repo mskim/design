@@ -14,6 +14,8 @@ export const MARGIN_LINK = "[data-margin-link]"
 // The style panel's 🔗 border/corner toggles (D5) and the boxes they switch.
 export const LINK_TOGGLE = "[data-link-toggle]"
 export const LINK_BOX = "[data-link-box]"
+// A hash field's box (the drop cap): its value[...] parts save as one field.
+export const HASH_BOX = "[data-hash-field]"
 
 // A name → field function for controls named <prefix>[<field>]
 // ("paragraph_style[font_size]" → "font_size"); anything else → null.
@@ -73,11 +75,12 @@ export class LocalValueKeeper {
   }
 
   // turbo:before-morph-element: only the panel's named controls — its fields,
-  // and a 🔗 row's linked control (paragraph_style_link[…], never a field),
-  // which is pending while any field of its group is.
+  // a 🔗 row's linked control (paragraph_style_link[…], never a field),
+  // which is pending while any field of its group is, and a hash field's
+  // parts, pending while that field is.
   decide(el) {
     const field = this.fieldOf(el?.name)
-    const fields = field ? [ field ] : linkRowFields(el)
+    const fields = field ? [ field ] : (linkRowFields(el) ?? hashBoxFields(el))
     if (!fields) return
     const pending = fields.some((f) => this.isPending(f))
     this.decisions.set(el, keepsLocalValue({ pending, dirty: isDirty(el) }))
@@ -94,6 +97,13 @@ function linkRowFields(el) {
   const row = el.closest?.("[data-link-fields]")
   if (!row) return null
   return String(row.dataset?.linkFields ?? "").split(/\s+/).filter(Boolean)
+}
+
+// The hash field whose box a named control sits in, as [field]; null outside one.
+function hashBoxFields(el) {
+  if (!el?.name) return null
+  const field = el.closest?.(HASH_BOX)?.dataset?.hashField
+  return field ? [ field ] : null
 }
 
 // Remove the <turbo-stream target="…"> elements aimed at `target` from a

@@ -1,8 +1,9 @@
 import { Controller } from "@hotwired/stimulus"
 import { StyleSaveQueue } from "design-controllers/design/style_save_queue"
-import { fieldMatcher, LocalValueKeeper, dropStreamsFor, keepsUserAttribute, PANEL_TARGET, FIELD_PREFIX, MENU, MARGIN_LINK }
+import { fieldMatcher, LocalValueKeeper, dropStreamsFor, keepsUserAttribute, PANEL_TARGET, FIELD_PREFIX, MENU, MARGIN_LINK,
+         HASH_BOX }
   from "design-controllers/design/style_panel_morph"
-import { saveJobs, partnerInput, jointFields, valuesFor, groupJobs, mirrorTargets } from "design-controllers/design/field_save_jobs"
+import { saveJobs, partnerInput, jointFields, valuesFor, groupJobs, mirrorTargets, hashValues, hashJobs } from "design-controllers/design/field_save_jobs"
 
 // Autosave for the paragraph style panel (D2b) and the Layout tab's Page
 // section (D3: margins, binding, body lines, columns). Each committed field
@@ -20,6 +21,8 @@ import { saveJobs, partnerInput, jointFields, valuesFor, groupJobs, mirrorTarget
 // A 🔗 border/corner row (the style panel, D5) writes or reverts its whole
 // group in one request; its toggle's state and its box's `data-linked`
 // survive morphs.
+// A hash field's box ([data-hash-field], the drop cap) saves its value[...]
+// parts as one field in one request; its × is the ordinary field revert.
 // Whether a control keeps its value is decided once per morphed element
 // (LocalValueKeeper). When the last request of a burst fails without a
 // stream, the preview is reloaded. Once the panel is gone (the frame moved
@@ -73,6 +76,8 @@ export default class extends Controller {
   // match the prefix: both ignored.
   fieldChanged(event) {
     const el = event.target
+    const hashBox = el?.name ? el.closest?.(HASH_BOX) : null
+    if (hashBox) return this.hashChanged(el, hashBox)
     const row = el?.closest?.("[data-link-fields]")
     if (row && !this.fieldOf(el?.name)) return this.groupChanged(el, row)
     const field = this.fieldOf(el?.name)
@@ -131,6 +136,16 @@ export default class extends Controller {
       }
     }
     this.enqueueAll(groupJobs({ group: row.dataset.linkGroup, fields, value, url: this.fieldUrlValue }))
+  }
+
+  // A part of a hash field's box: the whole hash in one request (on: the
+  // parts; off: enabled=false over a parent's value, else a revert).
+  hashChanged(el, box) {
+    if (el.disabled) return
+    const controls = box.querySelectorAll("[name]")
+    controls.forEach((control) => { if (control.type !== "hidden" && control.type !== "checkbox") markCommitted(control) })
+    this.enqueueAll(hashJobs({ field: box.dataset.hashField, values: hashValues(controls),
+                               parentOn: box.dataset.parentOn === "true", url: this.fieldUrlValue }))
   }
 
   // × on a 🔗 row: the group's four fields back to inherit, in one request.
@@ -197,6 +212,7 @@ export default class extends Controller {
     if (job.field) body.append("field", job.field)
     if (job.value !== undefined) body.append("value", job.value)
     if (job.values) for (const [ f, v ] of Object.entries(job.values)) body.append(`values[${f}]`, v)
+    if (job.hash) for (const [ k, v ] of Object.entries(job.hash)) body.append(`value[${k}]`, v)
     if (job.method === "DELETE" && job.fields) for (const f of job.fields) body.append("fields[]", f)
     if (this.previewModeValue) body.append("preview_mode", this.previewModeValue)
     body.append("render_preview", renderPreview ? "1" : "0")

@@ -510,6 +510,18 @@ en:
         heading_not_allowed: "This document type uses plain Markdown paragraphs, not a ```heading block."
         yaml: "Invalid YAML in the heading block: %{message}"
         toc: "Invalid TOC row: %{line} (expected ## level:title:page)"
+    dropcap:
+      title: "Drop cap"
+      enabled: "Drop cap on"
+      disabled: "Off"
+      lines: "Lines"
+      chars: "Characters"
+      font: "Font"
+      color: "Colour"
+      same_as_body: "Same as body"
+      align_left_edge: "Align to the left edge"
+      scale_descenders: "Scale descenders"
+      summary: "%{lines} lines · %{chars} chars"
     inputs:
       lines: "lines"
       inherit: "Inherit"

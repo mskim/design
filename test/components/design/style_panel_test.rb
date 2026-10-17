@@ -126,10 +126,15 @@ class Design::StylePanelTest < ActiveSupport::TestCase
   end
 
   test "each style field has exactly one named control" do
-    doc = content
-    Design::ParagraphStyle::STYLE_FIELDS.each do |f|
-      next if f == "dropcap" # its section is not rendered yet (drop cap plan, Task 7)
-      assert_equal 1, doc.css("[name='paragraph_style[#{f}]']").size, f
+    @theme.base_paragraph_styles.create!(name: "body", font: "Base Font", font_size: 10)
+    { "zz_body" => false, "body" => true }.each do |name, dropcap|
+      doc = content(@foreword, name)
+      Design::ParagraphStyle::STYLE_FIELDS.each do |f|
+        # dropcap is one hash field: its parts are value[...] in one row, on body only.
+        next assert_equal((dropcap ? 1 : 0), doc.css("[data-style-field='dropcap']").size, name) if f == "dropcap"
+        assert_equal 1, doc.css("[name='paragraph_style[#{f}]']").size, "#{name}: #{f}"
+      end
+      assert_equal dropcap, doc.at_css("[data-group='dropcap'] [name='value[lines]']").present?, name
     end
   end
 

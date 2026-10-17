@@ -8,10 +8,13 @@ module Design
       # placeholder: when the value is empty, a disabled, preselected first option
       # with this text (the style panel's linked corners show 혼합 / Mixed); the
       # ordinary inherit option follows it and stays choosable.
+      # inherit_label: the "" option's text instead of 상속 (the drop cap's
+      # font says 본문과 같게 / Same as body).
       class InheritSelect < Design::Views::Base
         CLASS = "#{Design::Views::FieldGroups::CONTROL} data-[inherited]:italic data-[inherited]:text-slate-400".freeze
 
-        def initialize(name:, value:, options:, inherited_value: nil, i18n_scope: nil, disabled: false, id: nil, placeholder: nil)
+        def initialize(name:, value:, options:, inherited_value: nil, i18n_scope: nil, disabled: false, id: nil, placeholder: nil,
+                       inherit_label: nil)
           @name = name
           @id = id || (self.class.default_id(name) if name.present?)
           @value = value.to_s.presence
@@ -20,6 +23,7 @@ module Design
           @i18n_scope = i18n_scope
           @disabled = disabled
           @placeholder = placeholder
+          @inherit_label = inherit_label
         end
 
         def view_template
@@ -36,6 +40,7 @@ module Design
         private
 
         def inherit_label
+          return @inherit_label if @inherit_label
           @inherited ? I18n.t("design.inputs.inherit_with_value", value: label_for(@inherited)) : I18n.t("design.inputs.inherit")
         end
 

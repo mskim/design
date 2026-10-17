@@ -510,6 +510,18 @@ ko:
         heading_not_allowed: "이 문서 유형은 ```heading 블록이 아니라 마크다운 문단을 사용합니다."
         yaml: "heading 블록의 YAML이 올바르지 않습니다: %{message}"
         toc: "잘못된 차례 행: %{line} (## 수준:제목:쪽 형식이어야 합니다)"
+    dropcap:
+      title: "드롭 캡"
+      enabled: "드롭 캡 사용"
+      disabled: "끔"
+      lines: "줄 수"
+      chars: "글자 수"
+      font: "글꼴"
+      color: "색"
+      same_as_body: "본문과 같게"
+      align_left_edge: "왼쪽 끝에 맞춤"
+      scale_descenders: "디센더까지 크기 맞춤"
+      summary: "%{lines}줄 · %{chars}자"
     inputs:
       lines: "줄"
       inherit: "상속"

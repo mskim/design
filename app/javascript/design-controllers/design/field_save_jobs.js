@@ -95,3 +95,32 @@ export function mirrorTargets(inputs, fieldOf, fields, value) {
     return field && fields.includes(field) && input.value !== value
   })
 }
+
+// A hash field (the drop cap, Task 7): its parts are controls named
+// value[<key>] in one [data-hash-field] box, saved together as one field.
+const HASH_PART = /^value\[([a-z_]+)\]$/
+
+// { key => trimmed value } read off the box's controls like a form submission:
+// an unticked checkbox sends nothing, so its hidden "0" (rendered first) stays.
+export function hashValues(controls) {
+  const values = {}
+  for (const control of controls) {
+    const match = HASH_PART.exec(control?.name ?? "")
+    if (!match || (control.type === "checkbox" && !control.checked)) continue
+    values[match[1]] = String(control.value ?? "").trim()
+  }
+  return values
+}
+
+// The request for a hash field's commit, keyed by the field (so it coalesces
+// with ×'s revert). On ("enabled" not "0"): PATCH the parts as value[...].
+// Off: PATCH value[enabled]=false when the parent has one to switch off
+// (parentOn), else revert the field.
+export function hashJobs({ field, values, parentOn, url }) {
+  const { enabled, ...parts } = values
+  if (enabled === "0") {
+    return parentOn ? [ { key: field, method: "PATCH", url, field, hash: { enabled: "false" } } ]
+                    : [ { key: field, method: "DELETE", url, field } ]
+  }
+  return [ { key: field, method: "PATCH", url, field, hash: parts } ]
+}

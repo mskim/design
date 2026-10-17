@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 import { saveJobs, partnerOf, partnerInput, LINKED_FIELDS, LINKED_KEY, jointFields, valuesFor, JOINT_KEY_PREFIX,
-         groupJobs, mirrorTargets, GROUP_KEY_PREFIX }
+         groupJobs, mirrorTargets, GROUP_KEY_PREFIX, hashValues, hashJobs }
   from "../../app/javascript/design-controllers/design/field_save_jobs.js"
 
 const url = "/p/field"
@@ -125,4 +125,27 @@ test("mirrorTargets: the group's split controls whose value differs, matched by 
                    { name: "paragraph_style[font_size]", value: "1" } ]
   assert.deepEqual(mirrorTargets(inputs, fieldOf, THICK, "2").map((i) => i.name),
                    [ "paragraph_style[border_top_thickness]" ])
+})
+
+// Drop cap (Task 7): one hash field, its parts named value[...].
+const checkbox = (key, checked) => [ { name: `value[${key}]`, type: "hidden", value: "0" },
+                                     { name: `value[${key}]`, type: "checkbox", value: "1", checked } ]
+
+test("hashValues reads value[...] controls like a form submission (hidden 0 then the checkbox)", () => {
+  const controls = [ ...checkbox("enabled", true), { name: "value[lines]", type: "text", value: " 3 " },
+                     { name: "value[font]", type: "select-one", value: "" }, ...checkbox("scale_descenders", false),
+                     { name: "paragraph_style[font]", type: "text", value: "x" }, { name: undefined, value: "y" } ]
+  assert.deepEqual(hashValues(controls), { enabled: "1", lines: "3", font: "", scale_descenders: "0" })
+})
+
+test("hashJobs: on sends the parts (not enabled) as one PATCH keyed by the field", () => {
+  assert.deepEqual(hashJobs({ field: "dropcap", values: { enabled: "1", lines: "2", chars: "1" }, parentOn: false, url }),
+                   [ { key: "dropcap", method: "PATCH", url, field: "dropcap", hash: { lines: "2", chars: "1" } } ])
+})
+
+test("hashJobs: off writes enabled=false over a parent's cap, else reverts the field", () => {
+  assert.deepEqual(hashJobs({ field: "dropcap", values: { enabled: "0", lines: "2" }, parentOn: true, url }),
+                   [ { key: "dropcap", method: "PATCH", url, field: "dropcap", hash: { enabled: "false" } } ])
+  assert.deepEqual(hashJobs({ field: "dropcap", values: { enabled: "0", lines: "2" }, parentOn: false, url }),
+                   [ { key: "dropcap", method: "DELETE", url, field: "dropcap" } ])
 })
