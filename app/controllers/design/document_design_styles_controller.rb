@@ -54,13 +54,14 @@ module Design
 
     # PATCH styles/:name/field (field, value). The value is validated on the
     # row it lands on for this size (existing or new); a failure writes nothing.
-    # Only a string (or nothing) is a value: value[]= / value[a]= are a 400.
+    # Only a string (or nothing) is a value: value[]= / value[a]= are a 400 —
+    # except dropcap, whose value[lines]= … parts are one Hash, normalised here.
     def update_field
       return update_group if params.key?(:values)
-      value = params[:value]
-      return head(:bad_request) unless value.nil? || value.is_a?(String)
+      value = field_value
+      return head(:bad_request) if value == :invalid
       row = target_row
-      row[field] = value&.strip
+      row[field] = value.is_a?(String) ? value.strip : value
       return render_invalid_field(row, value) unless row.valid?(:style_panel)
 
       @document_design.set_style_field!(style_name, field, value)
@@ -120,9 +121,17 @@ module Design
         Design::ParagraphStyle.new(styleable: @document_design, name: style_name)
     end
 
+    # The PATCH value: a String or nil; for dropcap a normalised Hash (nil when
+    # blank, so it reverts); :invalid for any other non-String.
+    def field_value
+      value = params[:value]
+      return Design::ParagraphStyle.normalize_dropcap(value) if field == "dropcap" && value.is_a?(ActionController::Parameters)
+      value.nil? || value.is_a?(String) ? value : :invalid
+    end
+
     def render_invalid_field(row, value)
       messages = row.errors[field].presence || row.errors.full_messages
-      render turbo_stream: panel_streams(field_errors: { field => messages }, attempted: { field => value.to_s }),
+      render turbo_stream: panel_streams(field_errors: { field => messages }, attempted: { field => value.is_a?(Hash) ? value.to_json : value.to_s }),
              status: :unprocessable_entity
     end
 

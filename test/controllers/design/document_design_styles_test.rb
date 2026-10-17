@@ -180,6 +180,36 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     assert_nil row_of(@fw)
   end
 
+  test "dropcap: a value hash saves as one field on every size" do
+    stub_preview do
+      patch field_path, params: "field=dropcap&value[lines]=2&value[chars]=1&value[align_left_edge]=1", headers: STREAM
+    end
+    assert_response :success
+    @forewords.each { |dd| assert_equal({ "lines" => 2, "chars" => 1, "align_left_edge" => true }, row_of(dd).dropcap) }
+  end
+
+  test "dropcap: an out-of-range part is a 422, nothing written (the panel shows the message from Task 7)" do
+    exports = count_exports do
+      stub_preview { patch field_path, params: "field=dropcap&value[lines]=9", headers: STREAM }
+    end
+    assert_response :unprocessable_entity
+    assert_nil row_of(@fw)
+    assert_equal 0, exports
+  end
+
+  test "dropcap: enabled=false stores the explicit off over an enabled base cap" do
+    @base.update!(dropcap: Design::ParagraphStyle::DROPCAP_DEFAULT)
+    stub_preview { patch field_path, params: "field=dropcap&value[enabled]=false", headers: STREAM }
+    assert_response :success
+    @forewords.each { |dd| assert_equal({ "enabled" => false }, row_of(dd).dropcap) }
+  end
+
+  test "a value hash for any other field is still a 400" do
+    patch field_path, params: "field=font&value[lines]=2", headers: STREAM
+    assert_response :bad_request
+    assert_nil row_of(@fw)
+  end
+
   test "a select value outside the panel's options is a 422; a listed one saves" do
     exports = count_exports do
       stub_preview { patch field_path, params: { field: "text_align", value: "banana" }, headers: STREAM }
