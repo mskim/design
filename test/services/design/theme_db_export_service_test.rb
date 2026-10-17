@@ -109,7 +109,7 @@ class Design::ThemeDbExportServiceTest < ActiveSupport::TestCase
 
     db = SQLite3::Database.new(path)
     capped = db.get_first_value("SELECT dropcap FROM paragraph_styles WHERE name = 'zz_capped'")
-    assert_equal cap, JSON.parse(capped).slice(*cap.keys)
+    assert_equal cap, JSON.parse(capped)
     assert_nil db.get_first_value("SELECT dropcap FROM paragraph_styles WHERE name = 'zz_plain'")
   ensure
     db&.close

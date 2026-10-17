@@ -225,7 +225,7 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     file = dropcap_file(4, dropcap: { "lines" => 3 }.to_json)
     theme = Design::ThemeImportService.new(file.path).import!
     cap = theme.base_paragraph_styles.find_by(name: "body").dropcap
-    assert_equal 3, cap["lines"]
+    assert_equal({ "lines" => 3 }, cap)
   ensure
     file&.close!
   end
@@ -245,5 +245,17 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     end
   ensure
     file&.close!
+  end
+
+  test "an explicit off survives the render .db JSON and re-imports as DROPCAP_OFF" do
+    off = Design::ParagraphStyle::DROPCAP_OFF
+    theme = Design::Theme.create!(name: "Off #{SecureRandom.hex(3)}", locale: "ko")
+    theme.base_paragraph_styles.create!(name: "body", dropcap: off)
+    path = Design::ThemeDbExportService.new(theme).export!
+    json = SQLite3::Database.new(path).get_first_value("SELECT dropcap FROM paragraph_styles WHERE name = 'body'")
+    assert_equal off, JSON.parse(json)
+    assert_equal off, Design::ParagraphStyle.normalize_dropcap(json)
+  ensure
+    File.delete(path) if path && File.exist?(path)
   end
 end

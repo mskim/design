@@ -98,6 +98,7 @@ module Design
     # on chapter must not reach foreword, prologue, appendix … (spec decision 4).
     CHAPTER_LOCAL_FIELDS = %w[dropcap].freeze
 
+    # An enabled cap is stored without an "enabled" key; consumers treat any non-nil hash without enabled:false as on.
     # The canonical dropcap Hash (string keys, integer counts, boolean flags, blank font/colour
     # and unknown keys dropped) from a Hash, ActionController::Parameters or JSON string;
     # nil for blank. A count that is not a whole number stays as given so validation reports it.
