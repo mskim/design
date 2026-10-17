@@ -222,6 +222,26 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     @forewords.each { |dd| assert_equal({ "enabled" => false }, row_of(dd).dropcap) }
   end
 
+  test "dropcap: switching back on over an explicit off, with the parent's parts, reverts (chapter and foreword)" do
+    body = @theme.base_paragraph_styles.create!(name: "body", font: "Base Font", font_size: 10,
+                                                dropcap: { "lines" => 3, "chars" => 1 })
+    cap = Design::ParagraphStyle::DROPCAP_DEFAULT.merge(body.dropcap)
+    # what the panel sends: every part, flags as "1"/"0", blank font and colour
+    parts = cap.merge("font" => "", "color" => "").transform_values { |v| v == true ? "1" : v == false ? "0" : v.to_s }
+    [ @chapters, @forewords ].each do |dds|
+      dds.each do |dd|
+        dd.paragraph_styles.create!(name: "body", dropcap: Design::ParagraphStyle::DROPCAP_OFF, overridden_fields: [ "dropcap" ])
+      end
+      stub_preview { patch field_path(dds.first, "body"), params: { field: "dropcap", value: parts }, headers: STREAM }
+      assert_response :success
+      dds.each do |dd|
+        row = row_of(dd, "body")
+        assert_nil row&.dropcap, dd.doc_type
+        refute_includes Array(row&.overridden_fields), "dropcap", dd.doc_type
+      end
+    end
+  end
+
   test "a value hash for any other field is still a 400" do
     patch field_path, params: "field=font&value[lines]=2", headers: STREAM
     assert_response :bad_request

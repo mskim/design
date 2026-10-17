@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { StyleSaveQueue } from "design-controllers/design/style_save_queue"
 import { fieldMatcher, LocalValueKeeper, dropStreamsFor, keepsUserAttribute, PANEL_TARGET, FIELD_PREFIX, MENU, MARGIN_LINK,
-         HASH_BOX }
+         HASH_BOX, LOCAL_ATTRIBUTES }
   from "design-controllers/design/style_panel_morph"
 import { saveJobs, partnerInput, jointFields, valuesFor, groupJobs, mirrorTargets, hashValues, hashJobs } from "design-controllers/design/field_save_jobs"
 
@@ -143,7 +143,7 @@ export default class extends Controller {
   hashChanged(el, box) {
     if (el.disabled) return
     const controls = box.querySelectorAll("[name]")
-    controls.forEach((control) => { if (control.type !== "hidden" && control.type !== "checkbox") markCommitted(control) })
+    controls.forEach((control) => { if (control.type !== "hidden") markCommitted(control) })
     this.enqueueAll(hashJobs({ field: box.dataset.hashField, values: hashValues(controls),
                                parentOn: box.dataset.parentOn === "true", url: this.fieldUrlValue }))
   }
@@ -185,14 +185,14 @@ export default class extends Controller {
 
   ignoreSubmit(event) { event.preventDefault() }
 
-  // turbo:before-morph-attribute (value/selected: from the decision decideLocalValue
+  // turbo:before-morph-attribute (value/selected/checked: from the decision decideLocalValue
   // took on turbo:before-morph-element, before this element's attributes changed).
   keepLocalState(event) {
     const el = event.target
     const { attributeName } = event.detail
     // <details>' open, the ▾ menu the user opened, the margin link's state.
     if (keepsUserAttribute(el, attributeName)) { event.preventDefault(); return }
-    if (attributeName !== "value" && attributeName !== "selected") return
+    if (!LOCAL_ATTRIBUTES.includes(attributeName)) return
     const control = el.tagName === "OPTION" ? el.closest("select") : el
     // Not focus-based: a scrub-drag changes the value without focusing the input.
     if (control && this.keeper.keeps(control)) event.preventDefault()
@@ -294,6 +294,8 @@ function closeMenu(event) {
 function markCommitted(el) {
   if (el instanceof HTMLSelectElement) {
     for (const option of el.options) option.toggleAttribute("selected", option.selected)
+  } else if (el.type === "checkbox") {
+    el.toggleAttribute("checked", el.checked)
   } else {
     el.setAttribute("value", el.value)
   }

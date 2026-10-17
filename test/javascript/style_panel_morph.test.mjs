@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { fieldFromName, keepsLocalValue, isDirty, LocalValueKeeper, dropStreamsFor, PANEL_TARGET,
          fieldMatcher, keepsUserAttribute, MENU, MARGIN_LINK, FIELD_PREFIX,
-         LINK_TOGGLE, LINK_BOX, HASH_BOX }
+         LINK_TOGGLE, LINK_BOX, HASH_BOX, LOCAL_ATTRIBUTES }
   from "../../app/javascript/design-controllers/design/style_panel_morph.js"
 
 // Stand-ins for the DOM pieces the rules read (no DOM in node).
@@ -196,4 +196,36 @@ test("LocalValueKeeper keeps a hash field's part while it is dirty or the field'
   const outside = Object.assign(input("value[lines]", "2", "3"), { closest: () => null })
   keeper.decide(outside)
   assert.equal(keeper.keeps(outside), false, "a value[...] control outside a hash box is not the panel's")
+})
+
+// A checkbox part: `checked` (the property) against its committed `checked` attribute.
+function checkbox(name, committed, checked) {
+  const attrs = new Map(committed ? [ [ "checked", "" ] ] : [])
+  return { tagName: "INPUT", type: "checkbox", name, value: "1", checked,
+           getAttribute: (n) => n === "value" ? "1" : (attrs.get(n) ?? null), hasAttribute: (n) => attrs.has(n) }
+}
+
+test("isDirty: a checkbox is dirty when its ticked state differs from its committed checked attribute", () => {
+  assert.equal(isDirty(checkbox("value[enabled]", false, true)), true)
+  assert.equal(isDirty(checkbox("value[enabled]", true, false)), true)
+  assert.equal(isDirty(checkbox("value[enabled]", true, true)), false)
+})
+
+test("LocalValueKeeper keeps a hash box's checkbox while it is dirty or the field's save is pending", () => {
+  let pending = false
+  const keeper = new LocalValueKeeper((f) => pending && f === "dropcap")
+  const ticked = inHashBox(checkbox("value[enabled]", false, true))
+  keeper.decide(ticked)
+  assert.equal(keeper.keeps(ticked), true)
+  const clean = inHashBox(checkbox("value[enabled]", true, true))
+  keeper.decide(clean)
+  assert.equal(keeper.keeps(clean), false)
+  pending = true
+  keeper.decide(clean)
+  assert.equal(keeper.keeps(clean), true, "an older response must not untick it")
+})
+
+test("LOCAL_ATTRIBUTES: value, selected and checked are the attributes a kept control holds", () => {
+  for (const a of [ "value", "selected", "checked" ]) assert.equal(LOCAL_ATTRIBUTES.includes(a), true, a)
+  assert.equal(LOCAL_ATTRIBUTES.includes("disabled"), false)
 })

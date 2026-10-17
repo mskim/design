@@ -50,9 +50,14 @@ export function keepsLocalValue({ pending, dirty }) {
   return pending || dirty
 }
 
+// The attributes a kept control's morph leaves alone (its local state).
+export const LOCAL_ATTRIBUTES = [ "value", "selected", "checked" ]
+
 // The control's value differs from its committed state: the `value`
-// attribute, or a select's option[selected] (the first option when none is).
+// attribute, a select's option[selected] (the first option when none is), or
+// a checkbox's `checked` attribute (a hash box's parts, the drop cap).
 export function isDirty(control) {
+  if (control.type === "checkbox") return control.hasAttribute("checked") !== control.checked
   if (control.tagName === "SELECT") {
     const marked = control.querySelector("option[selected]") ?? control.options[0]
     return (marked?.value ?? "") !== control.value

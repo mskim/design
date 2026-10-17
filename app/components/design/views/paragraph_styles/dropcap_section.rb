@@ -62,6 +62,7 @@ module Design
 
         def dropcap_checkbox(key, checked, label_text, disabled:)
           label(class: "flex items-center gap-2 text-sm text-slate-700") do
+            # Enabled even while its checkbox is off: hashValues reads every part on purpose.
             input(type: "hidden", name: dropcap_name(key), value: "0", disabled: (true unless @editable))
             input(type: "checkbox", name: dropcap_name(key), value: "1", checked: (true if checked),
                   class: "rounded border-slate-300", disabled: (true if disabled))
