@@ -207,4 +207,43 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
   ensure
     file&.close!
   end
+
+  def dropcap_file(version, dropcap: nil)
+    file = Tempfile.new([ "dc", ".book_design" ])
+    FileUtils.cp(FIXTURE, file.path)
+    db = SQLite3::Database.new(file.path)
+    if dropcap
+      db.execute("ALTER TABLE paragraph_styles ADD COLUMN dropcap TEXT")
+      db.execute("UPDATE paragraph_styles SET dropcap = ? WHERE styleable_type = 'theme' AND name = 'body'", [ dropcap ])
+    end
+    db.execute("UPDATE metadata SET value = ? WHERE key = 'schema_version'", [ version.to_s ])
+    db.close
+    file
+  end
+
+  test "a v4 file's dropcap imports as the canonical hash" do
+    file = dropcap_file(4, dropcap: { "lines" => 3 }.to_json)
+    theme = Design::ThemeImportService.new(file.path).import!
+    cap = theme.base_paragraph_styles.find_by(name: "body").dropcap
+    assert_equal 3, cap["lines"]
+  ensure
+    file&.close!
+  end
+
+  test "a v3 file without the column imports with no dropcap" do
+    file = dropcap_file(3)
+    theme = Design::ThemeImportService.new(file.path).import!
+    assert_nil theme.base_paragraph_styles.find_by(name: "body").dropcap
+  ensure
+    file&.close!
+  end
+
+  test "a v5 file is rejected" do
+    file = dropcap_file(5)
+    assert_raises(Design::ThemeImportService::UnsupportedSchemaVersion) do
+      Design::ThemeImportService.new(file.path).import!
+    end
+  ensure
+    file&.close!
+  end
 end

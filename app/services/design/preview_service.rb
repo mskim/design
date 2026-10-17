@@ -598,6 +598,9 @@ module Design
         fill_color: style.fill_color,
         fill_ending_color: style.fill_ending_color,
         fill_gradient_direction: style.fill_gradient_direction,
+        # Every style gets the key (this method is shared); designcraft_rb reads
+        # it from the `body` style only, so on the others it is inert.
+        dropcap: style.dropcap,
         **Design::ParagraphStyle::BORDER_FIELDS.to_h do |f|
           value = style[f]
           [ f.to_sym, value.is_a?(BigDecimal) ? value.to_f : value ]

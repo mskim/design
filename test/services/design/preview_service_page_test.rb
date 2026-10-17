@@ -58,4 +58,17 @@ class Design::PreviewServicePageTest < ActiveSupport::TestCase
     assert_equal "v5", Design::PreviewService::CACHE_VERSION
     assert Design::PreviewService.new(@dd, paper_size: @ps).send(:cache_fingerprint).start_with?("v5:")
   end
+
+  test "a capped chapter body carries dropcap in its style attrs; a foreword, whose cap is chapter-only, does not" do
+    cap = { "lines" => 3 }
+    @dd.paragraph_styles.create!(name: "body", dropcap: cap)
+    attrs = ->(dd) do
+      style = dd.merged_paragraph_styles.find { it.name == "body" }
+      Design::PreviewService.new(dd, paper_size: @ps).send(:build_style_attrs, style)
+    end
+    assert_equal 3, attrs.(@dd)[:dropcap]["lines"]
+
+    foreword = @ps.document_designs.create!(doc_type: "foreword")
+    assert_nil attrs.(foreword)[:dropcap]
+  end
 end

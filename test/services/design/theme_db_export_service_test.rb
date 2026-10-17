@@ -99,4 +99,20 @@ class Design::ThemeDbExportServiceTest < ActiveSupport::TestCase
   ensure
     File.delete(path) if path && File.exist?(path)
   end
+
+  test "the render db carries dropcap as JSON text, NULL when a style has none" do
+    theme = Design::Theme.create!(name: "Exp3 #{SecureRandom.hex(3)}", locale: "ko")
+    cap = { "lines" => 3 }
+    theme.base_paragraph_styles.create!(name: "zz_capped", dropcap: cap)
+    theme.base_paragraph_styles.create!(name: "zz_plain")
+    path = Design::ThemeDbExportService.new(theme).export!
+
+    db = SQLite3::Database.new(path)
+    capped = db.get_first_value("SELECT dropcap FROM paragraph_styles WHERE name = 'zz_capped'")
+    assert_equal cap, JSON.parse(capped).slice(*cap.keys)
+    assert_nil db.get_first_value("SELECT dropcap FROM paragraph_styles WHERE name = 'zz_plain'")
+  ensure
+    db&.close
+    File.delete(path) if path && File.exist?(path)
+  end
 end

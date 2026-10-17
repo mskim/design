@@ -98,6 +98,7 @@ module Design
           border_top_color TEXT, border_right_color TEXT, border_bottom_color TEXT, border_left_color TEXT,
           corner_top_left TEXT, corner_top_right TEXT, corner_bottom_right TEXT, corner_bottom_left TEXT,
           padding_top REAL, padding_bottom REAL,
+          dropcap TEXT,
           vertical_align TEXT,
           created_at DATETIME, updated_at DATETIME
         );
@@ -220,6 +221,7 @@ module Design
         *Design::ParagraphStyle::BORDER_COLOR_FIELDS.map { |f| style[f] },
         *Design::ParagraphStyle::CORNER_FIELDS.map { |f| style[f] },
         f(style.padding_top), f(style.padding_bottom),
+        style.dropcap&.to_json,
         style.vertical_align,
         style.created_at&.iso8601, style.updated_at&.iso8601 ]
       db.execute("INSERT INTO paragraph_styles VALUES (#{([ '?' ] * values.size).join(', ')})", values)

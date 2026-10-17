@@ -2,7 +2,7 @@ require "sqlite3"
 
 module Design
   class ThemeImportService
-    SUPPORTED_SCHEMA_VERSION = 3
+    SUPPORTED_SCHEMA_VERSION = 4
     class UnsupportedSchemaVersion < StandardError; end
 
     def self.import_all(dir = Rails.root.join("db/themes_source"))
@@ -162,6 +162,7 @@ module Design
         fill_type: row["fill_type"], fill_color: row["fill_color"],
         fill_ending_color: row["fill_ending_color"], fill_gradient_direction: row["fill_gradient_direction"],
         **border_attrs(row),
+        **dropcap_attrs(row),
         padding_top: row["padding_top"], padding_bottom: row["padding_bottom"]
       }
     end
@@ -172,6 +173,13 @@ module Design
     def border_attrs(row)
       return {} unless row.key?("border_top_thickness")
       Design::ParagraphStyle::BORDER_FIELDS.to_h { |f| [ f.to_sym, row[f] ] }
+    end
+
+    # The drop cap hash from a v4 file; a file written before v4 has no such
+    # column, so the style keeps whatever it has (nil = inherit).
+    def dropcap_attrs(row)
+      return {} unless row.key?("dropcap")
+      { dropcap: Design::ParagraphStyle.normalize_dropcap(row["dropcap"]) }
     end
 
     # A pre-D5 row's old five border values, keyed by the imported record's id.
