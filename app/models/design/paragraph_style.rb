@@ -94,6 +94,10 @@ module Design
     DROPCAP_DEFAULT = { "lines" => 2, "chars" => 1, "align_left_edge" => true, "scale_descenders" => false }.freeze
     DROPCAP_OFF = { "enabled" => false }.freeze
 
+    # Fields a doc type inherits from the theme base only, never from chapter: a cap set
+    # on chapter must not reach foreword, prologue, appendix … (spec decision 4).
+    CHAPTER_LOCAL_FIELDS = %w[dropcap].freeze
+
     # The canonical dropcap Hash (string keys, integer counts, boolean flags, blank font/colour
     # and unknown keys dropped) from a Hash, ActionController::Parameters or JSON string;
     # nil for blank. A count that is not a whole number stays as given so validation reports it.

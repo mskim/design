@@ -374,17 +374,19 @@ module Design
     end
 
     # Resolved style values this design inherits for `name` (its parent):
-    # theme base for chapter; theme base → chapter for other doc types.
+    # theme base for chapter; theme base → chapter for other doc types, except
+    # CHAPTER_LOCAL_FIELDS, which come from the theme base only.
     def parent_values(name)
       layer = values_of(theme.base_paragraph_styles.find_by(name: name))
       if (ch = chapter_design) && (ch_row = ch.paragraph_styles.find_by(name: name))
-        layer = overlay(layer, values_of(ch_row))
+        layer = overlay(layer, values_of(ch_row).except(*ParagraphStyle::CHAPTER_LOCAL_FIELDS))
       end
       layer
     end
 
     # Resolve theme base → chapter (same paper size) → this doc type, field by
     # field (nil falls back to the layer below), like book_write's renderer.
+    # CHAPTER_LOCAL_FIELDS skip the chapter layer (theme base → doc type).
     # Returned styles are read-only; do not mutate — a style present on a single
     # layer is that layer's persisted row (e.g. chapter's row, seen from foreword).
     def merged_paragraph_styles
@@ -393,7 +395,7 @@ module Design
       chapter_rows = chapter ? chapter.paragraph_styles.index_by(&:name) : {}
       own_rows = paragraph_styles.index_by(&:name)
       (base_styles.keys | chapter_rows.keys | own_rows.keys).map do |n|
-        layers = [ base_styles[n], chapter_rows[n], own_rows[n] ].compact
+        layers = [ base_styles[n], without_chapter_local(chapter_rows[n]), own_rows[n] ].compact
         layers.drop(1).reduce(layers.first) { |acc, row| merge_style(acc, row) }
       end
     end
@@ -544,7 +546,7 @@ module Design
     # For each user field a push would move up, the number of sibling doc types
     # that keep their own value for it (and so won't see the pushed value).
     def push_preview(name)
-      fields = style_state(name)[:user_fields]
+      fields = pushable_fields(name)
       siblings = doc_type == "chapter" ? theme.document_designs.where.not(doc_type: "chapter") :
                                          theme.document_designs.where.not(doc_type: [ "chapter", doc_type ])
       fields.index_with do |f|
@@ -568,7 +570,7 @@ module Design
     # therefore also have a chapter design.
     def push_style!(name)
       own = paragraph_styles.find_by(name: name) or return
-      fields = style_state(name)[:user_fields]
+      fields = pushable_fields(name)
       return if fields.empty?
       return push_style_to_theme!(name, own, fields) if doc_type == "chapter"
 
@@ -578,6 +580,13 @@ module Design
         fields.each { |f| ch.set_style_field!(name, f, own[f]) }
         fields.each { |f| revert_style_field!(name, f) }
       end
+    end
+
+    # The user fields a push moves up. A doc type's parent for CHAPTER_LOCAL_FIELDS
+    # is the theme base, not chapter, so it never pushes them to chapter.
+    def pushable_fields(name)
+      fields = style_state(name)[:user_fields]
+      doc_type == "chapter" ? fields : fields - ParagraphStyle::CHAPTER_LOCAL_FIELDS
     end
 
     def style_has_parent?(name) = parent_values(name).values.any? { |v| !v.nil? }
@@ -767,6 +776,13 @@ module Design
       padding_top padding_bottom bold_text_color emphasis_font
       dropcap
     ].freeze
+
+    # A chapter row as seen from another doc type: an unsaved copy without
+    # CHAPTER_LOCAL_FIELDS (the row itself when it has none set; never mutated).
+    def without_chapter_local(row)
+      return row if row.nil? || ParagraphStyle::CHAPTER_LOCAL_FIELDS.all? { |f| row[f].nil? }
+      row.dup.tap { |copy| ParagraphStyle::CHAPTER_LOCAL_FIELDS.each { |f| copy[f] = nil } }
+    end
 
     def merge_style(base, override)
       merged = override.dup
