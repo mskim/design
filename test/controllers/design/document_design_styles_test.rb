@@ -197,6 +197,20 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     assert_equal 0, exports
   end
 
+  test "dropcap: a JSON string value is normalised like the hash; a non-JSON string stores nothing" do
+    stub_preview { patch field_path, params: { field: "dropcap", value: { lines: 3 }.to_json }, headers: STREAM }
+    assert_response :success
+    @forewords.each { |dd| assert_equal({ "lines" => 3 }, row_of(dd).dropcap) }
+
+    @base.update!(dropcap: Design::ParagraphStyle::DROPCAP_DEFAULT) # "banana" would differ from it
+    stub_preview { patch field_path, params: { field: "dropcap", value: "banana" }, headers: STREAM }
+    assert_response :success
+    @forewords.each do |dd|
+      assert_nil row_of(dd)&.dropcap
+      refute_includes Array(row_of(dd)&.overridden_fields), "dropcap", "no override pointing at nothing"
+    end
+  end
+
   test "dropcap: enabled=false stores the explicit off over an enabled base cap" do
     @base.update!(dropcap: Design::ParagraphStyle::DROPCAP_DEFAULT)
     stub_preview { patch field_path, params: "field=dropcap&value[enabled]=false", headers: STREAM }

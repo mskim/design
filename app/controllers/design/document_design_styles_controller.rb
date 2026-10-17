@@ -121,11 +121,14 @@ module Design
         Design::ParagraphStyle.new(styleable: @document_design, name: style_name)
     end
 
-    # The PATCH value: a String or nil; for dropcap a normalised Hash (nil when
-    # blank, so it reverts); :invalid for any other non-String.
+    # The PATCH value: a String or nil; for dropcap a normalised Hash from
+    # value[...] or a JSON string (nil when blank or not a hash, so it reverts
+    # rather than storing an override of nothing); :invalid for any other non-String.
     def field_value
       value = params[:value]
-      return Design::ParagraphStyle.normalize_dropcap(value) if field == "dropcap" && value.is_a?(ActionController::Parameters)
+      if field == "dropcap" && (value.is_a?(String) || value.is_a?(ActionController::Parameters))
+        return Design::ParagraphStyle.normalize_dropcap(value)
+      end
       value.nil? || value.is_a?(String) ? value : :invalid
     end
 
