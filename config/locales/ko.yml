@@ -215,6 +215,7 @@ ko:
       padding: "안쪽 여백"
       padding_top: "위쪽 여백 (pt)"
       padding_bottom: "아래쪽 여백 (pt)"
+      dropcap: "드롭 캡"
       table_cell: "표 셀"
       vertical_align: "세로 정렬"
 
@@ -267,6 +268,7 @@ ko:
         fill: "채우기"
         border: "테두리"
         pad: "안쪽 여백"
+        dropcap: "드롭 캡"
       push_confirm:
         theme: "이 스타일에서 바꾼 %{count}개 항목을 테마에 반영합니다."
         chapter: "이 문서 유형에서 바꾼 %{count}개 항목을 장에 반영하고, 여기서는 장의 값을 따릅니다."
@@ -281,6 +283,10 @@ ko:
         missing_chapter: "장 디자인이 없는 판형이 있어 반영할 수 없습니다: %{sizes}"
         name_blank: "이름을 입력해 주세요"
         name_invalid: "이 이름은 쓸 수 없습니다"
+        dropcap_lines: "줄 수는 2–6이어야 합니다"
+        dropcap_chars: "글자 수는 1–4여야 합니다"
+        dropcap_color: "CMYK=c,m,y,k 또는 #rrggbb 형식이어야 합니다"
+        dropcap_font: "목록에 있는 글꼴을 골라 주세요"
     page_section:
       title: "페이지"
       page_size: "판형"

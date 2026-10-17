@@ -85,10 +85,45 @@ module Design
     # around each allowed), "#rrggbb", or a legacy colour name.
     COLOR = /\A(CMYK=(\s*[+-]?(\d+(\.\d*)?|\.\d+)\s*)(,\s*[+-]?(\d+(\.\d*)?|\.\d+)\s*){3}|#\h{6}|(?i:black|white|red|blue|green|gray))\z/
 
+    # A body style's drop cap (spec 2026-10-17): one JSON field. nil inherits, {"enabled"=>false}
+    # is explicitly off, else {lines, chars, font, color, align_left_edge, scale_descenders};
+    # blank font/color = the body's own.
+    DROPCAP_KEYS = %w[lines chars font color align_left_edge scale_descenders].freeze
+    DROPCAP_LINES = (2..6)
+    DROPCAP_CHARS = (1..4)
+    DROPCAP_DEFAULT = { "lines" => 2, "chars" => 1, "align_left_edge" => true, "scale_descenders" => false }.freeze
+    DROPCAP_OFF = { "enabled" => false }.freeze
+
+    # The canonical dropcap Hash (string keys, integer counts, boolean flags, blank font/colour
+    # and unknown keys dropped) from a Hash, ActionController::Parameters or JSON string;
+    # nil for blank. A count that is not a whole number stays as given so validation reports it.
+    def self.normalize_dropcap(value)
+      value = value.to_unsafe_h if value.respond_to?(:to_unsafe_h)
+      value = (JSON.parse(value) rescue nil) if value.is_a?(String)
+      return nil unless value.is_a?(Hash)
+
+      value = value.transform_keys(&:to_s)
+      return DROPCAP_OFF.dup if [ false, "false", "0" ].include?(value["enabled"])
+
+      out = {}
+      %w[lines chars].each do |k|
+        next if value[k].blank?
+        out[k] = value[k].is_a?(Integer) ? value[k] : Integer(value[k].to_s.strip, 10, exception: false) || value[k]
+      end
+      %w[font color].each { |k| out[k] = value[k].to_s.strip if value[k].to_s.strip.present? }
+      %w[align_left_edge scale_descenders].each do |k|
+        out[k] = ActiveModel::Type::Boolean.new.cast(value[k]) unless value[k].nil? || value[k] == ""
+      end
+      out.presence
+    end
+
     # Only the style panel's field save asks for these (row.valid?(:style_panel));
     # importers, the size generator and set_style_field!'s own saves don't.
     validate :numeric_style_fields, on: :style_panel, if: :doc_type_row?
     validate :text_style_fields, on: :style_panel, if: :doc_type_row?
+    validate :dropcap_field, on: :style_panel, if: :doc_type_row?
+
+    before_validation { self.dropcap = self.class.normalize_dropcap(dropcap) if dropcap_changed? }
 
     def doc_type_row? = styleable_type == "Design::DocumentDesign"
 
@@ -100,6 +135,9 @@ module Design
     # stripped strings; nil and "" are equal (both mean inherit). With a
     # tolerance, numeric values within it (inclusive) are equal.
     def self.same_value?(field, a, b, tolerance: 0)
+      # The JSON type's cast alone would tell "2" from 2 and a JSON string from a Hash.
+      return normalize_dropcap(a) == normalize_dropcap(b) if field.to_s == "dropcap"
+
       type = type_for_attribute(field)
       ca = type.cast(a.is_a?(String) ? a.strip.presence : a)
       cb = type.cast(b.is_a?(String) ? b.strip.presence : b)
@@ -144,6 +182,7 @@ module Design
     # fields assigned in this edit are checked.
     def text_style_fields
       STYLE_FIELDS.each do |f|
+        next if f == "dropcap" # dropcap_field checks its parts
         next unless attribute_came_from_user?(f)
         value = self[f]
         next if value.nil? || (value.is_a?(String) && value.strip.empty?)
@@ -160,6 +199,26 @@ module Design
       stored = attribute_in_database(f)
       parent = styleable.respond_to?(:parent_values) ? styleable.parent_values(name)[f] : nil
       Design::Theme::AVAILABLE_FONTS + [ stored, parent ].compact
+    end
+
+    # The drop cap's parts, as the panel offers them: lines 2–6, chars 1–4, a colour as
+    # COLOR, a font as the font fields (its stored or parent cap's font round-trips).
+    def dropcap_field
+      return unless attribute_came_from_user?("dropcap")
+      cap = self.class.normalize_dropcap(dropcap)
+      return if cap.nil? || cap == DROPCAP_OFF
+
+      error = ->(key) { errors.add(:dropcap, I18n.t("design.style_panel.errors.dropcap_#{key}")) }
+      error.(:lines) unless DROPCAP_LINES.include?(cap.fetch("lines", DROPCAP_DEFAULT["lines"]))
+      error.(:chars) unless DROPCAP_CHARS.include?(cap.fetch("chars", DROPCAP_DEFAULT["chars"]))
+      error.(:color) if cap["color"] && !cap["color"].match?(COLOR)
+      error.(:font) if cap["font"] && !allowed_dropcap_fonts.include?(cap["font"])
+    end
+
+    def allowed_dropcap_fonts
+      stored = self.class.normalize_dropcap(attribute_in_database("dropcap"))
+      parent = styleable.respond_to?(:parent_values) ? styleable.parent_values(name)["dropcap"] : nil
+      Design::Theme::AVAILABLE_FONTS + [ stored, self.class.normalize_dropcap(parent) ].filter_map { |c| c&.dig("font") }
     end
 
     def normalize_doc_type_blanks

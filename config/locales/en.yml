@@ -215,6 +215,7 @@ en:
       padding: "Padding"
       padding_top: "Padding Top (pt)"
       padding_bottom: "Padding Bottom (pt)"
+      dropcap: "Drop Cap"
       table_cell: "Table Cell"
       vertical_align: "Vertical align"
 
@@ -267,6 +268,7 @@ en:
         fill: "Fill"
         border: "Border"
         pad: "Padding"
+        dropcap: "Drop cap"
       push_confirm:
         theme: "Apply %{count} changed field(s) of this style to the theme."
         chapter: "Apply %{count} changed field(s) to the chapter; this document type then follows the chapter."
@@ -281,6 +283,10 @@ en:
         missing_chapter: "Can't apply: no chapter design on %{sizes}"
         name_blank: "Enter a name"
         name_invalid: "This name can't be used"
+        dropcap_lines: "Lines must be 2–6"
+        dropcap_chars: "Characters must be 1–4"
+        dropcap_color: "Must be CMYK=c,m,y,k or #rrggbb"
+        dropcap_font: "Choose a font from the list"
     page_section:
       title: "Page"
       page_size: "Page size"

@@ -160,6 +160,7 @@ ActiveRecord::Schema[8.1].define(version: 2) do
     t.string "corner_top_left"
     t.string "corner_top_right"
     t.datetime "created_at", null: false
+    t.json "dropcap"
     t.string "emphasis_color"
     t.string "emphasis_font"
     t.string "fill_color"

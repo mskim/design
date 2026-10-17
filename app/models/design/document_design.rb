@@ -765,6 +765,7 @@ module Design
       border_top_color border_right_color border_bottom_color border_left_color
       corner_top_left corner_top_right corner_bottom_right corner_bottom_left
       padding_top padding_bottom bold_text_color emphasis_font
+      dropcap
     ].freeze
 
     def merge_style(base, override)

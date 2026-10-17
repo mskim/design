@@ -21,7 +21,8 @@ module Design
           "border"    => %w[border_top_thickness border_top_color border_right_thickness border_right_color
                             border_bottom_thickness border_bottom_color border_left_thickness border_left_color
                             corner_top_left corner_top_right corner_bottom_left corner_bottom_right],
-          "pad"       => %w[padding_top padding_bottom]
+          "pad"       => %w[padding_top padding_bottom],
+          "dropcap"   => %w[dropcap]
         }.freeze
         ALWAYS_OPEN = "type_text"
 
@@ -59,7 +60,8 @@ module Design
             [ "corner_#{c}", [ :select, "corner_#{c}", { options: Design::ParagraphStyle::CORNER_SIZES, i18n: "corner_size" } ] ]
           },
           "padding_top"             => [ :number, "padding_top", { step: 0.1, min: 0 } ],
-          "padding_bottom"          => [ :number, "padding_bottom", { step: 0.1, min: 0 } ]
+          "padding_bottom"          => [ :number, "padding_bottom", { step: 0.1, min: 0 } ],
+          "dropcap"                 => [ :dropcap, "dropcap" ]
         }.freeze
 
         def self.field_label(field) = I18n.t("design.fields.#{FIELDS.fetch(field)[1]}")
@@ -176,6 +178,8 @@ module Design
         # ── sections and fields ──
 
         def section(key, fields)
+          return if key == "dropcap" # not rendered yet (drop cap plan, Task 7)
+
           has_change = fields.intersect?(changed)
           details(open: (key == ALWAYS_OPEN || has_change), data: { section: key },
                   class: "min-w-0 rounded-lg border #{GROUP_BOX_CLASS} px-3 pb-3 pt-1.5") do
