@@ -367,7 +367,8 @@ module Design
     end
 
     # The chapter design on the same paper size — the parent of every other
-    # doc type's styles. nil for chapter itself.
+    # doc type's styles, except ParagraphStyle::CHAPTER_LOCAL_FIELDS (those come
+    # from the theme base only). nil for chapter itself.
     def chapter_design
       return nil if doc_type == "chapter"
       paper_size.document_designs.find_by(doc_type: "chapter")
@@ -388,7 +389,8 @@ module Design
     # field (nil falls back to the layer below), like book_write's renderer.
     # CHAPTER_LOCAL_FIELDS skip the chapter layer (theme base → doc type).
     # Returned styles are read-only; do not mutate — a style present on a single
-    # layer is that layer's persisted row (e.g. chapter's row, seen from foreword).
+    # layer is that layer's persisted row, or an unsaved copy of it (chapter's row
+    # without CHAPTER_LOCAL_FIELDS, seen from another doc type).
     def merged_paragraph_styles
       base_styles = theme.base_paragraph_styles.index_by(&:name)
       chapter = chapter_design

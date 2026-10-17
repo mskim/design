@@ -1,7 +1,8 @@
 module Design
   # Compacts a theme's doc-type paragraph styles so each row stores only the
   # fields that differ from its parent (theme base for chapter; theme base →
-  # chapter for other doc types). Chapter is normalised first so the other doc
+  # chapter for other doc types, except ParagraphStyle::CHAPTER_LOCAL_FIELDS,
+  # whose parent is the theme base only). Chapter is normalised first so the other doc
   # types compare against chapter's already-compacted resolution.
   #
   # Per field: "" → nil (blank never means "no value", it means inherit), then

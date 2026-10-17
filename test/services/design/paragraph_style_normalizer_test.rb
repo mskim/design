@@ -141,6 +141,18 @@ class Design::ParagraphStyleNormalizerTest < ActiveSupport::TestCase
     refute File.exist?(db_path), "compact! must leave the export to the caller"
   end
 
+  test "a doc type's dropcap compares against the theme base, not chapter" do
+    cap = { "lines" => 3, "chars" => 1 }
+    @chapters.each { |dd| row_of(dd, "zz_body").update_columns(dropcap: cap) }
+    @forewords.each { |dd| row_of(dd, "zz_body").update_columns(dropcap: cap) }
+    Design::ParagraphStyleNormalizer.compact!(@theme)
+    @forewords.each { |dd| assert_equal cap, row_of(dd, "zz_body").dropcap, "equal to chapter's cap: kept" }
+
+    @base.update_columns(dropcap: cap)
+    Design::ParagraphStyleNormalizer.compact!(@theme)
+    @forewords.each { |dd| assert_nil row_of(dd, "zz_body").dropcap, "equal to the theme base cap: cleared" }
+  end
+
   test "design:normalize_paragraph_styles rake task is defined" do
     Rails.application.load_tasks unless Rake::Task.task_defined?("design:normalize_paragraph_styles")
     assert Rake::Task.task_defined?("design:normalize_paragraph_styles")
