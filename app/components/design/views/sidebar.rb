@@ -62,7 +62,7 @@ module Design
 
       def theme_select
         labelled_select("theme", I18n.t("design.sidebar.theme")) do
-          Design::Theme.order(:name).each do |t|
+          Design::Theme.starter_themes.order(:name).each do |t|
             option(value: t.id, selected: t.id == @theme.id, data: { url: helpers.theme_path(t) }) { t.name }
           end
         end

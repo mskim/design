@@ -115,4 +115,23 @@ class Design::ThemeDbExportServiceTest < ActiveSupport::TestCase
     db&.close
     File.delete(path) if path && File.exist?(path)
   end
+
+  test "export_dir is the theme's export_dir, for every kind of theme" do
+    [
+      Design::Theme.create!(name: "E1 #{SecureRandom.hex(3)}", locale: "ko"),
+      Design::Theme.create!(name: "E2 #{SecureRandom.hex(3)}", locale: "ko", user: users(:david)),
+      Design::Theme.create!(name: "E3 #{SecureRandom.hex(3)}", locale: "ko", book_id: 7)
+    ].each do |theme|
+      assert_equal theme.export_dir, Design::ThemeDbExportService.new(theme).export_dir
+    end
+  end
+
+  test "a book design exports to its db_path" do
+    theme = Design::Theme.create!(name: "E4 #{SecureRandom.hex(3)}", locale: "ko", book_id: 9)
+    path = Design::ThemeDbExportService.new(theme).export!
+    assert_equal theme.db_path, path
+    assert File.exist?(path)
+  ensure
+    File.delete(path) if path && File.exist?(path)
+  end
 end

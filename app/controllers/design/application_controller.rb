@@ -62,10 +62,11 @@ module Design
       head :forbidden unless @theme.editable_by?(Design.current_user)
     end
 
-    # Every theme (system baselines + all house custom themes) is reachable
+    # Every starter theme (system baselines + all house custom themes) is reachable
     # in the studio; per-theme edit rights are enforced by ensure_theme_editable.
+    # Book designs (a book's own copy) never are.
     def accessible_themes
-      Design::Theme.all
+      Design::Theme.starter_themes
     end
   end
 end

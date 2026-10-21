@@ -16,9 +16,8 @@ module Design
     end
 
     def export!
-      dir = export_dir
-      FileUtils.mkdir_p(dir)
-      db_path = File.join(dir, "#{@theme.file_basename}.db")
+      FileUtils.mkdir_p(export_dir)
+      db_path = @theme.db_path
       File.delete(db_path) if File.exist?(db_path)
 
       db = SQLite3::Database.new(db_path)
@@ -33,12 +32,7 @@ module Design
     end
 
     def export_dir
-      base = self.class.themes_dir
-      if @theme.system?
-        base
-      else
-        File.join(base, "user_#{@theme.user_id}")
-      end
+      @theme.export_dir
     end
 
     private

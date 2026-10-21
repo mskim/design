@@ -219,15 +219,18 @@ ActiveRecord::Schema[8.1].define(version: 2) do
     t.string "base_body_font", default: "smShinShinMyungjoP-30", null: false
     t.decimal "base_body_font_size", default: "9.5", null: false
     t.string "base_heading_font", default: "NotoSerifKR-Bold", null: false
+    t.integer "book_id"
     t.datetime "created_at", null: false
     t.text "description"
     t.datetime "imported_at"
     t.string "locale", default: "ko", null: false
     t.string "name", null: false
     t.string "source_file"
+    t.integer "source_theme_id"
     t.datetime "updated_at", null: false
     t.integer "user_id"
-    t.index ["user_id", "name", "locale"], name: "index_design_themes_on_user_id_and_name_and_locale", unique: true
+    t.index ["book_id"], name: "index_design_themes_on_book_id"
+    t.index ["user_id", "name", "locale", "book_id"], name: "index_design_themes_on_user_id_and_name_and_locale_and_book_id", unique: true
     t.index ["user_id"], name: "index_design_themes_on_user_id"
   end
 end

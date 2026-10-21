@@ -16,10 +16,11 @@ module Design
     validates :name, presence: true
     validates :locale, presence: true, inclusion: { in: %w[ko en ja zh] }
 
-    # One style exists once per language (and per owner): a Korean and an
-    # English "Classic" sit side by side. For system themes this validation is
-    # the only guard — SQLite's unique index treats NULL user_ids as distinct.
-    validates :name, uniqueness: { scope: %i[user_id locale] }
+    # One style exists once per language (and per owner, and per book): a Korean
+    # and an English "Classic" sit side by side, and every book's design keeps its
+    # starter's name. For system themes this validation is the only guard —
+    # SQLite's unique index treats NULL user_ids / book_ids as distinct.
+    validates :name, uniqueness: { scope: %i[user_id locale book_id] }
 
     # The style every new book defaults to.
     DEFAULT_STYLE = "classic"
@@ -36,12 +37,25 @@ module Design
       "HakgyoansimGaeulsopungB", "HakgyoansimGaeulsopungL"
     ].freeze
 
-    scope :system_themes, -> { where(user_id: nil) }
-    scope :custom_themes, -> { where.not(user_id: nil) }
+    # Themes a book can start from (system and custom), i.e. everything but book designs.
+    scope :starter_themes, -> { where(book_id: nil) }
+    scope :system_themes, -> { starter_themes.where(user_id: nil) }
+    scope :custom_themes, -> { starter_themes.where.not(user_id: nil) }
 
-    def system?
-      user_id.nil?
+    # A book's own copy of a starter theme (the host's per-book design); never edited here.
+    def book_design? = book_id.present?
+
+    def system? = user_id.nil? && !book_design?
+
+    # Where this theme's .db is exported: system themes at the root, custom themes
+    # under their owner, book designs under their book.
+    def export_dir
+      base = Design.themes_dir
+      return File.join(base, "book_#{book_id}") if book_design?
+      system? ? base : File.join(base, "user_#{user_id}")
     end
+
+    def db_path = File.join(export_dir, "#{file_basename}.db")
 
     def imported?
       imported_at.present?
@@ -52,7 +66,9 @@ module Design
     # Only designers edit themes ("users just use themes"). Custom themes are
     # shared across the one house's designers; system (baseline) themes are
     # always read-only — customize by cloning into a custom theme instead.
+    # Book designs belong to the host's book and are never edited in the studio.
     def editable_by?(user)
+      return false if book_design?
       system? ? Design.authoring? : Design.authorize(user)
     end
 

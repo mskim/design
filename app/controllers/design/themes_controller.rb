@@ -3,7 +3,7 @@ module Design
     before_action :set_theme, only: [ :show, :edit, :update, :destroy, :clone, :generate_sizes ]
 
     def index
-      @themes = Design::Theme.order(:name)
+      @themes = Design::Theme.starter_themes.order(:name)
       render Design::Views::Themes::Index.new(themes: @themes)
     end
 
