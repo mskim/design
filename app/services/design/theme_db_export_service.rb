@@ -15,18 +15,26 @@ module Design
       @theme = theme
     end
 
+    # Written to a temp file beside the .db and renamed into place, so readers never see a
+    # half-written file and a failed export leaves the previous .db as it was.
     def export!
       FileUtils.mkdir_p(export_dir)
       db_path = @theme.db_path
-      File.delete(db_path) if File.exist?(db_path)
+      tmp_path = "#{db_path}.#{Process.pid}.#{SecureRandom.hex(4)}.tmp"
 
-      db = SQLite3::Database.new(db_path)
-      create_tables(db)
-      insert_theme(db)
-      insert_base_styles(db)
-      insert_paper_sizes_and_designs(db)
-      insert_table_styles(db)
-      db.close
+      begin
+        db = SQLite3::Database.new(tmp_path)
+        create_tables(db)
+        insert_theme(db)
+        insert_base_styles(db)
+        insert_paper_sizes_and_designs(db)
+        insert_table_styles(db)
+        db.close
+        File.rename(tmp_path, db_path)
+      ensure
+        db&.close unless db&.closed?
+        FileUtils.rm_f(tmp_path)
+      end
 
       db_path
     end

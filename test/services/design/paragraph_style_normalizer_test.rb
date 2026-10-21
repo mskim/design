@@ -158,6 +158,22 @@ class Design::ParagraphStyleNormalizerTest < ActiveSupport::TestCase
     assert Rake::Task.task_defined?("design:normalize_paragraph_styles")
   end
 
+  test "design:normalize_paragraph_styles leaves book designs alone" do
+    Rails.application.load_tasks unless Rake::Task.task_defined?("design:normalize_paragraph_styles")
+    book_design = Design::Theme.create!(name: "Book copy #{SecureRandom.hex(3)}", locale: "ko", book_id: 42)
+    seen = []
+    original = Design::ParagraphStyleNormalizer.method(:call)
+    Design::ParagraphStyleNormalizer.define_singleton_method(:call) { |theme| seen << theme.id }
+    task = Rake::Task["design:normalize_paragraph_styles"]
+    task.reenable
+    assert_output(/normalised/) { task.invoke }
+
+    assert_includes seen, @theme.id
+    assert_not_includes seen, book_design.id
+  ensure
+    Design::ParagraphStyleNormalizer.define_singleton_method(:call, original) if original
+  end
+
   private
 
   def normalize! = Design::ParagraphStyleNormalizer.call(@theme)

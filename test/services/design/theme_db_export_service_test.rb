@@ -134,4 +134,20 @@ class Design::ThemeDbExportServiceTest < ActiveSupport::TestCase
   ensure
     File.delete(path) if path && File.exist?(path)
   end
+
+  test "a failed export leaves the previous .db in place, and no temp file behind" do
+    theme = Design::Theme.create!(name: "E5 #{SecureRandom.hex(3)}", locale: "ko", book_id: 11)
+    path = Design::ThemeDbExportService.new(theme).export!
+    before = Digest::SHA256.file(path).hexdigest
+
+    service = Design::ThemeDbExportService.new(theme)
+    service.define_singleton_method(:insert_table_styles) { |_db| raise "boom" }
+    assert_raises(RuntimeError) { service.export! }
+
+    assert File.exist?(path), "the previous .db is still there"
+    assert_equal before, Digest::SHA256.file(path).hexdigest
+    assert_equal [ File.basename(path) ], Dir.children(File.dirname(path))
+  ensure
+    FileUtils.rm_rf(File.dirname(path)) if path
+  end
 end
