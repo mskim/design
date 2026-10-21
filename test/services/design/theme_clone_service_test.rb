@@ -88,4 +88,118 @@ class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
 
     assert_equal "Dup 2", cloned.name
   end
+
+  # --- book designs: one paper size into a theme owned by a book -------------
+
+  def build_two_sizes
+    @shin = @source.paper_sizes.create!(size_name: "shinkook", local_name: "신국판", width_mm: 152, height_mm: 225)
+    @a4 = @source.paper_sizes.create!(size_name: "A4", local_name: "A4", width_mm: 210, height_mm: 297)
+    [ @shin, @a4 ].each do |ps|
+      ps.paragraph_styles.create!(name: "ps_body_#{ps.size_name}", font: "smShinShinMyungjoP-30", font_size: 9.5)
+      %w[chapter toc].each do |doc_type|
+        dd = ps.document_designs.create!(doc_type: doc_type)
+        dd.paragraph_styles.create!(name: "body", font: "smShinShinMyungjoP-30", font_size: 9.5)
+        dd.heading_elements.create!(element_type: "title", style_name: "title", position: 0)
+      end
+    end
+    @source.update!(imported_at: Time.current)
+  end
+
+  def style_rows(styles)
+    styles.order(:name).map { |st| st.attributes.except("id", "styleable_id", "created_at", "updated_at") }
+  end
+
+  def dd_rows(paper_size)
+    paper_size.document_designs.order(:doc_type).map do |dd|
+      [ dd.attributes.except("id", "paper_size_id", "created_at", "updated_at"),
+        style_rows(dd.paragraph_styles),
+        dd.heading_elements.order(:position).map { |he| he.attributes.except("id", "document_design_id", "created_at", "updated_at") } ]
+    end
+  end
+
+  test "clones one paper size into a book design" do
+    build_two_sizes
+
+    service = Design::ThemeCloneService.new(@source, user: nil, book_id: 7, paper_size: "신국판")
+    design = service.clone
+
+    assert_equal 7, design.book_id
+    assert_nil design.user_id
+    assert_equal @source.id, design.source_theme_id
+    assert_equal @source.name, design.name
+    assert_nil design.imported_at
+    assert design.book_design?
+    assert_not service.fell_back?
+
+    assert_equal [ "신국판" ], design.paper_sizes.map(&:local_name)
+    copied = design.paper_sizes.first
+    assert_equal style_rows(@shin.paragraph_styles), style_rows(copied.paragraph_styles)
+    assert_equal dd_rows(@shin), dd_rows(copied)
+    assert_equal style_rows(@source.base_paragraph_styles), style_rows(design.base_paragraph_styles)
+    assert_equal @source.table_styles.order(:name).map { |t| t.attributes.except("id", "theme_id", "created_at", "updated_at") },
+                 design.table_styles.order(:name).map { |t| t.attributes.except("id", "theme_id", "created_at", "updated_at") }
+
+    names = design.base_paragraph_styles.pluck(:name)
+    assert_equal names.uniq, names, "no seeded duplicates"
+  end
+
+  test "a missing paper size falls back to the source's first size" do
+    build_two_sizes
+
+    service = Design::ThemeCloneService.new(@source, book_id: 7, paper_size: "국배판")
+    design = service.clone
+
+    assert service.fell_back?
+    assert_equal [ @source.default_paper_size.local_name ], design.paper_sizes.map(&:local_name)
+    assert_equal "신국판", design.paper_sizes.first.local_name
+  end
+
+  test "without paper_size every size is copied into the book design" do
+    build_two_sizes
+
+    service = Design::ThemeCloneService.new(@source, book_id: 7)
+    design = service.clone
+
+    assert_not service.fell_back?
+    assert_equal %w[신국판 A4].sort, design.paper_sizes.map(&:local_name).sort
+  end
+
+  test "a starter with no paper sizes copies into a design with none" do
+    service = Design::ThemeCloneService.new(@source, book_id: 7, paper_size: "신국판")
+    design = service.clone
+
+    assert design.persisted?
+    assert_empty design.paper_sizes
+  end
+
+  test "two books get designs with the starter's own name" do
+    a = Design::ThemeCloneService.new(@source, book_id: 7).clone
+    b = Design::ThemeCloneService.new(@source, book_id: 8).clone
+
+    assert_equal [ @source.name, @source.name ], [ a.name, b.name ]
+  end
+
+  test "a user clone is unchanged: Custom name, every size, no book" do
+    build_two_sizes
+
+    cloned = Design::ThemeCloneService.new(@source, user: @user).clone
+
+    assert_equal "#{@source.name} (Custom)", cloned.name
+    assert_equal @user.id, cloned.user_id
+    assert_nil cloned.book_id
+    assert_nil cloned.source_theme_id
+    assert_equal 2, cloned.paper_sizes.count
+  end
+
+  test "clone_paper_size_into copies one size into an existing theme" do
+    build_two_sizes
+    design = Design::ThemeCloneService.new(@source, book_id: 7, paper_size: "신국판").clone
+
+    Design::ThemeCloneService.new(@source).clone_paper_size_into(design, @a4)
+
+    added = design.paper_sizes.find_by(local_name: "A4")
+    assert_not_nil added
+    assert_equal style_rows(@a4.paragraph_styles), style_rows(added.paragraph_styles)
+    assert_equal dd_rows(@a4), dd_rows(added)
+  end
 end
