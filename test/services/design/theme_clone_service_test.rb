@@ -20,6 +20,15 @@ class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
     assert_equal 99.0, cloned.table_styles.find_by(name: "zebra").border_width.to_f
   end
 
+  # The returned theme reads its copied rows, not the seeded defaults the clone destroyed: an export
+  # (ThemeDbExportService walks the loaded associations) once wrote a .db with no table styles.
+  test "the returned theme's associations show what was copied" do
+    cloned = Design::ThemeCloneService.new(@source, user: @user).clone
+
+    assert_equal @source.table_styles.map(&:name).sort, cloned.table_styles.to_a.map(&:name).sort
+    assert_equal @source.base_paragraph_styles.map(&:name).sort, cloned.base_paragraph_styles.to_a.map(&:name).sort
+  end
+
   test "deep-copies paper sizes, document designs, and their styles" do
     # The original bug: clone only copied the first paper size + first document
     # design, then died on a ParagraphStyle name collision (a created document

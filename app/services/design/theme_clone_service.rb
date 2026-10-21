@@ -43,7 +43,9 @@ module Design
         clone_paper_sizes(new_theme)
         clone_table_styles(new_theme)
 
-        new_theme
+        # Its associations were loaded (and emptied) by the destroy_alls above; reload so callers
+        # (the .db export walks them) see the copied rows.
+        new_theme.reload
       end
     end
 
