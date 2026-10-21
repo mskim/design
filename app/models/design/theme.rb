@@ -26,7 +26,7 @@ module Design
     DEFAULT_STYLE = "classic"
 
     AVAILABLE_FONTS = [
-      "smShinShinMyungjoP-30", "smShinShinMyungjo", "smGothicP-10", "smGothicP-30", "Shinmoon",
+      "smShinShinMyungjoP-30", "smShinShinMyungjo", "Shinmoon", # Korean gothic: Noto Sans KR (no smGothic)
       "NotoSerifKR-ExtraLight", "NotoSerifKR-Light", "NotoSerifKR-Regular", "NotoSerifKR-Medium",
       "NotoSerifKR-SemiBold", "NotoSerifKR-Bold", "NotoSerifKR-ExtraBold", "NotoSerifKR-Black",
       "NotoSansKR-Thin", "NotoSansKR-ExtraLight", "NotoSansKR-Light", "NotoSansKR-Regular",
