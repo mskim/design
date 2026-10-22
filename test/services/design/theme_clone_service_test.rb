@@ -211,4 +211,13 @@ class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
     assert_equal style_rows(@a4.paragraph_styles), style_rows(added.paragraph_styles)
     assert_equal dd_rows(@a4), dd_rows(added)
   end
+
+  test "copies a document design's start_on_right" do
+    ps = @source.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    ps.document_designs.create!(doc_type: "part_cover", start_on_right: true)
+
+    cloned = Design::ThemeCloneService.new(@source, user: @user).clone
+
+    assert cloned.paper_sizes.find_by!(size_name: "신국판").document_designs.find_by!(doc_type: "part_cover").start_on_right
+  end
 end

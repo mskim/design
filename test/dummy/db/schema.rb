@@ -104,6 +104,7 @@ ActiveRecord::Schema[8.1].define(version: 2) do
     t.string "page_type"
     t.integer "paper_size_id", null: false
     t.boolean "show_header_footer_on_first_page", default: false
+    t.boolean "start_on_right", default: false, null: false
     t.integer "text_box_anchor_position"
     t.integer "text_box_grid_height"
     t.integer "text_box_grid_width"
