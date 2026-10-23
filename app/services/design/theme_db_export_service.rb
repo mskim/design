@@ -88,6 +88,9 @@ module Design
           start_on_right BOOLEAN DEFAULT 0,
           -- chapter_number_format: the chapter's 장 번호 label, e.g. '제 {n} 장'; NULL prints none (book_write C3d3).
           chapter_number_format TEXT,
+          -- back_wing_*: the back flap's promoted books — the image's width as a % of the flap's text
+          -- width, its height ÷ width, the gap under each book in pt (book_write C3f2). Today's values by default.
+          back_wing_image_width_percent INTEGER DEFAULT 20, back_wing_image_ratio REAL DEFAULT 1.4, back_wing_item_gap REAL DEFAULT 10,
           created_at DATETIME, updated_at DATETIME
         );
         CREATE TABLE paragraph_styles (
@@ -172,8 +175,9 @@ module Design
               image_opacity, logo_width, logo_height, logo_position, logo_offset,
               photo_grid_width, photo_grid_height, photo_anchor, photo_fit, photo_border_width, photo_border_color,
               page_type, start_on_right, chapter_number_format,
+              back_wing_image_width_percent, back_wing_image_ratio, back_wing_item_gap,
               created_at, updated_at
-            ) VALUES (#{Array.new(51, "?").join(", ")})
+            ) VALUES (#{Array.new(54, "?").join(", ")})
           SQL
 
           dd.paragraph_styles.each { |style| insert_style(db, style) }
@@ -212,6 +216,9 @@ module Design
         # mid-boot before the column migration has run, may not yet).
         dd.has_attribute?(:start_on_right) && dd.start_on_right ? 1 : 0,
         (dd.chapter_number_format.presence if dd.has_attribute?(:chapter_number_format)),
+        (dd.back_wing_image_width_percent if dd.has_attribute?(:back_wing_image_width_percent)),
+        (f(dd.back_wing_image_ratio) if dd.has_attribute?(:back_wing_image_ratio)),
+        (f(dd.back_wing_item_gap) if dd.has_attribute?(:back_wing_item_gap)),
         dd.created_at&.iso8601, dd.updated_at&.iso8601 ]
     end
 

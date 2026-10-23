@@ -26,7 +26,7 @@ class Design::ThemeDbExportChapterNumberTest < ActiveSupport::TestCase
     partial = Design::DocumentDesign.select(Design::DocumentDesign.column_names - %w[start_on_right chapter_number_format]).find(@chapter.id)
     values = Design::ThemeDbExportService.new(@theme).send(:document_design_values, partial)
 
-    assert_equal 51, values.size
-    assert_equal [ 0, nil ], values[-4, 2] # start_on_right, chapter_number_format; then created_at, updated_at
+    assert_equal 54, values.size
+    assert_equal [ 0, nil ], values[-7, 2] # start_on_right, chapter_number_format; then the back flap's three, created_at, updated_at
   end
 end

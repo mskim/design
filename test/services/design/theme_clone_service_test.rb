@@ -229,4 +229,14 @@ class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
 
     assert_equal "Chapter {n}", cloned.paper_sizes.find_by!(size_name: "신국판").document_designs.find_by!(doc_type: "chapter").chapter_number_format
   end
+
+  test "copies a document design's back flap layout" do
+    ps = @source.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    ps.document_designs.create!(doc_type: "back_wing", back_wing_image_width_percent: 25, back_wing_image_ratio: 1.6, back_wing_item_gap: 6)
+
+    cloned = Design::ThemeCloneService.new(@source, user: @user).clone
+    wing = cloned.paper_sizes.find_by!(size_name: "신국판").document_designs.find_by!(doc_type: "back_wing")
+
+    assert_equal [ 25, 1.6, 6.0 ], [ wing.back_wing_image_width_percent, wing.back_wing_image_ratio.to_f, wing.back_wing_item_gap.to_f ]
+  end
 end

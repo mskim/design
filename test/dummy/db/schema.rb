@@ -106,6 +106,9 @@ ActiveRecord::Schema[8.1].define(version: 2) do
     t.boolean "show_header_footer_on_first_page", default: false
     t.boolean "start_on_right", default: false, null: false
     t.string "chapter_number_format"
+    t.integer "back_wing_image_width_percent", default: 20
+    t.decimal "back_wing_image_ratio", precision: 4, scale: 2, default: "1.4"
+    t.decimal "back_wing_item_gap", precision: 5, scale: 1, default: "10.0"
     t.integer "text_box_anchor_position"
     t.integer "text_box_grid_height"
     t.integer "text_box_grid_width"
