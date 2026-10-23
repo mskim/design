@@ -220,4 +220,13 @@ class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
 
     assert cloned.paper_sizes.find_by!(size_name: "신국판").document_designs.find_by!(doc_type: "part_cover").start_on_right
   end
+
+  test "copies a document design's chapter_number_format" do
+    ps = @source.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    ps.document_designs.create!(doc_type: "chapter", chapter_number_format: "Chapter {n}")
+
+    cloned = Design::ThemeCloneService.new(@source, user: @user).clone
+
+    assert_equal "Chapter {n}", cloned.paper_sizes.find_by!(size_name: "신국판").document_designs.find_by!(doc_type: "chapter").chapter_number_format
+  end
 end

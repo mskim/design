@@ -86,6 +86,8 @@ module Design
           page_type TEXT,
           -- start_on_right: the type opens on a right-hand page (book_write C3d2).
           start_on_right BOOLEAN DEFAULT 0,
+          -- chapter_number_format: the chapter's 장 번호 label, e.g. '제 {n} 장'; NULL prints none (book_write C3d3).
+          chapter_number_format TEXT,
           created_at DATETIME, updated_at DATETIME
         );
         CREATE TABLE paragraph_styles (
@@ -169,9 +171,9 @@ module Design
               heading_bg_gradient_angle, heading_bg_gradient_start, heading_bg_gradient_end,
               image_opacity, logo_width, logo_height, logo_position, logo_offset,
               photo_grid_width, photo_grid_height, photo_anchor, photo_fit, photo_border_width, photo_border_color,
-              page_type, start_on_right,
+              page_type, start_on_right, chapter_number_format,
               created_at, updated_at
-            ) VALUES (#{Array.new(50, "?").join(", ")})
+            ) VALUES (#{Array.new(51, "?").join(", ")})
           SQL
 
           dd.paragraph_styles.each { |style| insert_style(db, style) }
@@ -206,7 +208,10 @@ module Design
         dd.image_opacity, f(dd.logo_width), f(dd.logo_height), dd.logo_position, f(dd.logo_offset),
         dd.photo_grid_width, dd.photo_grid_height, dd.photo_anchor, dd.photo_fit, f(dd.photo_border_width), dd.photo_border_color,
         dd.page_type,
-        dd.start_on_right ? 1 : 0,
+        # Read only where the host has the columns (book_write migrates them; book_design, or book_write
+        # mid-boot before the column migration has run, may not yet).
+        dd.has_attribute?(:start_on_right) && dd.start_on_right ? 1 : 0,
+        (dd.chapter_number_format.presence if dd.has_attribute?(:chapter_number_format)),
         dd.created_at&.iso8601, dd.updated_at&.iso8601 ]
     end
 
