@@ -7,11 +7,11 @@ class Design::ParagraphStyleFieldsTest < ActiveSupport::TestCase
     @dd = @ps.document_designs.find_by(doc_type: "chapter") || @ps.document_designs.create!(doc_type: "chapter")
   end
 
-  test "STYLE_FIELDS excludes name, korean_name and vertical_align" do
+  test "STYLE_FIELDS excludes name and korean_name; vertical_align (the table cells') is one" do
     f = Design::ParagraphStyle::STYLE_FIELDS
     refute_includes f, "name"
     refute_includes f, "korean_name"
-    refute_includes f, "vertical_align"
+    assert_includes f, "vertical_align"
     assert_includes f, "font_size"
     assert_includes f, "text_color"
   end

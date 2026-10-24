@@ -17,7 +17,8 @@ module Design
     validates :vertical_align, inclusion: { in: VERTICAL_ALIGNS }, allow_nil: true
 
     # Fields a doc-type style can inherit/override. korean_name is a label (not an
-    # override); vertical_align is table-cell only and theme-level (no doc-type consumer).
+    # override). vertical_align is the table cells' (book_write's 표 per document type
+    # writes it on a type's table_heading_cell / table_body_cell rows).
     STYLE_FIELDS = (Design::DocumentDesign::MERGEABLE_ATTRS - %w[korean_name]).freeze
 
     # D5: a thickness and a colour per side, a corner preset per corner — each

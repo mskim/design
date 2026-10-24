@@ -35,6 +35,12 @@ class Design::StylePanelTest < ActiveSupport::TestCase
     assert_equal Design::ParagraphStyle::STYLE_FIELDS.sort, Content::FIELDS.keys.sort
   end
 
+  test "vertical_align shows on the table cells only" do
+    @theme.base_paragraph_styles.find_by!(name: "table_body_cell").update!(vertical_align: "top")
+    assert_nil field(content, "vertical_align")
+    assert field(content(@foreword, "table_body_cell"), "vertical_align")
+  end
+
   test "the form carries the autosave controller and sits outside the morphed #style-panel-content" do
     doc = panel(preview_mode: "single")
     form = doc.at_css("turbo-frame#properties_panel form[data-controller='design--style-autosave']")
@@ -132,6 +138,7 @@ class Design::StylePanelTest < ActiveSupport::TestCase
       Design::ParagraphStyle::STYLE_FIELDS.each do |f|
         # dropcap is one hash field: its parts are value[...] in one row, on body only.
         next assert_equal((dropcap ? 1 : 0), doc.css("[data-style-field='dropcap']").size, name) if f == "dropcap"
+        next assert_equal 0, doc.css("[data-style-field='vertical_align']").size, name if f == "vertical_align" # table cells only
         assert_equal 1, doc.css("[name='paragraph_style[#{f}]']").size, "#{name}: #{f}"
       end
       assert_equal dropcap, doc.at_css("[data-group='dropcap'] [name='value[lines]']").present?, name

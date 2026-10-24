@@ -23,7 +23,8 @@ module Design
                             border_bottom_thickness border_bottom_color border_left_thickness border_left_color
                             corner_top_left corner_top_right corner_bottom_left corner_bottom_right],
           "pad"       => %w[padding_top padding_bottom],
-          "dropcap"   => %w[dropcap]
+          "dropcap"   => %w[dropcap],
+          "table"     => %w[vertical_align]
         }.freeze
         ALWAYS_OPEN = "type_text"
 
@@ -62,8 +63,11 @@ module Design
           },
           "padding_top"             => [ :number, "padding_top", { step: 0.1, min: 0 } ],
           "padding_bottom"          => [ :number, "padding_bottom", { step: 0.1, min: 0 } ],
-          "dropcap"                 => [ :dropcap, "dropcap" ]
+          "dropcap"                 => [ :dropcap, "dropcap" ],
+          "vertical_align"          => [ :select, "vertical_align",
+                                         { options: Design::ParagraphStyle::VERTICAL_ALIGNS, i18n: "vertical_align" } ]
         }.freeze
+        TABLE_CELLS = %w[table_heading_cell table_body_cell].freeze
 
         def self.field_label(field) = I18n.t("design.fields.#{FIELDS.fetch(field)[1]}")
 
@@ -180,6 +184,7 @@ module Design
 
         def section(key, fields)
           return if key == "dropcap" && @name != "body" # spec decision 5: body only
+          return if key == "table" && !TABLE_CELLS.include?(@name)
 
           has_change = fields.intersect?(changed)
           details(open: (key == ALWAYS_OPEN || has_change), data: { section: key },

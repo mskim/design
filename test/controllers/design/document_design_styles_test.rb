@@ -134,7 +134,7 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
   end
 
   test "a field outside STYLE_FIELDS is a 400 and writes nothing" do
-    %w[name korean_name vertical_align overridden_fields bogus].each do |f|
+    %w[name korean_name overridden_fields bogus].each do |f|
       exports = count_exports { patch field_path, params: { field: f, value: "x" }, headers: STREAM }
       assert_response :bad_request, f
       assert_equal 0, exports, f

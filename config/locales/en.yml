@@ -75,6 +75,10 @@ en:
       other: "Other"
 
     options:
+      vertical_align:
+        top: "Top"
+        middle: "Middle"
+        bottom: "Bottom"
       v_align:
         center: "Center"
         top: "Top"
@@ -269,6 +273,7 @@ en:
         border: "Border"
         pad: "Padding"
         dropcap: "Drop cap"
+        table: "Table cell"
       push_confirm:
         theme: "Apply %{count} changed field(s) of this style to the theme."
         chapter: "Apply %{count} changed field(s) to the chapter; this document type then follows the chapter."

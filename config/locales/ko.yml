@@ -75,6 +75,10 @@ ko:
       other: "기타"
 
     options:
+      vertical_align:
+        top: "위"
+        middle: "가운데"
+        bottom: "아래"
       v_align:
         center: "가운데"
         top: "위"
@@ -269,6 +273,7 @@ ko:
         border: "테두리"
         pad: "안쪽 여백"
         dropcap: "드롭 캡"
+        table: "표 셀"
       push_confirm:
         theme: "이 스타일에서 바꾼 %{count}개 항목을 테마에 반영합니다."
         chapter: "이 문서 유형에서 바꾼 %{count}개 항목을 장에 반영하고, 여기서는 장의 값을 따릅니다."

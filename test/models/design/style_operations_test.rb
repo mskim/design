@@ -25,6 +25,16 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
     @chapters.each { |dd| assert_nil row_of(dd, "zz_body"), "chapter must stay untouched" }
   end
 
+  test "a table cell's vertical_align is a style field a doc type sets and inherits" do
+    @theme.base_paragraph_styles.find_by!(name: "table_body_cell").update!(font_size: 9, vertical_align: "top")
+    @foreword.set_style_fields!("table_body_cell", "vertical_align" => "bottom", "font_size" => 11)
+
+    @forewords.each { |dd| assert_equal "bottom", row_of(dd, "table_body_cell").vertical_align }
+    assert_equal "bottom", @foreword.merged_paragraph_styles.find { it.name == "table_body_cell" }.vertical_align
+    @foreword.set_style_fields!("table_body_cell", "vertical_align" => "top")
+    assert_nil row_of(@foreword, "table_body_cell").vertical_align, "equal to the theme's: inherited"
+  end
+
   test "setting a value equal to the parent clears the field and deletes the empty row" do
     @foreword.set_style_field!("zz_body", "font_size", 11)
     @foreword.set_style_field!("zz_body", "font_size", "10.0")
