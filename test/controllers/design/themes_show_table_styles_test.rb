@@ -1,6 +1,8 @@
 require "test_helper"
 
 class Design::ThemesShowTableStylesTest < ActionDispatch::IntegrationTest
+  include TypedTableStyles
+
   setup do
     sign_in :david
     @theme = Design::Theme.create!(name: "TSG #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
@@ -20,5 +22,13 @@ class Design::ThemesShowTableStylesTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "img[src*=?]", "table_styles/#{@ts.id}/preview"
     assert_not_includes response.body, "No preview"
+  end
+
+  test "theme show lists only the default table styles" do
+    add_table_style_doc_type!
+    typed = @theme.table_styles.create!(name: "zebra", doc_type: "foreword")
+    get design.theme_path(@theme)
+    assert_response :success
+    assert_select "a[href=?]", design.edit_theme_table_style_path(@theme, typed), count: 0
   end
 end

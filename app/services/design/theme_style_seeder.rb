@@ -71,7 +71,7 @@ module Design
 
     def reset(name)
       raise ArgumentError, "unknown style: #{name}" unless DEFAULTS.key?(name)
-      style = @theme.table_styles.find_or_initialize_by(name: name)
+      style = @theme.table_styles.defaults.find_or_initialize_by(name: name)
       style.update!(DEFAULTS[name])
     end
 
@@ -79,7 +79,7 @@ module Design
 
     def seed_table_styles
       DEFAULTS.each do |name, attrs|
-        @theme.table_styles.find_or_create_by!(name: name) do |s|
+        @theme.table_styles.defaults.find_or_create_by!(name: name) do |s|
           s.assign_attributes(attrs)
         end
       end

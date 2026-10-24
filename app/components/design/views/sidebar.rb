@@ -129,7 +129,7 @@ module Design
       end
 
       def table_styles_group
-        styles = @theme.table_styles.order(:name).to_a
+        styles = @theme.table_styles.defaults.order(:name).to_a
         return if styles.empty?
         group_box(I18n.t("design.sidebar.table_styles")) do
           styles.each do |ts|

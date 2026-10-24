@@ -112,6 +112,7 @@ module Design
       fallback
     end
 
+    # Every row, a document type's own (doc_type) as well as the defaults.
     def clone_table_styles(new_theme)
       @source.table_styles.each do |ts|
         copy = ts.dup

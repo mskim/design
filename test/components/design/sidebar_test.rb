@@ -3,6 +3,8 @@ require "test_helper"
 # Renders Design::Views::Sidebar directly (no controller). Route helpers are
 # stubbed on the component the same way shell_test.rb stubs them on Shell.
 class Design::SidebarTest < ActiveSupport::TestCase
+  include TypedTableStyles
+
   class FakeHelpers
     def theme_path(theme, **q) = "/themes/#{theme.id}" + (q.empty? ? "" : "?paper_size_id=#{q[:paper_size_id]}")
     def new_theme_paper_size_path(theme) = "/themes/#{theme.id}/paper_sizes/new"
@@ -196,6 +198,14 @@ class Design::SidebarTest < ActiveSupport::TestCase
     assert summary, "table styles group missing"
     link = doc.at_css("a[href='/themes/#{@theme.id}/table_styles/#{ts.id}/edit']")
     assert_equal "page", link["aria-current"]
+  end
+
+  test "table styles group lists only the defaults, not a document type's own" do
+    add_table_style_doc_type!
+    typed = @theme.table_styles.create!(name: "zebra", doc_type: "foreword")
+    doc = render_sidebar
+    assert_equal 5, doc.css("a[href*='/table_styles/']").size
+    assert_nil doc.at_css("a[href='/themes/#{@theme.id}/table_styles/#{typed.id}/edit']")
   end
 
   test "table styles group is omitted when the theme has none" do

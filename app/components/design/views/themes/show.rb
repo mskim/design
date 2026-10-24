@@ -151,7 +151,7 @@ module Design
         end
 
         def table_styles_section
-          styles = @theme.table_styles.order(:name)
+          styles = @theme.table_styles.defaults.order(:name)
           return if styles.empty?
           div(class: "flex flex-col gap-3") do
             h2(class: "text-lg font-medium text-slate-900") { I18n.t("design.table_styles.section_title") }

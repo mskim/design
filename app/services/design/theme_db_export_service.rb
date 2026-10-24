@@ -120,6 +120,7 @@ module Design
           header_text_color TEXT, body_text_color TEXT,
           cell_padding REAL, outer_border_width REAL,
           header_separator_width REAL, header_font_weight TEXT,
+          doc_type TEXT,
           created_at DATETIME, updated_at DATETIME
         );
         CREATE TABLE heading_elements (
@@ -251,10 +252,11 @@ module Design
           header_background, alternate_row_background,
           header_text_color, body_text_color,
           cell_padding, outer_border_width, header_separator_width,
-          header_font_weight, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          header_font_weight, doc_type, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       SQL
 
+      # Every row: the defaults (doc_type NULL) and any document type's own.
       @theme.table_styles.each do |ts|
         db.execute(sql,
           [ ts.id, ts.theme_id, ts.name,
@@ -262,7 +264,8 @@ module Design
             ts.header_background, ts.alternate_row_background,
             ts.header_text_color, ts.body_text_color,
             f(ts.cell_padding), f(ts.outer_border_width), f(ts.header_separator_width),
-            ts.header_font_weight, ts.created_at&.iso8601, ts.updated_at&.iso8601 ]
+            ts.header_font_weight, (ts.doc_type if ts.has_attribute?(:doc_type)),
+            ts.created_at&.iso8601, ts.updated_at&.iso8601 ]
         )
       end
     end

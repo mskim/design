@@ -58,3 +58,25 @@ module ActiveSupport
     end
   end
 end
+
+# book_write gives design_table_styles a nullable doc_type (a document type's own
+# tables); the dummy schema, like book_design's, has none. Include this to add the
+# column for a test: inside the test's transaction (SQLite DDL rolls back with it),
+# with book_write's indexes in place of the (theme_id, name) one. The column
+# information is reset after the rollback so later tests see the plain schema.
+module TypedTableStyles
+  def add_table_style_doc_type!
+    connection = Design::TableStyle.connection
+    connection.add_column :design_table_styles, :doc_type, :string
+    connection.remove_index :design_table_styles, name: "index_design_table_styles_on_theme_id_and_name"
+    connection.add_index :design_table_styles, [ :theme_id, :doc_type, :name ], unique: true
+    connection.add_index :design_table_styles, [ :theme_id, :name ], unique: true,
+                         where: "doc_type IS NULL", name: "index_design_table_styles_defaults"
+    Design::TableStyle.reset_column_information
+  end
+
+  def after_teardown
+    super
+    Design::TableStyle.reset_column_information
+  end
+end

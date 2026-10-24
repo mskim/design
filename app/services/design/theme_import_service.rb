@@ -78,7 +78,7 @@ module Design
     def reset_children(theme)
       theme.paper_sizes.destroy_all          # cascades document_designs -> dd styles + heading_elements
       theme.base_paragraph_styles.destroy_all
-      theme.table_styles.destroy_all
+      theme.table_styles.destroy_all         # a document type's own too; the seeder restores the defaults
     end
 
     def import_base_paragraph_styles(db, theme)
