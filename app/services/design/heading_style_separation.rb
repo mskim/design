@@ -33,8 +33,9 @@ module Design
   # (design_* tables, "Design::Theme"/"Design::DocumentDesign") and a theme
   # .db (no prefix, "Theme"/"DocumentDesign", no overridden_fields, perhaps
   # missing newer columns). Called by the hosts' migrations (call_all), by
-  # ThemeImportService for a file from before the change (call), and by
-  # book_write's .db task (call_db).
+  # ThemeImportService for a file from before the change (call), by
+  # ThemeStyleSeeder for a theme that has designs but no theme-level publisher
+  # (call), and by book_write's .db task (call_db).
   class HeadingStyleSeparation
     KINDS = DocumentDesign::TITLE_PAGE_KINDS
     NAMES = DocumentDesign::HEADING_NAMES
