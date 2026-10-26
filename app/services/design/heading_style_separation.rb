@@ -103,7 +103,8 @@ module Design
         @report.skipped << "theme #{theme_id}: it has a theme-level publisher (already separated)"
         return @report
       end
-      @columns = @store.columns(@store.styles_table) & (ATTRS + @store.legacy_fields)
+      @table_columns = @store.columns(@store.styles_table)
+      @columns = @table_columns & (ATTRS + @store.legacy_fields)
       @store.transaction do
         base = styles(@store.theme_type, theme_id)
         @theme = @store.select("SELECT * FROM #{@store.themes_table} WHERE id = ?", theme_id).first || {}
@@ -133,7 +134,7 @@ module Design
           names.filter_map do |name|
             printed = resolve(name, base, chapter, own)
             if name == "publisher"
-              printed ||= resolve("body", base, chapter, own)&.merge(BODY_ONLY.index_with(nil))
+              printed ||= resolve("body", base, chapter, own)&.merge(BODY_ONLY.index_with(nil).slice(*@columns))
               printed &&= with_render_defaults(printed)
             end
             [ "#{ps['size_name']} #{kind} #{name}", dd["id"], name, own[name], printed ] if printed
@@ -175,6 +176,7 @@ module Design
         font_size = sets["font_size"] || self.class.present(row["font_size"])
         sets["overridden_fields"] = marks_json(marks, font_size) if font_size && !marks.include?("font_size")
       end
+      sets = only_table_columns(sets)
       return if sets.empty?
       assignments = sets.keys.map { "#{it} = ?" }.join(", ")
       @store.execute("UPDATE #{@store.styles_table} SET #{assignments}, updated_at = ? WHERE id = ?",
@@ -197,9 +199,14 @@ module Design
     end
 
     def insert_row(values)
+      values = only_table_columns(values)
       @store.execute("INSERT INTO #{@store.styles_table} (#{values.keys.join(', ')}) " \
                      "VALUES (#{([ '?' ] * values.size).join(', ')})", *values.values)
     end
+
+    # Every write names only columns the table has: an old .db lacks newer
+    # ones (dropcap, vertical_align, the D5 border fields, overridden_fields).
+    def only_table_columns(values) = values.slice(*@table_columns)
 
     def marks_json(marks, font_size) = (font_size ? marks | [ "font_size" ] : marks).to_json
 

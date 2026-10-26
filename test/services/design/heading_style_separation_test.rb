@@ -205,6 +205,22 @@ class Design::HeadingStyleSeparationTest < ActiveSupport::TestCase
     db&.close
   end
 
+  test "a .db from before dropcap and the D5 border fields fills title pages and the theme-level publisher" do
+    path = Design::ThemeDbExportService.new(@theme).export!
+    db = SQLite3::Database.new(path)
+    %w[dropcap vertical_align border_top_thickness corner_top_left].each { db.execute("ALTER TABLE paragraph_styles DROP COLUMN #{it}") }
+    db.close
+    report = Design::HeadingStyleSeparation.call_db(path)
+    assert_includes report.created, "theme-level publisher"
+    db = SQLite3::Database.new(path)
+    pubs = db.execute("SELECT s.font_size FROM paragraph_styles s JOIN document_designs d ON d.id = s.styleable_id " \
+                      "WHERE s.styleable_type = 'DocumentDesign' AND d.doc_type = 'title_page' AND s.name = 'publisher'").flatten
+    assert_equal [ 11, 11 ], pubs.map(&:to_i), "title_page's publisher falls back to body, without dropcap"
+    assert_equal 1, db.get_first_value("SELECT count(*) FROM paragraph_styles WHERE styleable_type = 'Theme' AND name = 'publisher'")
+  ensure
+    db&.close
+  end
+
   private
 
   def base!(name, **attrs) = @theme.base_paragraph_styles.create!(name: name, **attrs)
