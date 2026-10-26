@@ -42,6 +42,9 @@ module Design
         theme
       end
       # Export only what was committed (a rollback must not leave a new .db).
+      # Reloaded: the rows HeadingStyleSeparation wrote in plain SQL (the
+      # theme-level publisher) aren't in the associations loaded above.
+      theme.reload
       Design::ThemeDbExportService.new(theme).export!
       theme
     ensure

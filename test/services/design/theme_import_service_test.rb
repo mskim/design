@@ -130,6 +130,23 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     File.delete(path) if path && File.exist?(path)
   end
 
+  # HeadingStyleSeparation writes the theme-level publisher in plain SQL; the
+  # .db import! writes (and one exported from the theme it returns) carries it.
+  test "an imported file from before the separation exports its theme-level publisher" do
+    theme = Design::ThemeImportService.new(FIXTURE).import!
+    publishers = lambda do |path|
+      db = SQLite3::Database.new(path.to_s)
+      db.get_first_value("SELECT count(*) FROM paragraph_styles WHERE styleable_type = 'Theme' AND name = 'publisher'")
+    ensure
+      db&.close
+    end
+
+    assert_equal 1, publishers.(theme.db_path)
+    assert_equal 1, publishers.(Design::ThemeDbExportService.new(theme).export!)
+  ensure
+    File.delete(theme.db_path) if theme && File.exist?(theme.db_path)
+  end
+
   test "re-import updates in place, preserving the theme id and book references" do
     theme1 = Design::ThemeImportService.new(FIXTURE).import!
     id = theme1.id
