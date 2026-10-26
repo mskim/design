@@ -1,6 +1,5 @@
-# IMPORTANT: This seeder must stay in sync with
-# book_design/app/services/theme_style_seeder.rb. Cross-app integration
-# test in book_write enforces consistency.
+# The one seeder for book_write and book_design (book_design's
+# ThemeStyleSeeder is an alias of this class).
 module Design
   class ThemeStyleSeeder
     DEFAULTS = {

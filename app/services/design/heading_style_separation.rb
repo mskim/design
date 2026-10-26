@@ -231,7 +231,9 @@ module Design
       def select(sql, *binds) = connection.select_all(sanitize(sql, binds)).to_a
       def execute(sql, *binds) = connection.execute(sanitize(sql, binds))
       def columns(table) = connection.columns(table).map(&:name)
-      def transaction(&) = Design::ApplicationRecord.transaction(&)
+      # A savepoint of its own, so a host migration that rescues one theme's
+      # failure keeps none of that theme's writes.
+      def transaction(&) = Design::ApplicationRecord.transaction(requires_new: true, &)
       def now = Time.current.utc.strftime("%Y-%m-%d %H:%M:%S.%6N")
 
       private
