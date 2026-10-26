@@ -26,7 +26,13 @@ module Design
         ps_id_map  = import_paper_sizes(db, theme)
         dd_id_map  = import_document_designs(db, ps_id_map)
         import_heading_elements(db, dd_id_map)
+        before_separation = !theme_publisher?(db)
+        discard_generated_title_page_headings(dd_id_map) if before_separation
         import_design_paragraph_styles(db, dd_id_map)
+        # A file from before title pages had their own heading styles: copy in
+        # what they printed (theme → chapter → kind), before the seeder adds the
+        # theme-level publisher and before compaction compares with the theme.
+        Design::HeadingStyleSeparation.call(theme.id) if before_separation
         Design::ThemeStyleSeeder.call(theme) # .book_design v2 has no table_styles; re-seed defaults
         # .book_design files carry full-snapshot doc-type rows; keep only the fields
         # that differ from the parent (theme → chapter → doc type). A file written
@@ -129,6 +135,21 @@ module Design
           element_type: row["element_type"], style_name: row["style_name"], position: row["position"]
         )
       end
+    end
+
+    # The theme-level publisher row marks a file written after title pages got
+    # their own heading styles (HeadingStyleSeparation writes it last).
+    def theme_publisher?(db)
+      db.get_first_row("SELECT 1 FROM paragraph_styles WHERE styleable_type = 'theme' AND name = 'publisher'").present?
+    end
+
+    # Creating a title-page design fired DefaultGenerator, which now writes
+    # scaled sizes of the four heading names there. A file from before that
+    # never had them: drop them so they don't shadow what the file printed
+    # (through chapter). The file's own rows are imported after.
+    def discard_generated_title_page_headings(dd_id_map)
+      designs = dd_id_map.values.select { |dd| Design::DocumentDesign::TITLE_PAGE_KINDS.include?(dd.doc_type) }
+      Design::ParagraphStyle.where(styleable: designs, name: Design::DocumentDesign::HEADING_NAMES).delete_all
     end
 
     def import_design_paragraph_styles(db, dd_id_map)

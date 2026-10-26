@@ -51,6 +51,22 @@ module Design
 
     def binding_applies? = BINDING_DOC_TYPES.include?(doc_type)
 
+    # The kinds the host lays out as a title page (designcraft_rb's
+    # DocProcessor::TitlePage): the 표제지 and every chapter cover (one
+    # title_page design), the 속표지 and part covers. Their HEADING_NAMES
+    # resolve theme → the kind, never through chapter: editing the chapter
+    # heading's subtitle doesn't change a title page (spec 2026-10-26 §2.B).
+    # thanks and dedication print a chapter heading, so they keep chapter.
+    TITLE_PAGE_KINDS = %w[title_page inside_cover part_cover].freeze
+    HEADING_NAMES = %w[title subtitle author publisher].freeze
+
+    def self.skips_chapter?(doc_type, name)
+      TITLE_PAGE_KINDS.include?(doc_type.to_s) && HEADING_NAMES.include?(name.to_s)
+    end
+
+    # Style `name` on this design resolves theme → this design, past chapter.
+    def skips_chapter?(name) = self.class.skips_chapter?(doc_type, name)
+
     # Preview guides (안내선): margins + columns for the column layouts; the
     # grid and the text box for copyright, the one doc type whose inspector the
     # preview can mirror (D4); margins only for the other interior pages; none
@@ -191,7 +207,7 @@ module Design
     STYLE_FAMILIES = {
       cover:   %w[cover_title cover_subtitle cover_author cover_publisher cover_body],
       seneca:  %w[seneca_title seneca_author seneca_publisher],
-      heading: %w[title subtitle author h2 h3 h4 h5 h6],
+      heading: %w[title subtitle author publisher h2 h3 h4 h5 h6],
       body:    %w[body blockquote quote footnote caption caption_title image_caption ol ul source],
       running: %w[header_left header_right footer_left footer_right],
       table:   %w[table_heading_cell table_body_cell]
@@ -376,10 +392,11 @@ module Design
 
     # Resolved style values this design inherits for `name` (its parent):
     # theme base for chapter; theme base → chapter for other doc types, except
-    # CHAPTER_LOCAL_FIELDS, which come from the theme base only.
+    # CHAPTER_LOCAL_FIELDS, which come from the theme base only, and the
+    # HEADING_NAMES on TITLE_PAGE_KINDS, whose parent is the theme base alone.
     def parent_values(name)
       layer = values_of(theme.base_paragraph_styles.find_by(name: name))
-      if (ch = chapter_design) && (ch_row = ch.paragraph_styles.find_by(name: name))
+      if !skips_chapter?(name) && (ch = chapter_design) && (ch_row = ch.paragraph_styles.find_by(name: name))
         layer = overlay(layer, values_of(ch_row).except(*ParagraphStyle::CHAPTER_LOCAL_FIELDS))
       end
       layer
@@ -387,7 +404,8 @@ module Design
 
     # Resolve theme base → chapter (same paper size) → this doc type, field by
     # field (nil falls back to the layer below), like book_write's renderer.
-    # CHAPTER_LOCAL_FIELDS skip the chapter layer (theme base → doc type).
+    # CHAPTER_LOCAL_FIELDS skip the chapter layer (theme base → doc type), and
+    # so do the HEADING_NAMES on TITLE_PAGE_KINDS (whole rows).
     # Returned styles are read-only; do not mutate — a style present on a single
     # layer is that layer's persisted row, or an unsaved copy of it (chapter's row
     # without CHAPTER_LOCAL_FIELDS, seen from another doc type).
@@ -397,9 +415,11 @@ module Design
       chapter_rows = chapter ? chapter.paragraph_styles.index_by(&:name) : {}
       own_rows = paragraph_styles.index_by(&:name)
       (base_styles.keys | chapter_rows.keys | own_rows.keys).map do |n|
-        layers = [ base_styles[n], without_chapter_local(chapter_rows[n]), own_rows[n] ].compact
+        chapter_row = without_chapter_local(chapter_rows[n]) unless skips_chapter?(n)
+        layers = [ base_styles[n], chapter_row, own_rows[n] ].compact
+        next if layers.empty?
         layers.drop(1).reduce(layers.first) { |acc, row| merge_style(acc, row) }
-      end
+      end.compact
     end
 
     # Create or update a document-level paragraph style by name. Used by importers
@@ -449,7 +469,7 @@ module Design
     # size, or this design.
     def style_exists?(name)
       theme.base_paragraph_styles.exists?(name: name) || paragraph_styles.exists?(name: name) ||
-        chapter_design&.paragraph_styles&.exists?(name: name) || false
+        (!skips_chapter?(name) && chapter_design&.paragraph_styles&.exists?(name: name)) || false
     end
 
     # Set `field` of style `name` (edited on this size) on every size.
@@ -549,7 +569,7 @@ module Design
     # that keep their own value for it (and so won't see the pushed value).
     def push_preview(name)
       fields = pushable_fields(name)
-      siblings = doc_type == "chapter" ? theme.document_designs.where.not(doc_type: "chapter") :
+      siblings = doc_type == "chapter" || skips_chapter?(name) ? theme.document_designs.where.not(doc_type: doc_type) :
                                          theme.document_designs.where.not(doc_type: [ "chapter", doc_type ])
       fields.index_with do |f|
         siblings.joins(:paragraph_styles)
@@ -570,11 +590,14 @@ module Design
     # chapter (proportionally on the others), then the fields are reverted on
     # every size of this doc type. Every size that has this doc type must
     # therefore also have a chapter design.
+    #
+    # The HEADING_NAMES on TITLE_PAGE_KINDS go to the theme base, like chapter's
+    # (their parent is the theme), so a push never changes chapter openings.
     def push_style!(name)
       own = paragraph_styles.find_by(name: name) or return
       fields = pushable_fields(name)
       return if fields.empty?
-      return push_style_to_theme!(name, own, fields) if doc_type == "chapter"
+      return push_style_to_theme!(name, own, fields) if doc_type == "chapter" || skips_chapter?(name)
 
       assert_chapters_for_push!
       transaction do
@@ -585,10 +608,11 @@ module Design
     end
 
     # The user fields a push moves up. A doc type's parent for CHAPTER_LOCAL_FIELDS
-    # is the theme base, not chapter, so it never pushes them to chapter.
+    # is the theme base, not chapter, so it never pushes them to chapter. A push
+    # that goes to the theme (chapter's, a title page's heading names) takes all.
     def pushable_fields(name)
       fields = style_state(name)[:user_fields]
-      doc_type == "chapter" ? fields : fields - ParagraphStyle::CHAPTER_LOCAL_FIELDS
+      doc_type == "chapter" || skips_chapter?(name) ? fields : fields - ParagraphStyle::CHAPTER_LOCAL_FIELDS
     end
 
     def style_has_parent?(name) = parent_values(name).values.any? { |v| !v.nil? }
@@ -630,10 +654,11 @@ module Design
     def clear_style_field(name, field, has_parent: nil) = clear_style_fields!(name, [ field ], has_parent: has_parent)
 
     # Deleting rows doesn't bump max(updated_at); touch every design whose preview
-    # may change (this doc type everywhere; for chapter, every doc type).
-    def touch_inheritors!
+    # may change (this doc type everywhere; for chapter, or a write to the theme
+    # base, every doc type).
+    def touch_inheritors!(all: false)
       now = Time.current
-      scope = doc_type == "chapter" ? theme.document_designs : same_doc_type_designs
+      scope = all || doc_type == "chapter" ? theme.document_designs : same_doc_type_designs
       scope.update_all(updated_at: now)
       self.updated_at = now # the controller renders the preview from this instance
       clear_attribute_changes([ :updated_at ]) # already persisted by update_all
@@ -736,7 +761,7 @@ module Design
         fields.each { |f| base[f] = own[f] }
         base.save!
         same_doc_type_designs.find_each { |dd| dd.clear_fields_matching_base!(name, fields, base) }
-        touch_inheritors!
+        touch_inheritors!(all: true)
       end
     end
 

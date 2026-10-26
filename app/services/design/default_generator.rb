@@ -36,14 +36,16 @@ module Design
       GenerationRules.margins_for(@paper_size.width_mm, @paper_size.height_mm).fetch(key)
     end
 
-    # Scaled heading sizes live on chapter only, as sparse font_size rows; every
-    # other doc type on the size resolves them through chapter (theme → chapter
-    # → doc type). A user-overridden font_size is left alone.
+    # Scaled heading sizes, as sparse font_size rows: on chapter, which every
+    # other doc type on the size resolves them through (theme → chapter → doc
+    # type), and on each title-page kind for its four heading names, which
+    # resolve theme → the kind (DocumentDesign::TITLE_PAGE_KINDS). A
+    # user-overridden font_size is left alone.
     def generate_headings_for(document_design)
-      return unless document_design.doc_type == "chapter"
+      names = scaled_names_for(document_design.doc_type) or return
       theme  = @paper_size.theme
       height = @paper_size.height_mm
-      GenerationRules::HEADING_SCALED_STYLES.each do |name|
+      names.each do |name|
         base = theme.base_paragraph_styles.find_by(name: name)
         next unless base&.font_size
         row = document_design.paragraph_styles.find_or_initialize_by(name: name)
@@ -51,6 +53,13 @@ module Design
         row.font_size = GenerationRules.scaled_size(base.font_size, height)
         row.save!
       end
+    end
+
+    private
+
+    def scaled_names_for(doc_type)
+      return GenerationRules::HEADING_SCALED_STYLES if doc_type == "chapter"
+      DocumentDesign::HEADING_NAMES if DocumentDesign::TITLE_PAGE_KINDS.include?(doc_type)
     end
   end
 end

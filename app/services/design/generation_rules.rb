@@ -19,14 +19,14 @@ module Design
 
     COVER   = %w[cover_title cover_subtitle cover_author cover_publisher cover_body].freeze
     SENECA  = %w[seneca_title seneca_author seneca_publisher].freeze
-    HEADING = %w[title subtitle author h2 h3 h4 h5 h6].freeze
+    HEADING = %w[title subtitle author publisher h2 h3 h4 h5 h6].freeze
     BODY    = %w[body blockquote quote footnote caption caption_title image_caption ol ul source].freeze
     RUNNING = %w[header_left header_right footer_left footer_right].freeze
     TABLE   = %w[table_heading_cell table_body_cell].freeze
     FAMILY_NAMES = (COVER + SENECA + HEADING + BODY + RUNNING + TABLE).uniq.freeze
 
     HEADING_SCALED_STYLES = %w[
-      title subtitle author quote
+      title subtitle author publisher quote
       cover_title cover_subtitle cover_author cover_publisher
       seneca_title seneca_author seneca_publisher
     ].freeze

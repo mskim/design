@@ -369,20 +369,17 @@ module Design
         out.add_style(name: style.name, display_name: style.korean_name || style.name, attributes: attrs.to_json)
       end
 
-      # TitlePageRenderer looks up styles as h1/h2/h3/body, not title/subtitle/author/publisher.
-      # Overwrite h1/h2/h3/body with heading element style values for title page types.
+      # designcraft_rb's TitlePage reads title, subtitle, author and publisher by
+      # their own names (h1/h2/h3/body only for old data), so they go by name,
+      # centred and unindented, as a heading stack; h1/h2/h3/body stay the real ones.
       if resolved_doc_type.uses_page_heading?
-        style_aliases = { "title" => "h1", "subtitle" => "h2", "author" => "h3", "publisher" => "body" }
-
-        style_aliases.each do |source_name, target_name|
-          source = merged.find { |s| s.name == source_name }
+        Design::DocumentDesign::HEADING_NAMES.each do |name|
+          source = merged.find { |s| s.name == name }
           next unless source
 
           attrs = build_style_attrs(source, default_align: "center", first_line_indent: 0.0)
-
-          # Delete existing style with this name, then create with heading element values
-          out.delete_style(target_name)
-          out.add_style(name: target_name, display_name: source.korean_name || target_name, attributes: attrs.to_json)
+          out.delete_style(name)
+          out.add_style(name: name, display_name: source.korean_name || name, attributes: attrs.to_json)
         end
       end
 

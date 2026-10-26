@@ -64,17 +64,28 @@ class Design::DefaultGeneratorTest < ActiveSupport::TestCase
   test "heading-scaled styles without a theme base get no row" do
     base!("title", 24)
     ch = size!.document_designs.create!(doc_type: "chapter")
-    assert_equal %w[title], ch.paragraph_styles.pluck(:name)
+    assert_equal %w[publisher title], ch.paragraph_styles.pluck(:name).sort # publisher: the seeded theme row
   end
 
   test "non-chapter doc types get no generator rows and resolve scaled sizes through chapter" do
     base!("title", 24); base!("body", 9.5)
     ps = size!
     ps.document_designs.create!(doc_type: "chapter")
-    dd = ps.document_designs.create!(doc_type: "title_page")
+    dd = ps.document_designs.create!(doc_type: "foreword")
     assert_empty dd.paragraph_styles
     assert_equal 18.0, resolved(dd, "title").font_size.to_f   # from chapter's scaled row
     assert_equal 9.5,  resolved(dd, "body").font_size.to_f    # not scaled: theme base
+  end
+
+  test "a title-page kind gets its own scaled heading sizes; body still comes through chapter" do
+    base!("title", 30); base!("body", 9.5)
+    ps = size!
+    ch = ps.document_designs.create!(doc_type: "chapter")
+    ch.paragraph_styles.find_by(name: "title").update!(font_size: 40)
+    dd = ps.document_designs.create!(doc_type: "title_page")
+    assert_equal %w[publisher title], dd.paragraph_styles.pluck(:name).sort
+    assert_equal 22.5, resolved(dd, "title").font_size.to_f   # 30 × 0.75 on its own row, not chapter's 40
+    assert_equal 9.5,  resolved(dd, "body").font_size.to_f
   end
 
   test "inside_cover resolves a scaled cover_title through chapter; cover_body is not scaled" do
@@ -82,7 +93,7 @@ class Design::DefaultGeneratorTest < ActiveSupport::TestCase
     ps = size!
     ch = ps.document_designs.create!(doc_type: "chapter")
     dd = ps.document_designs.create!(doc_type: "inside_cover")
-    assert_empty dd.paragraph_styles
+    assert_equal %w[publisher], dd.paragraph_styles.pluck(:name) # its own heading size (the seeded theme row)
     assert_nil ch.paragraph_styles.find_by(name: "cover_body")
     assert_equal 18.0, resolved(dd, "cover_title").font_size.to_f
     assert_equal 10.0, resolved(dd, "cover_body").font_size.to_f

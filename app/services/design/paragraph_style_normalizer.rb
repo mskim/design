@@ -2,8 +2,11 @@ module Design
   # Compacts a theme's doc-type paragraph styles so each row stores only the
   # fields that differ from its parent (theme base for chapter; theme base →
   # chapter for other doc types, except ParagraphStyle::CHAPTER_LOCAL_FIELDS,
-  # whose parent is the theme base only). Chapter is normalised first so the other doc
-  # types compare against chapter's already-compacted resolution.
+  # whose parent is the theme base only, and the DocumentDesign::HEADING_NAMES on
+  # the TITLE_PAGE_KINDS, whose parent is the theme base alone — so the rows
+  # HeadingStyleSeparation writes there are kept; DocumentDesign#parent_values
+  # says which). Chapter is normalised first so the other doc types compare
+  # against chapter's already-compacted resolution.
   #
   # Per field: "" → nil (blank never means "no value", it means inherit), then
   # a value equal to the parent → nil. Rows left empty are deleted when a parent

@@ -26,8 +26,10 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     theme = Design::ThemeImportService.new(FIXTURE).import!
 
     # ThemeStyleSeeder (run at the end of import!) adds table_heading_cell +
-    # table_body_cell, which .book_design v2 does not carry — hence +2.
-    assert_equal src[:base] + 2, theme.base_paragraph_styles.count
+    # table_body_cell, which .book_design v2 does not carry, and the file,
+    # from before title pages had their own heading styles, is separated
+    # (HeadingStyleSeparation adds the theme-level publisher) — hence +3.
+    assert_equal src[:base] + 3, theme.base_paragraph_styles.count
     # the source's own theme-level styles are all imported:
     assert theme.base_paragraph_styles.exists?(name: "body")
     assert_equal src[:ps],   theme.paper_sizes.count
@@ -36,9 +38,10 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
     # Import normalises (a doc-type row whose every field equals its parent is
     # dropped). The fixture's 3 chapter rows (body, styled_para, title) each
     # differ from the base in some field, so exactly those 3 remain (a generator
-    # row of the same name is overwritten by the imported one).
+    # row of the same name is overwritten by the imported one). The title page
+    # gets the title and the publisher (body) it printed through chapter.
     assert_equal 3, src[:ddps]
-    assert_equal %w[body styled_para title],
+    assert_equal %w[body publisher styled_para title title],
       Design::ParagraphStyle.where(styleable_type: "Design::DocumentDesign", styleable_id: theme.document_designs.ids).pluck(:name).sort
 
     body = theme.base_paragraph_styles.find_by(name: "body")

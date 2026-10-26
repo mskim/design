@@ -67,6 +67,7 @@ module Design
     def call
       seed_table_styles
       seed_cell_paragraph_styles
+      seed_publisher
     end
 
     def reset(name)
@@ -82,6 +83,19 @@ module Design
         @theme.table_styles.defaults.find_or_create_by!(name: name) do |s|
           s.assign_attributes(attrs)
         end
+      end
+    end
+
+    # The theme-level publisher (spec 2026-10-26 §5): body's font, size and
+    # colour, centred, and nothing else — the table's defaults (scale,
+    # text_color) included, so covers, which read publisher theme → chapter →
+    # piece, inherit nothing new. HeadingStyleSeparation writes the same row
+    # for a theme from before it.
+    def seed_publisher
+      @theme.base_paragraph_styles.find_or_create_by!(name: "publisher") do |s|
+        body = @theme.base_paragraph_styles.find_by(name: "body")&.attributes
+        seed = Design::HeadingStyleSeparation.publisher_seed(body, @theme.attributes)
+        s.assign_attributes(Design::ParagraphStyle::STYLE_FIELDS.index_with(nil).merge(seed))
       end
     end
 

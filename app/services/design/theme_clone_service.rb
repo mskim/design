@@ -31,12 +31,12 @@ module Design
         new_theme.save!
 
         # After-create callback seeded default table_styles + table_heading_cell/
-        # table_body_cell paragraph_styles on new_theme. Destroy them so the
+        # table_body_cell/publisher paragraph_styles on new_theme. Destroy them so the
         # source's customized rows can be copied in cleanly without uniqueness
         # collisions on (theme_id, name).
         new_theme.table_styles.destroy_all
         new_theme.base_paragraph_styles
-                 .where(name: %w[table_heading_cell table_body_cell])
+                 .where(name: %w[table_heading_cell table_body_cell publisher])
                  .destroy_all
 
         clone_base_styles(new_theme)
