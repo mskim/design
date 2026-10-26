@@ -591,8 +591,8 @@ module Design
     # every size of this doc type. Every size that has this doc type must
     # therefore also have a chapter design.
     #
-    # The HEADING_NAMES on TITLE_PAGE_KINDS go to the theme base, like chapter's
-    # (their parent is the theme), so a push never changes chapter openings.
+    # The HEADING_NAMES on TITLE_PAGE_KINDS go to the theme, never to the
+    # chapter design (their parent is the theme base alone).
     def push_style!(name)
       own = paragraph_styles.find_by(name: name) or return
       fields = pushable_fields(name)

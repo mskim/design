@@ -89,9 +89,19 @@ module Design
     # The theme-level publisher (spec 2026-10-26 §5): body's font, size and
     # colour, centred, and nothing else — the table's defaults (scale,
     # text_color) included, so covers, which read publisher theme → chapter →
-    # piece, inherit nothing new. HeadingStyleSeparation writes the same row
-    # for a theme from before it.
+    # piece, inherit nothing new.
+    #
+    # The row also marks a theme as separated (HeadingStyleSeparation), so a
+    # theme that already has designs and lacks it is from before the change:
+    # it is separated (title pages keep what they printed), which writes the
+    # same row, rather than only marked.
     def seed_publisher
+      return if @theme.base_paragraph_styles.exists?(name: "publisher")
+      if @theme.document_designs.exists?
+        Design::HeadingStyleSeparation.call(@theme.id)
+        @theme.base_paragraph_styles.reset
+        return
+      end
       @theme.base_paragraph_styles.find_or_create_by!(name: "publisher") do |s|
         body = @theme.base_paragraph_styles.find_by(name: "body")&.attributes
         seed = Design::HeadingStyleSeparation.publisher_seed(body, @theme.attributes)

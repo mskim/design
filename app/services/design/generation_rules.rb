@@ -26,7 +26,7 @@ module Design
     FAMILY_NAMES = (COVER + SENECA + HEADING + BODY + RUNNING + TABLE).uniq.freeze
 
     HEADING_SCALED_STYLES = %w[
-      title subtitle author publisher quote
+      title subtitle author quote
       cover_title cover_subtitle cover_author cover_publisher
       seneca_title seneca_author seneca_publisher
     ].freeze

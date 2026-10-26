@@ -157,6 +157,42 @@ class Design::HeadingStyleSeparationTest < ActiveSupport::TestCase
     FileUtils.rm_f(copy) if copy
   end
 
+  test "a part cover gets only its title: it never printed the other three by their aliases" do
+    Design::HeadingStyleSeparation.call(@theme.id)
+    rows = dd(@big, "part_cover").paragraph_styles.pluck(:name)
+    assert_equal %w[title], rows
+  end
+
+  test "a pre-D5 .db's old border fields carry over from chapter" do
+    path = Design::ThemeDbExportService.new(@theme).export!
+    db = SQLite3::Database.new(path)
+    db.execute("ALTER TABLE paragraph_styles ADD COLUMN border_thickness REAL")
+    db.execute("UPDATE paragraph_styles SET border_thickness = 1.5 WHERE name = 'subtitle' AND styleable_type = 'DocumentDesign' " \
+               "AND styleable_id IN (SELECT id FROM document_designs WHERE doc_type = 'chapter')")
+    db.close
+    Design::HeadingStyleSeparation.call_db(path)
+    db = SQLite3::Database.new(path)
+    values = db.execute("SELECT s.border_thickness FROM paragraph_styles s JOIN document_designs d ON d.id = s.styleable_id " \
+                        "WHERE s.styleable_type = 'DocumentDesign' AND d.doc_type IN ('title_page', 'inside_cover') AND s.name = 'subtitle'").flatten
+    assert_equal [ 1.5 ] * 4, values
+  ensure
+    db&.close
+  end
+
+  test "a .db whose theme has no body font fills book_write's literal defaults" do
+    path = Design::ThemeDbExportService.new(@theme).export!
+    db = SQLite3::Database.new(path)
+    db.execute("UPDATE themes SET base_body_font = NULL, base_body_font_size = NULL")
+    db.close
+    Design::HeadingStyleSeparation.call_db(path)
+    db = SQLite3::Database.new(path)
+    fonts = db.execute("SELECT s.font FROM paragraph_styles s JOIN document_designs d ON d.id = s.styleable_id " \
+                       "WHERE s.styleable_type = 'DocumentDesign' AND d.doc_type = 'inside_cover' AND s.name = 'publisher'").flatten
+    assert_equal [ "smShinShinMyungjoP-30" ] * 2, fonts
+  ensure
+    db&.close
+  end
+
   test "the .db fill uses only the columns an old .db has" do
     path = Design::ThemeDbExportService.new(@theme).export!
     db = SQLite3::Database.new(path)
@@ -195,12 +231,15 @@ class Design::HeadingStyleSeparationTest < ActiveSupport::TestCase
     end.compact
   end
 
-  # The old code: theme_styles + heading_aliases (a source copied over its alias when it exists).
+  # The old code: theme_styles + heading_aliases (a source copied over its alias when it exists):
+  # title → h1 on every kind, the other three only on HEADING_PAGE_DOC_TYPES (title_page,
+  # inside_cover). A part cover carries only a title (spec §3), so only its title printed.
   def printed_by_old_code
     each_kind.to_h do |ps, kind|
       styles = layered(ps, kind)
-      ALIASES.each { |src, target| styles[target] = styles[src] if styles[src] }
-      [ [ ps.size_name, kind ], ALIASES.to_h { |name, target| [ name, styles[target] ] } ]
+      aliases = kind == "part_cover" ? ALIASES.slice("title") : ALIASES
+      aliases.each { |src, target| styles[target] = styles[src] if styles[src] }
+      [ [ ps.size_name, kind ], aliases.to_h { |name, target| [ name, styles[target] ] } ]
     end
   end
 

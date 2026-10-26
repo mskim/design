@@ -44,9 +44,15 @@ module Design
     PUBLISHER_SEED = %w[font font_size text_color text_align].freeze
     # What book_write prints for a style field left nil
     # (PdfGenerationService#build_style_attrs, #body_font, #body_font_size):
-    # a theme column's name (Symbol) or the value itself.
-    RENDER_DEFAULTS = { "font" => :base_body_font, "font_size" => :base_body_font_size,
-                        "text_color" => "CMYK=0,0,0,100", "text_align" => "justify" }.freeze
+    # [the theme column it reads, the literal when that is NULL too].
+    RENDER_DEFAULTS = { "font" => [ "base_body_font", "smShinShinMyungjoP-30" ],
+                        "font_size" => [ "base_body_font_size", 9.5 ],
+                        "text_color" => [ nil, "CMYK=0,0,0,100" ], "text_align" => [ nil, "justify" ] }.freeze
+    # book_write renamed subtitle/author/publisher to h2/h3/body only on these
+    # (its HEADING_PAGE_DOC_TYPES); title → h1 on every kind. A part cover
+    # carries only a title (designcraft_rb's ChapterNumber numbers chapters
+    # only), so only its title printed, and only its title is filled.
+    ALIASED_KINDS = %w[title_page inside_cover].freeze
 
     # filled / created / skipped: one line each, for the caller to print.
     Report = Struct.new(:theme_id, :filled, :created, :skipped) do
@@ -96,7 +102,7 @@ module Design
         @report.skipped << "theme #{theme_id}: it has a theme-level publisher (already separated)"
         return @report
       end
-      @columns = @store.columns(@store.styles_table) & ATTRS
+      @columns = @store.columns(@store.styles_table) & (ATTRS + @store.legacy_fields)
       @store.transaction do
         base = styles(@store.theme_type, theme_id)
         @theme = @store.select("SELECT * FROM #{@store.themes_table} WHERE id = ?", theme_id).first || {}
@@ -122,7 +128,8 @@ module Design
             next []
           end
           own = styles(@store.design_type, dd["id"])
-          NAMES.filter_map do |name|
+          names = ALIASED_KINDS.include?(kind) ? NAMES : %w[title]
+          names.filter_map do |name|
             printed = resolve(name, base, chapter, own)
             if name == "publisher"
               printed ||= resolve("body", base, chapter, own)&.merge(BODY_ONLY.index_with(nil))
@@ -135,7 +142,8 @@ module Design
     end
 
     def with_render_defaults(printed)
-      defaults = RENDER_DEFAULTS.to_h { |f, v| [ f, v.is_a?(Symbol) ? @theme[v.to_s] : v ] }.slice(*@columns)
+      defaults = RENDER_DEFAULTS.to_h { |f, (column, literal)| [ f, self.class.present(column && @theme[column]) || literal ] }
+                                .slice(*@columns)
       printed.merge(defaults) { |_, value, default| self.class.blank?(value) ? default : value }
     end
 
@@ -217,6 +225,7 @@ module Design
       def theme_type = "Design::Theme"
       def design_type = "Design::DocumentDesign"
       def marks? = true
+      def legacy_fields = []
 
       def select(sql, *binds) = connection.select_all(sanitize(sql, binds)).to_a
       def execute(sql, *binds) = connection.execute(sanitize(sql, binds))
@@ -244,6 +253,9 @@ module Design
       def theme_type = ThemeDbExportService::STYLEABLE_TYPE_MAP.fetch("Design::Theme")
       def design_type = ThemeDbExportService::STYLEABLE_TYPE_MAP.fetch("Design::DocumentDesign")
       def marks? = false
+      # A .db exported before D5 still has the old five border fields, which
+      # book_write's ThemeStyleLayers merges and the engine reads.
+      def legacy_fields = LegacyBorder::OLD_FIELDS
 
       def select(sql, *binds) = @db.execute(sql, binds)
       def execute(sql, *binds) = @db.execute(sql, binds)

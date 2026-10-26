@@ -64,7 +64,7 @@ class Design::DefaultGeneratorTest < ActiveSupport::TestCase
   test "heading-scaled styles without a theme base get no row" do
     base!("title", 24)
     ch = size!.document_designs.create!(doc_type: "chapter")
-    assert_equal %w[publisher title], ch.paragraph_styles.pluck(:name).sort # publisher: the seeded theme row
+    assert_equal %w[title], ch.paragraph_styles.pluck(:name) # not the seeded publisher: chapter isn't given one
   end
 
   test "non-chapter doc types get no generator rows and resolve scaled sizes through chapter" do

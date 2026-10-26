@@ -8,9 +8,10 @@ class Design::HeadingFamilyTest < ActiveSupport::TestCase
   FIXTURE = Rails.root.join("test/fixtures/files/sample.book_design")
   R = Design::GenerationRules
 
-  test "publisher is in the heading family and scaled like author" do
+  test "publisher is in the heading family; chapter's scaled sizes leave it out" do
     assert_includes R::HEADING, "publisher"
-    assert_includes R::HEADING_SCALED_STYLES, "publisher"
+    # Covers read publisher theme → chapter → piece: a generated chapter row would reach them.
+    assert_not_includes R::HEADING_SCALED_STYLES, "publisher"
     assert_includes Design::DocumentDesign::STYLE_FAMILIES[:heading], "publisher"
   end
 
@@ -33,6 +34,21 @@ class Design::HeadingFamilyTest < ActiveSupport::TestCase
     assert_equal [ "BodyRow", 10.5, "CMYK=0,0,0,80" ], [ pubs.first.font, pubs.first.font_size.to_f, pubs.first.text_color ]
   end
 
+  test "seeding a theme from before the change, one with designs, separates it instead of only marking it" do
+    theme = Design::Theme.create!(name: "Old #{SecureRandom.hex(3)}", locale: "ko")
+    theme.base_paragraph_styles.create!(name: "subtitle", font_size: 16)
+    ps = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    ch = ps.document_designs.create!(doc_type: "chapter")
+    tp = ps.document_designs.create!(doc_type: "title_page")
+    Design::ParagraphStyle.where(styleable: [ ch, tp ]).delete_all
+    theme.base_paragraph_styles.where(name: "publisher").delete_all
+    ch.paragraph_styles.create!(name: "subtitle", font_size: 13.5)
+
+    Design::ThemeStyleSeeder.call(theme)
+    assert theme.base_paragraph_styles.exists?(name: "publisher")
+    assert_equal 13.5, tp.paragraph_styles.find_by(name: "subtitle")&.font_size.to_f, "what the title page printed through chapter"
+  end
+
   test "each title-page kind gets the scaled sizes of the four; chapter-like kinds don't" do
     theme = Design::Theme.create!(name: "Gen #{SecureRandom.hex(3)}", locale: "ko", base_body_font_size: 10)
     { "title" => 24, "subtitle" => 16, "author" => 12, "h2" => 14 }.each { |n, s| theme.base_paragraph_styles.create!(name: n, font_size: s) }
@@ -44,7 +60,8 @@ class Design::HeadingFamilyTest < ActiveSupport::TestCase
       assert_equal %w[author publisher subtitle title], rows.keys.sort, kind
       assert_equal [ 18.0, 12.0, 9.0, 7.5 ], %w[title subtitle author publisher].map { rows[it].font_size.to_f }, kind
     end
-    assert_equal 7.5, ps.document_designs.find_by(doc_type: "chapter").paragraph_styles.find_by(name: "publisher").font_size.to_f
+    assert_nil ps.document_designs.find_by(doc_type: "chapter").paragraph_styles.find_by(name: "publisher"),
+               "chapter gets no generated publisher"
     %w[foreword thanks].each { assert_empty ps.document_designs.find_by(doc_type: it).paragraph_styles, it }
   end
 
