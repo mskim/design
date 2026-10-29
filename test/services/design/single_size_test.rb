@@ -128,4 +128,20 @@ class Design::SingleSizeTest < ActiveSupport::TestCase
     assert_no_match(/#{book.name}/, out)
     assert_equal 2, book.paper_sizes.count
   end
+
+  test "split copies of an ASCII-named theme leave the source's .db its own" do
+    classic = Design::Theme.create!(name: "Classic #{SecureRandom.hex(3)}", locale: "ko")
+    size!(classic, "152mmx225mm", "신국판", 152, 225)
+    size!(classic, "128mmx188mm", "사륙판", 128, 188)
+
+    Design::SingleSize.collapse!(classic, split: true)
+
+    db = SQLite3::Database.new(classic.db_path)
+    assert_equal [ classic.name ], db.execute("SELECT name FROM themes").flatten
+    copy = Design::Theme.find_by!(name: "#{classic.name} 사륙판")
+    assert_not_equal classic.db_path, copy.db_path
+  ensure
+    db&.close
+    Design::Theme.where("name LIKE ?", "#{classic.name}%").each { |t| File.delete(t.db_path) if File.exist?(t.db_path) } if classic
+  end
 end

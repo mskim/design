@@ -92,4 +92,38 @@ class Design::SizedCopyServiceTest < ActiveSupport::TestCase
     Design.config.authoring = true
     assert_equal @user, copy!.user
   end
+
+  def db_theme_names(path)
+    db = SQLite3::Database.new(path)
+    db.execute("SELECT name FROM themes").flatten
+  ensure
+    db&.close
+  end
+
+  test "a copy of an ASCII-named design keeps its .db off the source's" do
+    Design.config.authoring = true # a system copy, next to its source
+    classic = Design::Theme.create!(name: "Classic #{SecureRandom.hex(3)}", locale: "ko")
+    classic.paper_sizes.create!(size_name: "152mmx225mm", local_name: "신국판", width_mm: 152, height_mm: 225)
+           .document_designs.create!(doc_type: "chapter")
+    Design::ThemeDbExportService.new(classic).export!
+
+    copy = copy!(classic)
+
+    assert_equal "#{classic.name} 사륙판", copy.name
+    assert_not_equal classic.db_path, copy.db_path
+    assert_equal [ classic.name ], db_theme_names(classic.db_path)
+  ensure
+    File.delete(classic.db_path) if classic && File.exist?(classic.db_path)
+  end
+
+  test "two size copies of one custom design get their own .db" do
+    @source.update!(name: "Mine #{SecureRandom.hex(3)}", user: @user)
+
+    a = copy!
+    b = copy!(**standard("국판"))
+
+    assert_not_equal a.db_path, b.db_path
+    assert_equal [ a.name ], db_theme_names(a.db_path)
+    assert_equal [ b.name ], db_theme_names(b.db_path)
+  end
 end
