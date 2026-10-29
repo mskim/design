@@ -105,7 +105,10 @@ module Design
     # sizes gives none.
     def selected_paper_sizes
       return @source.paper_sizes.to_a if @paper_size.nil?
-      return [ @paper_size ] if @paper_size.is_a?(Design::PaperSize) && @paper_size.theme_id == @source.id
+      if @paper_size.is_a?(Design::PaperSize)
+        raise ArgumentError, "paper size #{@paper_size.id} is not #{@source.name}'s" unless @paper_size.theme_id == @source.id
+        return [ @paper_size ]
+      end
 
       match = @source.paper_sizes.order(:id).find_by(local_name: @paper_size)
       return [ match ] if match
@@ -128,6 +131,9 @@ module Design
       new_dd = dd.dup
       new_dd.paper_size = new_ps
       new_dd.save!
+      # dup skips attachments. The copy shares the blob: ActiveStorage keeps a
+      # blob while any attachment uses it, so the source can still be destroyed.
+      new_dd.heading_bg_image.attach(dd.heading_bg_image.blob) if dd.heading_bg_image.attached?
 
       # DocumentDesign after_create (DefaultGenerator.call_for) seeds default
       # paragraph styles + heading elements; clear them before copying the
