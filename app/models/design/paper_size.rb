@@ -62,6 +62,22 @@ module Design
       content_height_pt / body_line_count
     end
 
+    # The size's part of a design's name ("클래식 사륙판", "Classic 128x188"): its
+    # Korean name in a Korean design, else an ASCII label, since a design's
+    # language comes from its file name: the standard size's en_name, an ASCII
+    # local_name, or "<W>x<H>".
+    def self.name_label(locale, local_name:, width_mm:, height_mm:, en_name: nil)
+      dims = "#{mm_label(width_mm)}x#{mm_label(height_mm)}"
+      return local_name.presence || dims if locale.to_s == "ko"
+      en_name ||= STANDARD_SIZES.find { |s| s[:local_name] == local_name }&.dig(:en_name)
+      en_name.presence || (local_name if local_name.present? && local_name.ascii_only?) || dims
+    end
+
+    # 150.0 → "150", 220.5 → "220.5"
+    def self.mm_label(mm) = mm.to_d.to_s("F").delete_suffix(".0")
+
+    def name_label(locale) = self.class.name_label(locale, local_name:, width_mm:, height_mm:)
+
     def display_name
       local_name.present? ? "#{local_name} (#{width_mm.to_i}x#{height_mm.to_i}mm)" : size_name
     end

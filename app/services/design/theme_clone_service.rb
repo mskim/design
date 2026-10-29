@@ -3,7 +3,8 @@ module Design
     # `user:` copies a theme for a designer (a custom theme, every size, named
     # "<source> (Custom)"). `book_id:` copies it into a book's own design, which
     # keeps the source's name (uniqueness is per book) and records the source;
-    # `paper_size:` (a local_name) copies just that size, else the source's first.
+    # `paper_size:` (a local_name, or one of the source's PaperSize records)
+    # copies just that size, else the source's first.
     def initialize(source_theme, user: nil, book_id: nil, paper_size: nil, name: nil)
       @source = source_theme
       @user = user
@@ -104,6 +105,7 @@ module Design
     # sizes gives none.
     def selected_paper_sizes
       return @source.paper_sizes.to_a if @paper_size.nil?
+      return [ @paper_size ] if @paper_size.is_a?(Design::PaperSize) && @paper_size.theme_id == @source.id
 
       match = @source.paper_sizes.order(:id).find_by(local_name: @paper_size)
       return [ match ] if match

@@ -20,10 +20,10 @@ module Design
       @source = source
       @width_mm = width_mm.to_d
       @height_mm = height_mm.to_d
-      dims = "#{mm(@width_mm)}x#{mm(@height_mm)}"
-      @size_name = size_name.presence || "#{mm(@width_mm)}mmx#{mm(@height_mm)}mm"
-      @local_name = local_name.presence || dims
-      @en_name = en_name.presence || (local_name.presence&.ascii_only? ? local_name : dims)
+      w, h = PaperSize.mm_label(@width_mm), PaperSize.mm_label(@height_mm)
+      @size_name = size_name.presence || "#{w}mmx#{h}mm"
+      @local_name = local_name.presence || "#{w}x#{h}"
+      @en_name = en_name
       @name = name
     end
 
@@ -46,10 +46,9 @@ module Design
     def owner = @source.system? && Design.authoring? ? nil : Design.current_user
 
     def copy_name
-      @name.presence&.strip || "#{@source.name} #{@source.locale == "ko" ? @local_name : @en_name}"
+      @name.presence&.strip ||
+        "#{@source.name} #{PaperSize.name_label(@source.locale, local_name: @local_name, en_name: @en_name,
+                                                 width_mm: @width_mm, height_mm: @height_mm)}"
     end
-
-    # 150.0 → "150", 220.5 → "220.5"
-    def mm(value) = value.to_s("F").delete_suffix(".0")
   end
 end
