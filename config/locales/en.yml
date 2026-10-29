@@ -38,8 +38,6 @@ en:
       paper_sizes: "Paper Sizes"
       generate_sizes: "Generate Other Sizes from %{size}"
       generate_sizes_confirm: "This will overwrite styles on all paper sizes except the default. Continue?"
-      generated_notice: "Other paper sizes generated from %{size}."
-      generate_failed: "Size generation failed: %{error}"
       cloned_notice: "Theme cloned: %{name}"
       deleted_notice: "Theme deleted."
       preview: "Preview"
@@ -389,6 +387,23 @@ en:
       updated_notice: "Paper size updated."
       deleted_notice: "Paper size deleted."
       one_size_only: "A design has one paper size. For another size, copy the design to it."
+      only_size: "A design keeps its one paper size. To use another size, copy the design for it."
+
+    size_copies:
+      new_title: "Copy for another size"
+      intro: "%{name} is %{size}. A design has one paper size: another size is a new design, copied from this one and rescaled by the size rules (margins, body lines, heading sizes)."
+      standard_size: "Size"
+      choose_placeholder: "— choose a size —"
+      custom_size: "Or a custom size"
+      custom_hint: "A width and height typed here win over the size chosen above."
+      width: "Width (mm)"
+      height: "Height (mm)"
+      name_label: "Name"
+      name_hint: "Blank: “%{name}” and the size"
+      create_button: "Copy"
+      created_notice: "Design copied for another size: %{name}"
+      choose_size: "Choose a size, or type both a width and a height."
+      failed: "The copy failed: %{error}"
 
     document_designs:
       switch_doc_type: "Switch document type"

@@ -38,8 +38,6 @@ ko:
       paper_sizes: "판형"
       generate_sizes: "%{size}에서 다른 판형 자동 생성"
       generate_sizes_confirm: "기본 판형을 제외한 모든 판형의 스타일이 덮어씌워집니다. 계속하시겠습니까?"
-      generated_notice: "%{size}에서 다른 판형이 생성되었습니다."
-      generate_failed: "판형 생성 실패: %{error}"
       cloned_notice: "테마가 복제되었습니다: %{name}"
       deleted_notice: "테마가 삭제되었습니다."
       preview: "미리보기"
@@ -389,6 +387,23 @@ ko:
       updated_notice: "판형을 저장했습니다."
       deleted_notice: "판형을 삭제했습니다."
       one_size_only: "디자인 하나에는 판형이 하나입니다. 다른 판형은 디자인을 그 판형으로 복사하세요."
+      only_size: "디자인의 하나뿐인 판형은 삭제할 수 없습니다. 다른 판형은 디자인을 그 판형으로 복사하세요."
+
+    size_copies:
+      new_title: "다른 판형으로 복사"
+      intro: "%{name}의 판형은 %{size}입니다. 디자인 하나에는 판형이 하나이므로, 다른 판형은 이 디자인을 복사해 판형 규칙(여백, 본문 줄 수, 제목 크기)으로 다시 맞춘 새 디자인이 됩니다."
+      standard_size: "판형"
+      choose_placeholder: "— 판형 선택 —"
+      custom_size: "또는 직접 입력"
+      custom_hint: "여기에 가로와 세로를 모두 입력하면 위에서 고른 판형 대신 이 크기를 씁니다."
+      width: "가로 (mm)"
+      height: "세로 (mm)"
+      name_label: "이름"
+      name_hint: "비워 두면 “%{name}” + 판형 이름"
+      create_button: "복사"
+      created_notice: "다른 판형으로 복사했습니다: %{name}"
+      choose_size: "판형을 고르거나 가로와 세로를 모두 입력하세요."
+      failed: "복사하지 못했습니다: %{error}"
 
     document_designs:
       switch_doc_type: "문서 유형 전환"

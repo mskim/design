@@ -62,8 +62,11 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
     assert_select "aside option[data-url=?]", design.edit_theme_paper_size_path(@theme, @a4)
   end
 
-  test "new paper size page renders the rail at the default size with nothing highlighted" do
+  # A theme with a size gets another by copying; the copy form has the rail.
+  test "the size copy page renders the rail at the default size with nothing highlighted" do
     get design.new_theme_paper_size_path(@theme)
+    assert_redirected_to design.new_theme_size_copy_path(@theme)
+    get design.new_theme_size_copy_path(@theme)
     assert_response :success
     assert_select "aside select[data-sidebar='size']"
     assert_select "aside select[data-sidebar='size'] option[selected]", text: @ps.display_name

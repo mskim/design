@@ -196,16 +196,16 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
     assert_select "img[src=?]", design.preview_jpg_theme_paper_size_document_design_path(theme, a4, a4_dd), count: 0
   end
 
-  test "generate_sizes is forbidden on a read-only system theme" do
+  # A design has one size: generate_sizes leads to "copy for another size",
+  # which any designer may use (a copy is their own).
+  test "generate_sizes leads to the size copy form, read-only theme or not" do
     system_theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko")
     post "/design/themes/#{system_theme.id}/generate_sizes"
-    assert_response :forbidden
-  end
+    assert_redirected_to design.new_theme_size_copy_path(system_theme)
 
-  test "generate_sizes is allowed on an editable custom theme" do
     custom = Design::Theme.create!(name: "Cust #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     post "/design/themes/#{custom.id}/generate_sizes"
-    assert_response :redirect
+    assert_redirected_to design.new_theme_size_copy_path(custom)
   end
 
   test "show links page thumbnails to their editor for an editable (custom) theme only" do

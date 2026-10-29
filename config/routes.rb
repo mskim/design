@@ -1,7 +1,10 @@
 Design::Engine.routes.draw do
   resources :themes, only: [:index, :show, :new, :create, :edit, :update, :destroy] do
     post :clone, on: :member
+    # Leads to the size copy form (a design has one size); kept for old links.
     post :generate_sizes, on: :member
+    # "Copy for another size": another size is another design.
+    resource :size_copy, only: [ :new, :create ]
     resources :theme_paragraph_styles, only: [:edit, :update], controller: "theme_paragraph_styles"
     resources :sample_contents, only: [ :edit, :update ], param: :doc_type do
       post :restore, on: :member

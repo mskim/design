@@ -51,13 +51,10 @@ module Design
       redirect_to theme_path(new_theme), notice: t("design.themes.cloned_notice", name: new_theme.name)
     end
 
+    # A design has one paper size: another size is a copy (SizeCopiesController).
+    # Kept for the links that still post here.
     def generate_sizes
-      return head :forbidden unless @theme.editable_by?(Design.current_user)
-
-      Design::SizeGenerationService.new(@theme).generate!
-      redirect_to theme_path(@theme), notice: t("design.themes.generated_notice", size: @theme.default_paper_size&.display_name)
-    rescue => e
-      redirect_to theme_path(@theme), alert: t("design.themes.generate_failed", error: e.message)
+      redirect_to new_theme_size_copy_path(@theme)
     end
 
     def destroy

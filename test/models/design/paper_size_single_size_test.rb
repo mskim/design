@@ -33,6 +33,6 @@ class Design::PaperSizeSingleSizeTest < ActiveSupport::TestCase
     assert_equal "128mmx188mm", sizes["사륙판"][:size_name]
     assert_equal "128x188", sizes["사륙판"][:en_name]
     assert_equal [ 148, 210 ], sizes["A5"].values_at(:width_mm, :height_mm)
-    assert sizes.values.all? { |s| s[:en_name].ascii_only? }
+    assert(sizes.values.all? { |s| s[:en_name].ascii_only? })
   end
 end
