@@ -404,6 +404,7 @@ ko:
       created_notice: "다른 판형으로 복사했습니다: %{name}"
       choose_size: "판형을 고르거나 가로와 세로를 모두 입력하세요."
       failed: "복사하지 못했습니다: %{error}"
+      export_failed: "%{name}(으)로 복사했지만 미리보기 데이터를 쓰지 못했습니다: %{error}. 디자인을 한 번 저장하면 다시 시도합니다."
 
     document_designs:
       switch_doc_type: "문서 유형 전환"

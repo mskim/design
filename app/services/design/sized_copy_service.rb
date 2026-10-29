@@ -10,7 +10,11 @@ module Design
   # non-Korean design never carries Hangul).
   #
   # The owner follows clone's rules: a system source on an authoring host gives
-  # a system copy; otherwise the current user's custom copy.
+  # a system copy; otherwise the current user's custom copy (with no one signed
+  # in — console, rake — the source's owner keeps it).
+  #
+  # The copy is committed before its .db is written, so an export failure is
+  # kept in export_error, not raised: the copy exists either way.
   #
   # Usage:
   #   Design::SizedCopyService.new(theme, **Design::PaperSize::STANDARD_SIZES.first).call
@@ -27,23 +31,32 @@ module Design
       @name = name
     end
 
+    attr_reader :export_error
+
     def call
       from = @source.default_paper_size or raise "No paper size to copy on #{@source.name}"
 
       copy = ActiveRecord::Base.transaction do
-        theme = ThemeCloneService.new(@source, user: owner, paper_size: from.local_name.to_s, name: copy_name).clone
+        theme = ThemeCloneService.new(@source, user: owner, paper_size: from, name: copy_name).clone
         to = theme.paper_sizes.sole
         to.update!(size_name: @size_name, local_name: @local_name, width_mm: @width_mm, height_mm: @height_mm)
         SizeGenerationService.new(theme).rescale!(from: from, to: to)
         theme.reload
       end
-      ThemeDbExportService.new(copy).export!
+      export(copy)
       copy
     end
 
     private
 
-    def owner = @source.system? && Design.authoring? ? nil : Design.current_user
+    def owner = @source.system? && Design.authoring? ? nil : (Design.current_user || @source.user)
+
+    def export(copy)
+      ThemeDbExportService.new(copy).export!
+    rescue StandardError => e
+      Rails.logger.error("[SizedCopyService] #{copy.name}: .db export failed: #{e.class}: #{e.message}")
+      @export_error = e
+    end
 
     def copy_name
       @name.presence&.strip ||

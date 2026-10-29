@@ -404,6 +404,7 @@ en:
       created_notice: "Design copied for another size: %{name}"
       choose_size: "Choose a size, or type both a width and a height."
       failed: "The copy failed: %{error}"
+      export_failed: "Copied as %{name}, but its preview data could not be written: %{error}. Save any change to the design to try again."
 
     document_designs:
       switch_doc_type: "Switch document type"

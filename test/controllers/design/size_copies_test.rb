@@ -119,4 +119,18 @@ class Design::SizeCopiesTest < ActionDispatch::IntegrationTest
     assert_redirected_to design.edit_theme_paper_size_path(@theme, @ps)
     assert_equal I18n.t("design.paper_sizes.only_size"), flash[:alert]
   end
+
+  test "an export failure still opens the copy, with an alert" do
+    failing = Object.new
+    failing.define_singleton_method(:export!) { raise "disk full" }
+    Design::ThemeDbExportService.define_singleton_method(:new) { |*| failing }
+
+    assert_difference -> { Design::Theme.count }, 1 do
+      post design.theme_size_copy_path(@theme), params: { size_copy: { size: "사륙판" } }
+    end
+    assert_redirected_to design.theme_path(copy)
+    assert_match(/disk full/, flash[:alert])
+  ensure
+    Design::ThemeDbExportService.singleton_class.send(:remove_method, :new)
+  end
 end

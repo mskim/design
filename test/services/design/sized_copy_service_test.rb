@@ -126,4 +126,39 @@ class Design::SizedCopyServiceTest < ActiveSupport::TestCase
     assert_equal [ a.name ], db_theme_names(a.db_path)
     assert_equal [ b.name ], db_theme_names(b.db_path)
   end
+
+  test "with no signed-in user (console, rake) a custom source's copy keeps its owner" do
+    @source.update!(user: users(:kevin))
+    sign_out
+
+    assert_equal users(:kevin), copy!.user
+  end
+
+  test "the source's own size is the one copied, whatever its local name" do
+    @source_ps.update!(local_name: nil)
+    copy = copy!
+
+    assert_equal [ 128, 188 ], copy.paper_sizes.sole.then { |ps| [ ps.width_mm.to_i, ps.height_mm.to_i ] }
+  end
+
+  # The copy is committed before its .db is written: an export failure leaves
+  # the copy (a resubmit would make "<name> 2") and is reported, not raised.
+  test "an export failure keeps the copy and is reported" do
+    service = Design::SizedCopyService.new(@source, **standard("사륙판"))
+    failing_export do
+      copy = service.call
+      assert copy.persisted?
+      assert_equal 1, copy.paper_sizes.count
+      assert_match(/disk full/, service.export_error.message)
+    end
+  end
+
+  def failing_export
+    failing = Object.new
+    failing.define_singleton_method(:export!) { raise "disk full" }
+    Design::ThemeDbExportService.define_singleton_method(:new) { |*| failing }
+    yield
+  ensure
+    Design::ThemeDbExportService.singleton_class.send(:remove_method, :new)
+  end
 end

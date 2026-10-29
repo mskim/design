@@ -13,8 +13,14 @@ module Design
       size = chosen_size
       return render_form(error: t("design.size_copies.choose_size")) unless size
 
-      copy = Design::SizedCopyService.new(@theme, **size, name: size_copy_params[:name]).call
-      redirect_to theme_path(copy), notice: t("design.size_copies.created_notice", name: copy.name)
+      service = Design::SizedCopyService.new(@theme, **size, name: size_copy_params[:name])
+      copy = service.call
+      # The copy exists even when its .db didn't export: open it, saying so.
+      if service.export_error
+        redirect_to theme_path(copy), alert: t("design.size_copies.export_failed", name: copy.name, error: service.export_error.message)
+      else
+        redirect_to theme_path(copy), notice: t("design.size_copies.created_notice", name: copy.name)
+      end
     rescue ActiveRecord::RecordInvalid, RuntimeError => e
       render_form(error: t("design.size_copies.failed", error: e.message))
     end
