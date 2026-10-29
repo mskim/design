@@ -97,9 +97,11 @@ module Design
       end
     end
 
+    # A design has one paper size: a file from before that keeps its first
+    # (default) size; the others, and their designs, are not imported.
     def import_paper_sizes(db, theme)
       map = {}
-      db.execute("SELECT * FROM paper_sizes ORDER BY id").each do |row|
+      db.execute("SELECT * FROM paper_sizes ORDER BY id LIMIT 1").each do |row|
         ps = theme.paper_sizes.create!(
           size_name: row["size_name"], local_name: row["local_name"],
           width_mm: row["width_mm"], height_mm: row["height_mm"],
@@ -115,8 +117,14 @@ module Design
 
     def import_document_designs(db, ps_id_map)
       map = {}
+      sizes = db.execute("SELECT id FROM paper_sizes").map { |r| r["id"] }
+      @dropped_designs = Set.new
       db.execute("SELECT * FROM document_designs ORDER BY id").each do |row|
         ps = ps_id_map[row["paper_size_id"]]
+        if !ps && sizes.include?(row["paper_size_id"])
+          @dropped_designs << row["id"] # on a size not imported
+          next
+        end
         unless ps
           Rails.logger.warn "[ThemeImportService] document_design id=#{row['id']} doc_type=#{row['doc_type']} references unknown paper_size_id=#{row['paper_size_id']} — skipped"
           next
@@ -130,6 +138,7 @@ module Design
     def import_heading_elements(db, dd_id_map)
       db.execute("SELECT * FROM heading_elements ORDER BY id").each do |row|
         dd = dd_id_map[row["document_design_id"]]
+        next if !dd && @dropped_designs.include?(row["document_design_id"])
         unless dd
           Rails.logger.warn "[ThemeImportService] heading_element id=#{row['id']} references unknown document_design_id=#{row['document_design_id']} — skipped"
           next
@@ -158,6 +167,7 @@ module Design
     def import_design_paragraph_styles(db, dd_id_map)
       db.execute("SELECT * FROM paragraph_styles WHERE styleable_type = 'document_design'").each do |row|
         dd = dd_id_map[row["styleable_id"]]
+        next if !dd && @dropped_designs.include?(row["styleable_id"])
         unless dd
           Rails.logger.warn "[ThemeImportService] paragraph_style '#{row['name']}' references unknown document_design styleable_id=#{row['styleable_id']} — skipped"
           next

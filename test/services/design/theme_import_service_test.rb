@@ -278,4 +278,29 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
   ensure
     File.delete(path) if path && File.exist?(path)
   end
+
+  # A design has one paper size: a file from before keeps its first.
+  test "a file with several paper sizes imports only the first, and only its designs" do
+    file = Tempfile.new([ "two_sizes", ".book_design" ])
+    FileUtils.cp(FIXTURE, file.path)
+    db = SQLite3::Database.new(file.path)
+    copy_row = ->(table, where, set) do
+      db.execute("CREATE TEMP TABLE t AS SELECT * FROM #{table} WHERE #{where}")
+      db.execute("UPDATE t SET #{set}")
+      db.execute("INSERT INTO #{table} SELECT * FROM t")
+      db.execute("DROP TABLE t")
+    end
+    copy_row.("paper_sizes", "id = 1", "id = 2, size_name = '210mmx297mm', width_mm = 210, height_mm = 297")
+    copy_row.("document_designs", "id = 3", "id = 10, paper_size_id = 2")
+    copy_row.("heading_elements", "document_design_id = 3", "id = id + 100, document_design_id = 10")
+    copy_row.("paragraph_styles", "styleable_type = 'document_design' AND styleable_id = 3", "id = id + 100, styleable_id = 10")
+    db.close
+
+    theme = Design::ThemeImportService.new(file.path).import!
+
+    assert_equal [ "128mmx188mm" ], theme.paper_sizes.pluck(:size_name)
+    assert_equal %w[chapter copyright title_page], theme.document_designs.pluck(:doc_type).sort
+  ensure
+    file&.close!
+  end
 end

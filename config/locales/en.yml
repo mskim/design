@@ -388,6 +388,7 @@ en:
       created_notice: "Paper size added."
       updated_notice: "Paper size updated."
       deleted_notice: "Paper size deleted."
+      one_size_only: "A design has one paper size. For another size, copy the design to it."
 
     document_designs:
       switch_doc_type: "Switch document type"

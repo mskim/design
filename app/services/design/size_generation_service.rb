@@ -15,6 +15,7 @@ module Design
     #
     # Usage:
     #   Design::SizeGenerationService.new(theme).generate!
+    #   Design::SizeGenerationService.new(copy).rescale!(from: source_size, to: copy_size)
 
     HEADING_STYLES = %w[title subtitle author publisher quote].freeze
     BODY_SUBHEADING_STYLES = %w[h2 h3 h4 h5 h6].freeze
@@ -29,6 +30,23 @@ module Design
     def generate!
       default_ps = @theme.default_paper_size
       raise "No default paper size found" unless default_ps
+      raise "No chapter document design on default paper size" unless default_ps.document_designs.exists?(doc_type: "chapter")
+
+      @theme.paper_sizes.where.not(id: default_ps.id).each do |target_ps|
+        rescale!(from: default_ps, to: target_ps)
+      end
+
+      # Re-export the theme DB
+      ThemeDbExportService.new(@theme).export!
+    end
+
+    # Rescale `to` (its margins, body_line_count and its document designs'
+    # styles) from `from` by the rules above. `to` may be on another theme (a
+    # design copied for another size, SizedCopyService): its own theme's base
+    # styles decide what a chapter row stores. Exports nothing.
+    def rescale!(from:, to:)
+      default_ps = from
+      target_ps = to
 
       default_chapter_dd = default_ps.document_designs.find_by(doc_type: "chapter")
       raise "No chapter document design on default paper size" unless default_chapter_dd
@@ -36,79 +54,75 @@ module Design
       # Resolved (theme base → chapter) so a sparse chapter row still yields its
       # inherited values (e.g. body font_size from the theme).
       default_chapter_styles = default_chapter_dd.merged_paragraph_styles.index_by(&:name)
-      base_styles = @theme.base_paragraph_styles.index_by(&:name)
+      base_styles = target_ps.theme.base_paragraph_styles.index_by(&:name)
       default_body_style = default_chapter_styles["body"]
       default_body_line_count = default_ps.body_line_count
 
-      @theme.paper_sizes.where.not(id: default_ps.id).each do |target_ps|
-        ratio_w = target_ps.width_mm / default_ps.width_mm
-        ratio_h = target_ps.height_mm / default_ps.height_mm
+      ratio_w = target_ps.width_mm / default_ps.width_mm
+      ratio_h = target_ps.height_mm / default_ps.height_mm
 
-        # Update margins proportionally
-        target_ps.update!(
-          left_margin_mm: (default_ps.left_margin_mm * ratio_w).round(2),
-          top_margin_mm: (default_ps.top_margin_mm * ratio_h).round(2),
-          right_margin_mm: (default_ps.right_margin_mm * ratio_w).round(2),
-          bottom_margin_mm: (default_ps.bottom_margin_mm * ratio_h).round(2),
-          binding_margin_mm: (default_ps.binding_margin_mm * ratio_w).round(2)
-        )
+      # Update margins proportionally
+      target_ps.update!(
+        left_margin_mm: (default_ps.left_margin_mm * ratio_w).round(2),
+        top_margin_mm: (default_ps.top_margin_mm * ratio_h).round(2),
+        right_margin_mm: (default_ps.right_margin_mm * ratio_w).round(2),
+        bottom_margin_mm: (default_ps.bottom_margin_mm * ratio_h).round(2),
+        binding_margin_mm: (default_ps.binding_margin_mm * ratio_w).round(2)
+      )
 
-        # Calculate body_line_count from content height
-        if default_body_style&.font_size
-          default_body_line_height = default_ps.content_height_pt / default_body_line_count
-          target_content_height = target_ps.content_height_pt
-          target_body_line_count = (target_content_height / default_body_line_height).floor
-          target_ps.update!(body_line_count: [target_body_line_count, 10].max)
-        end
-
-        target_body_line_count = target_ps.body_line_count
-        line_count_ratio = default_body_line_count.to_f / target_body_line_count
-
-        # Generate chapter styles for this paper size
-        target_chapter_dd = target_ps.document_designs.find_or_create_by!(doc_type: "chapter") do |dd|
-          copy_document_design_attrs(dd, default_chapter_dd)
-        end
-
-        # Copy/update heading elements
-        target_chapter_dd.heading_elements.destroy_all
-        default_chapter_dd.heading_elements.each do |he|
-          target_chapter_dd.heading_elements.create!(
-            element_type: he.element_type,
-            style_name: he.style_name,
-            position: he.position
-          )
-        end
-
-        # Chapter: scale every resolved style, then store only the fields that
-        # differ from the theme base (the rest inherit).
-        default_chapter_styles.each do |name, default_style|
-          values = scaled_values(name, default_style, ratio_h, line_count_ratio)
-          base = base_styles[name]
-          sparse = values.to_h do |f, v|
-            [ f, base && ParagraphStyle.same_value?(f, v, base[f]) ? nil : v ]
-          end
-          write_sparse_row(target_chapter_dd, name, sparse, has_parent: base.present?,
-                           korean_name: default_style.korean_name)
-        end
-
-        # Other doc types: copy only the default size's own (non-nil) fields,
-        # scaled by the same rules; everything else inherits through chapter.
-        default_ps.document_designs.where.not(doc_type: "chapter").each do |default_dd|
-          target_dd = target_ps.document_designs.find_or_create_by!(doc_type: default_dd.doc_type) do |dd|
-            copy_document_design_attrs(dd, default_dd)
-          end
-
-          default_dd.paragraph_styles.each do |default_style|
-            values = scaled_values(default_style.name, default_style, ratio_h, line_count_ratio)
-            write_sparse_row(target_dd, default_style.name, values,
-                             has_parent: target_dd.style_has_parent?(default_style.name),
-                             korean_name: default_style.korean_name)
-          end
-        end
+      # Calculate body_line_count from content height
+      if default_body_style&.font_size
+        default_body_line_height = default_ps.content_height_pt / default_body_line_count
+        target_content_height = target_ps.content_height_pt
+        target_body_line_count = (target_content_height / default_body_line_height).floor
+        target_ps.update!(body_line_count: [target_body_line_count, 10].max)
       end
 
-      # Re-export the theme DB
-      ThemeDbExportService.new(@theme).export!
+      target_body_line_count = target_ps.body_line_count
+      line_count_ratio = default_body_line_count.to_f / target_body_line_count
+
+      # Generate chapter styles for this paper size
+      target_chapter_dd = target_ps.document_designs.find_or_create_by!(doc_type: "chapter") do |dd|
+        copy_document_design_attrs(dd, default_chapter_dd)
+      end
+
+      # Copy/update heading elements
+      target_chapter_dd.heading_elements.destroy_all
+      default_chapter_dd.heading_elements.each do |he|
+        target_chapter_dd.heading_elements.create!(
+          element_type: he.element_type,
+          style_name: he.style_name,
+          position: he.position
+        )
+      end
+
+      # Chapter: scale every resolved style, then store only the fields that
+      # differ from the theme base (the rest inherit).
+      default_chapter_styles.each do |name, default_style|
+        values = scaled_values(name, default_style, ratio_h, line_count_ratio)
+        base = base_styles[name]
+        sparse = values.to_h do |f, v|
+          [ f, base && ParagraphStyle.same_value?(f, v, base[f]) ? nil : v ]
+        end
+        write_sparse_row(target_chapter_dd, name, sparse, has_parent: base.present?,
+                         korean_name: default_style.korean_name)
+      end
+
+      # Other doc types: copy only the default size's own (non-nil) fields,
+      # scaled by the same rules; everything else inherits through chapter.
+      default_ps.document_designs.where.not(doc_type: "chapter").each do |default_dd|
+        target_dd = target_ps.document_designs.find_or_create_by!(doc_type: default_dd.doc_type) do |dd|
+          copy_document_design_attrs(dd, default_dd)
+        end
+
+        default_dd.paragraph_styles.each do |default_style|
+          values = scaled_values(default_style.name, default_style, ratio_h, line_count_ratio)
+          write_sparse_row(target_dd, default_style.name, values,
+                           has_parent: target_dd.style_has_parent?(default_style.name),
+                           korean_name: default_style.korean_name)
+        end
+      end
+      target_ps
     end
 
     private

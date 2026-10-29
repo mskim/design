@@ -10,7 +10,7 @@ class Design::DocumentDesignStylesTest < ActionDispatch::IntegrationTest
     sign_in :david
     @theme = Design::Theme.create!(name: "DS #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     @ps = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    @ps2 = @theme.paper_sizes.create!(size_name: "국판", width_mm: 148, height_mm: 210)
+    @ps2 = @theme.paper_sizes.create!(allow_another_size: true, size_name: "국판", width_mm: 148, height_mm: 210)
     @chapters = [ @ps, @ps2 ].map { |ps| design_for(ps, "chapter") }
     @forewords = [ @ps, @ps2 ].map { |ps| design_for(ps, "foreword") }
     @fw = @forewords.first

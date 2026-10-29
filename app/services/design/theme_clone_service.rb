@@ -54,6 +54,7 @@ module Design
     def clone_paper_size_into(new_theme, ps)
       new_ps = ps.dup
       new_ps.theme = new_theme
+      new_ps.allow_another_size = true # a legacy theme's every size, copied as is
       new_ps.save!
 
       # PaperSize after_create (DefaultGenerator) seeds default paragraph

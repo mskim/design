@@ -193,7 +193,7 @@ class Design::PageSectionValidationTest < ActiveSupport::TestCase
     refute @chapter.columns_fit?, "chapter: print width 105 mm = 297.6 pt < 300 pt"
     refute @poem.columns_fit?, "poem binds too: 105 mm = 297.6 pt < 300 pt"
     assert title.columns_fit?, "title page: bound, but no columns — 108 mm = 306.1 pt > 300 pt"
-    ps = @theme.paper_sizes.create!(size_name: "X", width_mm: 152, height_mm: 225, left_margin_mm: 22, top_margin_mm: 30)
+    ps = @theme.paper_sizes.create!(allow_another_size: true, size_name: "X", width_mm: 152, height_mm: 225, left_margin_mm: 22, top_margin_mm: 30)
     assert ps.overridden?(:left_margin_mm), "an explicit creation value is marked"
     refute ps.margin_changed?("left_margin_mm"), "…but equals the rule: no dot"
     assert ps.margin_changed?("top_margin_mm")

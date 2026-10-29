@@ -82,7 +82,7 @@ class Design::ObjectSectionTest < ActiveSupport::TestCase
   end
 
   test "a landscape page turns the grid, its limits and the sketch around" do
-    ps = @theme.paper_sizes.create!(size_name: "가로", width_mm: 297, height_mm: 210)
+    ps = @theme.paper_sizes.create!(allow_another_size: true, size_name: "가로", width_mm: 297, height_mm: 210)
     doc = content(ps.document_designs.create!(doc_type: "copyright"))
     assert_equal "12", scrub(doc, "text_box_grid_width")["data-design--scrub-input-max-value"]
     assert_equal "6", scrub(doc, "text_box_grid_height")["data-design--scrub-input-max-value"]

@@ -74,7 +74,7 @@ class Design::PreviewWingTest < ActiveSupport::TestCase
   end
 
   test "wings preview at a 10cm flap width, not the book page width" do
-    book = @theme.paper_sizes.create!(size_name: "book", width_mm: 152, height_mm: 225)
+    book = @theme.paper_sizes.create!(allow_another_size: true, size_name: "book", width_mm: 152, height_mm: 225)
     flap_pt = 100 * Design::PaperSize::MM2PT
     %w[front_wing back_wing].each do |dt|
       dd = book.document_designs.create!(doc_type: dt)

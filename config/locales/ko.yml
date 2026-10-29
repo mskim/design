@@ -388,6 +388,7 @@ ko:
       created_notice: "판형을 추가했습니다."
       updated_notice: "판형을 저장했습니다."
       deleted_notice: "판형을 삭제했습니다."
+      one_size_only: "디자인 하나에는 판형이 하나입니다. 다른 판형은 디자인을 그 판형으로 복사하세요."
 
     document_designs:
       switch_doc_type: "문서 유형 전환"

@@ -67,7 +67,7 @@ class Design::ObjectSectionValidationTest < ActiveSupport::TestCase
   end
 
   test "a landscape page turns the grid around" do
-    ps = @theme.paper_sizes.create!(size_name: "가로", width_mm: 297, height_mm: 210)
+    ps = @theme.paper_sizes.create!(allow_another_size: true, size_name: "가로", width_mm: 297, height_mm: 210)
     dd = ps.document_designs.create!(doc_type: "copyright")
     assert_equal({ columns: 12, rows: 6 }, dd.object_grid)
     assert set(dd, text_box_grid_width: "12")
@@ -95,7 +95,7 @@ class Design::ObjectSectionValidationTest < ActiveSupport::TestCase
     assert_equal [ err(:out_of_range, min: 1, max: 6) ], @wing.errors[:photo_grid_width]
     @wing.reload
     assert set(@wing, photo_grid_width: "6", photo_grid_height: "12")
-    landscape = @theme.paper_sizes.create!(size_name: "가로2", width_mm: 297, height_mm: 210)
+    landscape = @theme.paper_sizes.create!(allow_another_size: true, size_name: "가로2", width_mm: 297, height_mm: 210)
     wing = landscape.document_designs.create!(doc_type: "front_wing")
     refute set(wing, photo_grid_width: "7"), "the flap's grid never turns with the page"
     assert_equal [ err(:out_of_range, min: 1, max: 6) ], wing.errors[:photo_grid_width]

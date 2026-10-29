@@ -17,8 +17,28 @@ module Design
     HEIGHT_MARGIN_FIELDS = %w[top_margin_mm bottom_margin_mm].freeze
     MIN_CONTENT_MM = 20
 
+    # The sizes "copy for another size" offers. size_name follows the exported
+    # themes' "<W>mmx<H>mm"; en_name is the ASCII label a non-Korean design's
+    # name carries (a design's language comes from its file name).
+    STANDARD_SIZES = [
+      { size_name: "152mmx225mm", local_name: "신국판", en_name: "152x225", width_mm: 152, height_mm: 225 },
+      { size_name: "128mmx188mm", local_name: "사륙판", en_name: "128x188", width_mm: 128, height_mm: 188 },
+      { size_name: "148mmx210mm", local_name: "국판", en_name: "148x210", width_mm: 148, height_mm: 210 },
+      { size_name: "176mmx248mm", local_name: "크라운판", en_name: "176x248", width_mm: 176, height_mm: 248 },
+      { size_name: "188mmx257mm", local_name: "사륙배판", en_name: "188x257", width_mm: 188, height_mm: 257 },
+      { size_name: "210mmx297mm", local_name: "A4", en_name: "A4", width_mm: 210, height_mm: 297 },
+      { size_name: "148mmx210mm", local_name: "A5", en_name: "A5", width_mm: 148, height_mm: 210 }
+    ].map(&:freeze).freeze
+
     # Only a Page section save asks for this (save(context: :page_section)).
     validate :page_section_margins, on: :page_section
+
+    # A design has one size; another size is another design (SizedCopyService).
+    # Checked on create only, so a legacy multi-size theme's sizes still save.
+    # allow_another_size: a legacy theme's size copied as is (ThemeCloneService
+    # copying every size of a theme from before), until design:single_size.
+    validate :theme_has_no_size, on: :create, unless: :allow_another_size
+    attr_accessor :allow_another_size
 
     validates :size_name, presence: true, uniqueness: { scope: :theme_id }
     validates :width_mm, :height_mm, numericality: { greater_than: 0 }
@@ -90,6 +110,11 @@ module Design
     end
 
     private
+
+    def theme_has_no_size
+      return unless theme&.paper_sizes&.exists?
+      errors.add(:theme, :one_size_only, message: I18n.t("design.paper_sizes.one_size_only"))
+    end
 
     def page_section_margins
       fields = page_fields(PAGE_MARGIN_FIELDS)

@@ -6,7 +6,7 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
     sign_in :david
     @theme = Design::Theme.create!(name: "Rail #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     @ps    = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    @a4    = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    @a4    = @theme.paper_sizes.create!(allow_another_size: true, size_name: "A4", width_mm: 210, height_mm: 297)
     @dd    = @ps.document_designs.create!(doc_type: "chapter")
   end
 

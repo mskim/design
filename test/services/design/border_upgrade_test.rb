@@ -91,8 +91,8 @@ class Design::BorderUpgradeTest < ActiveSupport::TestCase
   test "across sizes and missing chapters every design resolves to the old chain" do
     theme = Design::Theme.create!(name: "BU2 #{SecureRandom.hex(3)}", locale: "ko")
     a = theme.paper_sizes.create!(size_name: "A", width_mm: 152, height_mm: 225)
-    b = theme.paper_sizes.create!(size_name: "B", width_mm: 148, height_mm: 210)
-    c = theme.paper_sizes.create!(size_name: "C", width_mm: 210, height_mm: 297)
+    b = theme.paper_sizes.create!(allow_another_size: true, size_name: "B", width_mm: 148, height_mm: 210)
+    c = theme.paper_sizes.create!(allow_another_size: true, size_name: "C", width_mm: 210, height_mm: 297)
     dd = ->(ps, type) { ps.document_designs.find_by(doc_type: type) || ps.document_designs.create!(doc_type: type) }
     a_ch, a_fw, a_poem, a_epi = %w[chapter foreword poem epilogue].map { |t| dd.(a, t) }
     b_ch, b_fw = %w[chapter foreword].map { |t| dd.(b, t) }

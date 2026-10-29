@@ -102,7 +102,7 @@ class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
 
   def build_two_sizes
     @shin = @source.paper_sizes.create!(size_name: "shinkook", local_name: "신국판", width_mm: 152, height_mm: 225)
-    @a4 = @source.paper_sizes.create!(size_name: "A4", local_name: "A4", width_mm: 210, height_mm: 297)
+    @a4 = @source.paper_sizes.create!(allow_another_size: true, size_name: "A4", local_name: "A4", width_mm: 210, height_mm: 297)
     [ @shin, @a4 ].each do |ps|
       ps.paragraph_styles.create!(name: "ps_body_#{ps.size_name}", font: "smShinShinMyungjoP-30", font_size: 9.5)
       %w[chapter toc].each do |doc_type|

@@ -184,7 +184,7 @@ class Design::ThemesControllerTest < ActionDispatch::IntegrationTest
   test "show size selector switches which size's docs render" do
     theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko", user_id: nil)
     a4 = theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
-    sk = theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    sk = theme.paper_sizes.create!(allow_another_size: true, size_name: "신국판", width_mm: 152, height_mm: 225)
     a4_dd = a4.document_designs.create!(doc_type: "chapter")
     sk_dd = sk.document_designs.create!(doc_type: "chapter")
 

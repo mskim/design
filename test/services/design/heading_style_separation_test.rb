@@ -22,7 +22,7 @@ class Design::HeadingStyleSeparationTest < ActiveSupport::TestCase
                   space_before_in_lines: 1, dropcap: { "lines" => 2 })
 
     @big = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
-    @small = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+    @small = @theme.paper_sizes.create!(allow_another_size: true, size_name: "신국판", width_mm: 152, height_mm: 225)
     (%w[chapter] + KINDS).each { |t| @big.document_designs.create!(doc_type: t) }
     (%w[chapter title_page inside_cover]).each { |t| @small.document_designs.create!(doc_type: t) } # no part_cover
     # Only the rows a pre-change theme would have.
