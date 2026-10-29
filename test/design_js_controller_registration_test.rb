@@ -203,10 +203,11 @@ class DesignJsControllerRegistrationTest < ActiveSupport::TestCase
     assert_includes src, "[data-doc-grid-empty]"
     assert_includes src, "pinnedOpen", "the pinned (current design) group's opening is not saved"
     assert_includes src, "turbo:frame-load"
-    # A Turbo snapshot's <details> may be stale: connect() trusts the cookie and
-    # reconciles the tree before any queued toggle runs.
+    # A Turbo snapshot's toggles may be stale: connect() trusts the cookie and
+    # sets each matter section's toggle (aria-expanded) from it, pinned ones open.
     assert_includes src, "readCookieKeys(document.cookie) ?? parseOpen(this.openValue)"
-    assert_match(/d\.open = this\.keys\.includes\(d\.dataset\.matter\) \|\| "pinnedOpen" in d\.dataset/, src)
+    assert_includes src, %(this.keys.includes(section.dataset.matter) || "pinnedOpen" in section.dataset)
+    assert_includes src, %q{setAttribute("aria-expanded"}
   end
 
   test "book_tree.js knows the same matter keys and default as Design::Views::BookTree" do

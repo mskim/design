@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { COOKIE_NAME, KEYS, DEFAULT, parseOpen, readCookieKeys, toggled, cookieFor, gridState }
+import { COOKIE_NAME, KEYS, DEFAULT, parseOpen, readCookieKeys, toggled, cookieFor, gridState, nextExpanded }
   from "../../app/javascript/design-controllers/design/book_tree.js"
 
 test("the cookie name matches Design::Views::BookTree::COOKIE", () => {
@@ -43,7 +43,7 @@ test("gridState hides closed sections and shows the hint only when none is visib
 })
 
 // Mirrors Design::Views::BookTree.open_keys: the cookie is the source of truth on
-// connect (a Turbo snapshot's <details> may be stale).
+// connect (a Turbo snapshot's toggles may be stale).
 test("readCookieKeys: absent cookie → null", () => {
   assert.equal(readCookieKeys(""), null)
   assert.equal(readCookieKeys("other=1; design_tree_openx=frontmatter"), null)
@@ -66,4 +66,10 @@ test("readCookieKeys: no known key → the default", () => {
   assert.deepEqual(readCookieKeys("design_tree_open=%E0%A4%A"), ["bodymatter"], "malformed encoding is junk")
   assert.deepEqual(DEFAULT, ["bodymatter"])
   assert.deepEqual(KEYS, ["cover", "frontmatter", "bodymatter", "rearmatter", "other"])
+})
+
+test("nextExpanded flips a section toggle's aria-expanded; a missing value opens", () => {
+  assert.equal(nextExpanded("true"), false)
+  assert.equal(nextExpanded("false"), true)
+  assert.equal(nextExpanded(null), true)
 })

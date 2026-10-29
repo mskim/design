@@ -45,3 +45,9 @@ export function gridState(keys, matters) {
   const hidden = matters.map((m) => !keys.includes(m))
   return { hidden, hintHidden: matters.length === 0 || hidden.some((h) => !h) }
 }
+
+// A section toggle's next state from its aria-expanded: anything but "true" (folded, or
+// no attribute yet) opens it.
+export function nextExpanded(ariaExpanded) {
+  return ariaExpanded !== "true"
+}

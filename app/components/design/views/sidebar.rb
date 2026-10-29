@@ -2,9 +2,11 @@ module Design
   module Views
     # Left rail for every studio page inside a theme: theme + paper size selects on
     # top, then (for editable themes) the size actions — new size, size settings,
-    # generate other sizes — then the book structure (표지/머리/본문/꼬리, the
-    # studio's existing matter labels; cover first like bookcheego's tree) with one
-    # leaf per doc_type design, and finally the theme's table styles group.
+    # generate other sizes — then the book tree, as book_write's 디자인수정 tree: 책 전체
+    # (the theme overview for the size) alone on top, the structure's sections
+    # (표지/머리/본문/꼬리, the studio's existing matter labels; cover first like
+    # bookcheego's tree) each folding under a chevron, one leaf per doc_type design, and
+    # finally the theme's table styles section.
     # On a read-only theme the structure is listed as plain text (spans, no links):
     # every editor action answers 403 there (ApplicationController#ensure_theme_editable).
     # Rendered into Shell's sidebar: slot via Base#theme_sidebar.
@@ -13,8 +15,9 @@ module Design
     # size, so changing the size select keeps the designer on the same page.
     # Defaults to the theme overview for that size.
     #
-    # current: { kind:, id: } — which leaf to highlight. ids must be Integers
-    # (compared with == against record ids).
+    # current: { kind:, id: } — which leaf to highlight: :theme (책 전체, the theme
+    # overview), :paper_size (size settings), :document_design / :table_style with an id.
+    # ids must be Integers (compared with == against record ids).
     class Sidebar < Design::Views::Base
       def initialize(theme:, paper_size:, current: nil, size_url: nil)
         @theme = theme
@@ -29,8 +32,7 @@ module Design
           theme_select
           size_select if @theme.paper_sizes.any? # a theme with no sizes gets just "new size"
           size_links if editable?
-          matter_groups if @paper_size
-          table_styles_group
+          book_tree
         end
       end
 
@@ -49,10 +51,9 @@ module Design
         [ :other,       "design.sidebar.other" ]
       ].freeze
 
-      LEAF_BASE    = "block truncate rounded px-2 py-0.5 no-underline"
-      LEAF_CLASS   = "#{LEAF_BASE} hover:bg-slate-200"
-      ACTIVE_CLASS = "#{LEAF_BASE} bg-slate-900 text-white"
-      LINK_CLASS   = "#{LEAF_BASE} text-blue-600 hover:bg-slate-200"
+      LINK_BASE    = "block truncate rounded px-2 py-0.5 no-underline"
+      LINK_CLASS   = "#{LINK_BASE} text-blue-600 hover:bg-slate-200"
+      ACTIVE_CLASS = "#{LINK_BASE} bg-slate-900 text-white"
 
       # Memoized: called once per leaf.
       def editable?
@@ -93,10 +94,17 @@ module Design
         ul(class: "flex flex-col gap-0.5 list-none p-0") do
           li { a(href: helpers.new_theme_paper_size_path(@theme), class: LINK_CLASS) { I18n.t("design.sidebar.new_size") } }
           if @paper_size
-            leaf(I18n.t("design.sidebar.size_settings"), helpers.edit_theme_paper_size_path(@theme, @paper_size),
-                 active: current?(:paper_size), inactive_class: LINK_CLASS)
+            size_settings_link
             li { generate_sizes_button }
           end
+        end
+      end
+
+      def size_settings_link
+        active = current?(:paper_size)
+        li do
+          a(href: helpers.edit_theme_paper_size_path(@theme, @paper_size), class: active ? ACTIVE_CLASS : LINK_CLASS,
+            aria_current: (active ? "page" : nil)) { I18n.t("design.sidebar.size_settings") }
         end
       end
 
@@ -117,56 +125,100 @@ module Design
         end
       end
 
+      # The book tree, in book_write's 디자인수정 look (its book_tree.css classes, ported to
+      # app/assets/tailwind/design.css): 책 전체 alone on top, then one section per matter
+      # group with a chevron fold toggle, then the table styles.
+      def book_tree
+        div(class: "book-tree studio-tree") do
+          if @paper_size
+            whole_book
+            matter_groups
+          end
+          table_styles_group
+        end
+      end
+
+      # 책 전체: the theme overview for this size. The overview is open on read-only themes
+      # too, so this is always a link.
+      def whole_book
+        ul(class: "book-tree__items studio-tree__book") do
+          li(class: "book-tree__item") do
+            div(class: "book-tree__row") do
+              tree_link(I18n.t("design.sidebar.whole_book"), helpers.theme_path(@theme, paper_size_id: @paper_size.id),
+                        current: current?(:theme))
+            end
+          end
+        end
+      end
+
       def matter_groups
         grouped = Design::DocumentDesign.grouped_by_matter(@paper_size.document_designs.to_a)
         MATTER_ORDER.each do |group, key|
           designs = grouped[group]
           next if designs.blank?
-          matter_box(group.to_s, I18n.t(key), pinned: holds_current?(designs)) do
+          matter_section(group.to_s, I18n.t(key), pinned: holds_current?(designs)) do
             designs.each { |dd| leaf(doc_type_label(dd.doc_type), design_href(dd), active: current?(:document_design, dd.id)) }
           end
         end
       end
 
+      # Not a matter group: always rendered open, and folding it is not remembered.
       def table_styles_group
         styles = @theme.table_styles.defaults.order(:name).to_a
         return if styles.empty?
-        group_box(I18n.t("design.sidebar.table_styles")) do
+        tree_section(I18n.t("design.sidebar.table_styles"), open: true, data: { tree_group: "table_styles" }) do
           styles.each do |ts|
             leaf(ts.name.capitalize, helpers.edit_theme_table_style_path(@theme, ts), active: current?(:table_style, ts.id))
           end
         end
       end
 
-      def group_box(label_text, open: true, **attrs, &leaves)
-        details(open: open, **attrs) do
-          summary(class: "cursor-pointer select-none font-medium text-slate-700") { label_text }
-          ul(class: "ml-3 mt-1 flex flex-col gap-0.5 list-none p-0", &leaves)
+      # A section of the tree: a header row whose toggle button (label + chevron) folds the
+      # list below it. Folded is aria-expanded="false"; the stylesheet hides the list after it
+      # (.book-tree__row:has(... [aria-expanded=false]) + .book-tree__items), as in book_write.
+      def tree_section(label_text, open:, **attrs, &leaves)
+        section(class: "book-tree__section", **attrs) do
+          div(class: "book-tree__row book-tree__row--section") do
+            button(type: "button", class: "book-tree__toggle", aria_expanded: open.to_s,
+                   data: { action: "design--book-tree#toggle" }) do
+              span(class: "book-tree__section-label") { label_text }
+              span(class: "book-tree__chevron", aria_hidden: "true")
+              span(class: "sr-only") { I18n.t("design.sidebar.toggle") }
+            end
+          end
+          ul(class: "book-tree__items", &leaves)
         end
       end
 
       # A matter group is open when this browser left it open (the book-tree cookie).
       # The group holding the current design is pinned open so its active leaf shows;
-      # design--book-tree ignores that pinned opening when saving the cookie.
-      def matter_box(matter, label_text, pinned:, &leaves)
+      # design--book-tree does not save that pinned opening in the cookie.
+      def matter_section(matter, label_text, pinned:, &leaves)
         saved_open = open_matter_keys.include?(matter)
-        group_box(label_text, open: pinned || saved_open, data: {
-          matter: matter, pinned_open: (pinned && !saved_open) || nil, action: "toggle->design--book-tree#toggle"
-        }, &leaves)
+        tree_section(label_text, open: pinned || saved_open,
+                     data: { matter: matter, pinned_open: (pinned && !saved_open) || nil }, &leaves)
       end
 
       def holds_current?(designs)
         designs.any? { |dd| current?(:document_design, dd.id) }
       end
 
-      # Read-only theme: plain text, nothing navigable (so active highlighting is moot).
-      def leaf(label_text, href, active:, inactive_class: LEAF_CLASS)
-        return li { span(title: label_text, class: "#{LEAF_BASE} text-slate-500") { label_text } } unless editable?
-
-        li do
-          a(href: href, title: label_text, class: active ? ACTIVE_CLASS : inactive_class,
-            aria_current: (active ? "page" : nil)) { label_text }
+      # Read-only theme: plain text, nothing navigable (so current highlighting is moot).
+      def leaf(label_text, href, active:)
+        li(class: "book-tree__item") do
+          div(class: "book-tree__row") do
+            if editable?
+              tree_link(label_text, href, current: active)
+            else
+              span(title: label_text, class: "book-tree__link") { label_text }
+            end
+          end
         end
+      end
+
+      def tree_link(label_text, href, current:)
+        a(href: href, title: label_text, class: [ "book-tree__link", ("is-current" if current) ],
+          aria_current: (current ? "page" : nil)) { label_text }
       end
 
       def design_href(dd)

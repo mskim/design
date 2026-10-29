@@ -21,7 +21,9 @@ class Design::BookTreeTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  def open_groups = css_select("aside details[data-matter][open]").map { |d| d["data-matter"] }
+  def open_groups
+    css_select("aside section[data-matter]").select { |s| s.at_css(".book-tree__toggle")["aria-expanded"] == "true" }.map { |s| s["data-matter"] }
+  end
   def visible_sections = css_select("[data-doc-grid] section[data-matter]:not([hidden])").map { |s| s["data-matter"] }
   def hidden_sections = css_select("[data-doc-grid] section[data-matter][hidden]").map { |s| s["data-matter"] }
   def hint = css_select("[data-doc-grid-empty]").first
@@ -68,11 +70,17 @@ class Design::BookTreeTest < ActionDispatch::IntegrationTest
     refute hint.key?("hidden")
   end
 
-  test "the sidebar carries the book-tree controller and each matter group toggles it" do
+  test "the sidebar carries the book-tree controller and each matter section's toggle calls it" do
     show
     assert_select "aside nav[data-controller~='design--book-tree'][data-design--book-tree-open-value='bodymatter']"
-    assert_select "aside details[data-matter]", count: 3
-    assert_select "aside details[data-matter][data-action='toggle->design--book-tree#toggle']", count: 3
+    assert_select "aside section[data-matter]", count: 3
+    assert_select "aside section[data-matter] > .book-tree__row > button.book-tree__toggle[data-action='design--book-tree#toggle']", count: 3
+  end
+
+  test "the theme overview makes 책 전체 current, not size settings" do
+    show
+    assert_select "aside a[aria-current='page']", count: 1
+    assert_select "aside a.book-tree__link.is-current[aria-current='page'][href=?]", design.theme_path(@theme, paper_size_id: @ps.id)
   end
 
   test "the doc grid is four across on wide screens" do
@@ -86,13 +94,14 @@ class Design::BookTreeTest < ActionDispatch::IntegrationTest
     get design.edit_theme_paper_size_document_design_path(@theme, @ps, @title)
     assert_response :success
     assert_equal %w[frontmatter bodymatter], open_groups
-    assert_select "aside details[data-matter='frontmatter'][data-pinned-open]"
+    assert_select "aside section[data-matter='frontmatter'][data-pinned-open]"
     assert_select "aside a[aria-current='page'][href=?]", design.edit_theme_paper_size_document_design_path(@theme, @ps, @title)
   end
 
-  test "the table styles group is always open and not a matter group" do
+  test "the table styles section is always open and not a matter group" do
     show(cookie: "")
-    assert_select "aside details[open]:not([data-matter]) summary", text: I18n.t("design.sidebar.table_styles")
+    assert_select "aside section.book-tree__section:not([data-matter]) button.book-tree__toggle[aria-expanded='true'] .book-tree__section-label",
+                  text: I18n.t("design.sidebar.table_styles")
   end
 
   private

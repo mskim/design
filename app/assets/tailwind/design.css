@@ -1,3 +1,83 @@
 @import "tailwindcss" source(none);
 @source "../../components/**/*.rb";
 @source "../../views/**/*.rb";
+
+/* The studio rail's book tree (Design::Views::Sidebar), ported from book_write's
+   book_tree.css + its 디자인수정 tree (pages.css .studio-view__tree, .studio-tree__book) so
+   the two trees look alike. Plain CSS, flat (no nesting): the build passes it through and
+   TailwindScoper prefixes every selector with .design-studio, like the utilities. */
+.book-tree {
+  --book-tree-ink: oklch(0% 0 0);
+  --book-tree-subtle: oklch(75% 0.005 96);
+  --book-tree-rule: #E2E2E3;
+  --book-tree-current: #FF5205;
+  display: flex;
+  flex-direction: column;
+  font-size: 0.95rem;
+  gap: 4px;
+}
+
+.book-tree__section {
+  border-block-start: 1px solid var(--book-tree-rule);
+  padding-block: 12px;
+}
+
+.book-tree__row {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  min-block-size: 32px;
+  position: relative;
+}
+
+.book-tree__toggle {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  font: inherit;
+  justify-content: space-between;
+  padding: 0;
+  text-align: start;
+}
+
+.book-tree__section-label { font-weight: 700; }
+
+.book-tree__chevron::before {
+  color: var(--book-tree-subtle);
+  content: "⌄";
+  display: inline-block;
+  transition: transform 150ms ease;
+}
+
+.book-tree__toggle[aria-expanded="false"] .book-tree__chevron::before { transform: rotate(-90deg); }
+
+.book-tree__row:has(.book-tree__toggle[aria-expanded="false"]) + .book-tree__items { display: none; }
+
+.book-tree__items {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.book-tree__link {
+  color: var(--book-tree-subtle);
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  padding-block: 4px;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.book-tree__link:hover { color: var(--book-tree-ink); }
+
+.book-tree__link.is-current { color: var(--book-tree-current); font-weight: 600; }
+
+.studio-tree__book { padding-block-end: 8px; }

@@ -73,6 +73,8 @@ en:
       size_settings: "Size settings"
       table_styles: "Table styles"
       other: "Other"
+      whole_book: "Whole book"
+      toggle: "Expand or collapse"
 
     options:
       vertical_align:

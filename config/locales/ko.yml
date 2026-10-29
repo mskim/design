@@ -73,6 +73,8 @@ ko:
       size_settings: "판형 설정"
       table_styles: "표 스타일"
       other: "기타"
+      whole_book: "책 전체"
+      toggle: "열기/닫기"
 
     options:
       vertical_align:

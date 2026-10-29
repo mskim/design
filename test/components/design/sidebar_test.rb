@@ -91,23 +91,55 @@ class Design::SidebarTest < ActiveSupport::TestCase
     @front   = @ps.document_designs.create!(doc_type: "front_page")
   end
 
-  test "renders matter groups cover-first, omitting empty groups" do
+  def section_labels(doc) = doc.css(".book-tree__section .book-tree__section-label").map { |s| s.text.strip }
+  def open_matters(doc) = doc.css("section[data-matter]:has(> .book-tree__row > .book-tree__toggle[aria-expanded='true'])").map { |s| s["data-matter"] }
+
+  test "renders matter sections cover-first, omitting empty ones, then table styles" do
     seed_designs
     doc = render_sidebar
-    summaries = doc.css("details > summary").map { |s| s.text.strip }
     assert_equal [ I18n.t("design.themes.cover"), I18n.t("design.themes.frontmatter"), I18n.t("design.themes.bodymatter"),
-                   I18n.t("design.sidebar.table_styles") ], summaries
+                   I18n.t("design.sidebar.table_styles") ], section_labels(doc)
+  end
+
+  test "the tree is book_write's: 책 전체 alone on top, then sections each with a chevron fold toggle" do
+    seed_designs
+    doc = render_sidebar
+    tree = doc.at_css("div.book-tree.studio-tree")
+    assert tree, "book tree missing"
+    first = tree.element_children.first
+    assert_equal "ul", first.name
+    assert_includes first["class"].split, "studio-tree__book"
+    whole = first.at_css("li.book-tree__item > .book-tree__row > a.book-tree__link")
+    assert_equal I18n.t("design.sidebar.whole_book"), whole.text.strip
+    assert_equal "/themes/#{@theme.id}?paper_size_id=#{@ps.id}", whole["href"]
+    tree.css("section.book-tree__section").each do |section|
+      toggle = section.at_css("> .book-tree__row.book-tree__row--section > button.book-tree__toggle[type='button']")
+      assert toggle, "section toggle missing"
+      assert_equal "design--book-tree#toggle", toggle["data-action"]
+      assert toggle.at_css(".book-tree__section-label")
+      assert toggle.at_css(".book-tree__chevron[aria-hidden='true']")
+      assert_equal I18n.t("design.sidebar.toggle"), toggle.at_css(".sr-only").text
+      assert section.at_css("> ul.book-tree__items"), "section list missing"
+    end
+  end
+
+  test "body designs are listed in reading order" do
+    %w[poem chapter part_cover].each { |t| @ps.document_designs.create!(doc_type: t) }
+    doc = render_sidebar
+    labels = doc.css("section[data-matter='bodymatter'] .book-tree__link").map { |a| a.text.strip }
+    assert_equal %w[part_cover chapter poem].map { |t| I18n.t("design.doc_types.#{t}") }, labels
   end
 
   # No request (bare render) → no cookie → the default: only 본문 open. The
-  # table styles group is not a matter group and is always open.
+  # table styles section is not a matter group and is always open.
   test "only bodymatter and table styles are open by default; each leaf links to the design editor" do
     seed_designs
     doc = render_sidebar
-    assert_equal %w[bodymatter], doc.css("details[data-matter][open]").map { |d| d["data-matter"] }
-    assert_equal %w[cover frontmatter bodymatter], doc.css("details[data-matter]").map { |d| d["data-matter"] }
-    assert_equal 1, doc.css("details[open]:not([data-matter])").size, "table styles group stays open"
-    link = doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/#{@ps.id}/document_designs/#{@chapter.id}/edit']")
+    assert_equal %w[bodymatter], open_matters(doc)
+    assert_equal %w[cover frontmatter bodymatter], doc.css("section[data-matter]").map { |d| d["data-matter"] }
+    table = doc.at_css("section.book-tree__section:not([data-matter])")
+    assert_equal "true", table.at_css(".book-tree__toggle")["aria-expanded"], "table styles section stays open"
+    link = doc.at_css("a.book-tree__link[href='/themes/#{@theme.id}/paper_sizes/#{@ps.id}/document_designs/#{@chapter.id}/edit']")
     assert link, "chapter leaf missing"
     assert_equal I18n.t("design.doc_types.chapter"), link.text.strip
     assert_equal I18n.t("design.doc_types.chapter"), link["title"]
@@ -119,15 +151,30 @@ class Design::SidebarTest < ActiveSupport::TestCase
     current = doc.css("[aria-current='page']")
     assert_equal 1, current.size
     assert_includes current.first.text, I18n.t("design.doc_types.chapter")
-    assert_includes current.first["class"], "bg-slate-900", "active leaf should carry the active classes"
+    assert_includes current.first["class"].split, "is-current", "current leaf carries book_write's is-current"
+    assert_equal 1, doc.css(".is-current").size
   end
 
-  test "the group holding the current design is open (pinned) so its leaf shows" do
+  test "책 전체 is current on the theme overview (kind :theme), and size settings is not" do
+    doc = render_sidebar(current: { kind: :theme })
+    current = doc.css("[aria-current='page']")
+    assert_equal 1, current.size
+    assert_equal I18n.t("design.sidebar.whole_book"), current.first.text.strip
+    assert_includes current.first["class"].split, "is-current"
+  end
+
+  test "the section holding the current design is open (pinned) so its leaf shows" do
     seed_designs
     doc = render_sidebar(current: { kind: :document_design, id: @title.id })
-    assert_equal %w[frontmatter bodymatter], doc.css("details[data-matter][open]").map { |d| d["data-matter"] }
-    assert doc.at_css("details[data-matter='frontmatter'][data-pinned-open]")
-    assert_nil doc.at_css("details[data-matter='bodymatter'][data-pinned-open]")
+    assert_equal %w[frontmatter bodymatter], open_matters(doc)
+    assert doc.at_css("section[data-matter='frontmatter'][data-pinned-open]")
+    assert_nil doc.at_css("section[data-matter='bodymatter'][data-pinned-open]")
+  end
+
+  test "no tree sections and no 책 전체 without a paper size" do
+    doc = render_sidebar(paper_size: nil)
+    assert_nil doc.at_css(".studio-tree__book")
+    assert_empty doc.css("section[data-matter]")
   end
 
   test "nothing is highlighted without current" do
@@ -145,6 +192,8 @@ class Design::SidebarTest < ActiveSupport::TestCase
     assert_includes html, "판형"          # design.sidebar.size
     assert_includes html, "판형 설정"     # design.sidebar.size_settings
     assert_includes html, "장"            # design.doc_types.chapter
+    assert_includes html, "책 전체"       # design.sidebar.whole_book
+    assert_includes html, "열기/닫기"     # design.sidebar.toggle
     refute_includes html, "Size settings" # the en string must not leak
   end
 
@@ -177,11 +226,13 @@ class Design::SidebarTest < ActiveSupport::TestCase
     doc = render_sidebar(theme: system_theme, paper_size: ps)
     assert_nil doc.at_css("a[href$='/document_designs/#{dd.id}/edit']"), "design leaf must not link to the editor"
     assert_nil doc.at_css("a[href*='/table_styles/']"), "table style leaf must not link to the editor"
-    leaf = doc.css("li > span").find { |s| s.text.strip == I18n.t("design.doc_types.chapter") }
+    leaf = doc.css("span.book-tree__link").find { |s| s.text.strip == I18n.t("design.doc_types.chapter") }
     assert leaf, "doc_type label should still be listed (as a span)"
     assert_equal I18n.t("design.doc_types.chapter"), leaf["title"]
-    assert doc.css("li > span").any? { |s| s.text.strip == ts.name.capitalize }, "table style label should still be listed"
+    assert doc.css("span.book-tree__link").any? { |s| s.text.strip == ts.name.capitalize }, "table style label should still be listed"
     assert_empty doc.css("[aria-current='page']")
+    assert_equal "/themes/#{system_theme.id}?paper_size_id=#{ps.id}", doc.at_css("a.book-tree__link")["href"],
+                 "책 전체 still links: the theme overview is open on a read-only theme"
   end
 
   test "size settings link is highlighted for current kind paper_size" do
@@ -194,8 +245,7 @@ class Design::SidebarTest < ActiveSupport::TestCase
   test "table styles group lists the theme's table styles and highlights the current one" do
     ts = @theme.table_styles.find_by!(name: "grid") # seeded by Theme#seed_default_styles on create
     doc = render_sidebar(current: { kind: :table_style, id: ts.id })
-    summary = doc.css("details > summary").find { |s| s.text.strip == I18n.t("design.sidebar.table_styles") }
-    assert summary, "table styles group missing"
+    assert_includes section_labels(doc), I18n.t("design.sidebar.table_styles"), "table styles section missing"
     link = doc.at_css("a[href='/themes/#{@theme.id}/table_styles/#{ts.id}/edit']")
     assert_equal "page", link["aria-current"]
   end
@@ -211,6 +261,6 @@ class Design::SidebarTest < ActiveSupport::TestCase
   test "table styles group is omitted when the theme has none" do
     @theme.table_styles.destroy_all # Theme#seed_default_styles seeds them on create
     doc = render_sidebar
-    refute_includes doc.css("details > summary").map { |s| s.text.strip }, I18n.t("design.sidebar.table_styles")
+    refute_includes section_labels(doc), I18n.t("design.sidebar.table_styles")
   end
 end

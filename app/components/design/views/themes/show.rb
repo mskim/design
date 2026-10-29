@@ -14,7 +14,7 @@ module Design
           # "Generate PDFs") can scope themselves to the size currently in view.
           shell(title: @theme.name, action_slot: :theme_show,
                 action_context: { theme: @theme, paper_size: @selected_paper_size },
-                sidebar: theme_sidebar(@theme, @selected_paper_size, current: { kind: :paper_size },
+                sidebar: theme_sidebar(@theme, @selected_paper_size, current: { kind: :theme },
                                        size_url: ->(ps) { helpers.theme_path(@theme, paper_size_id: ps.id) })) do
             div(class: "mx-auto max-w-5xl px-6 py-10 flex flex-col gap-6") do
               header_section
