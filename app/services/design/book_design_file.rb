@@ -9,15 +9,19 @@ module Design
   #   Design::BookDesignFile.export(theme, to: dir)                      # => ".../클래식.book_design"
   module BookDesignFile
     class Error < StandardError; end
+    # create_only: a system theme of the name (and locale) is there already.
+    class NameTaken < Error; end
 
     module_function
 
     # The file (a .book_design of either format) as a Design::Theme: Loader for a package, the
     # old SQLite files (Package::Legacy) through ThemeImportService. options go to Loader
-    # (name:, locale:, font_dir:).
-    def import(path, **options)
+    # (name:, locale:, font_dir:). create_only: true raises NameTaken where a system theme
+    # matches the name, instead of updating it (a package only; an old SQLite file always
+    # updates).
+    def import(path, create_only: false, **options)
       require "designcraft_rb"
-      DesignCraftRb::BookDesign::Package.open(path) { Loader.new(it, **options).load! }
+      DesignCraftRb::BookDesign::Package.open(path) { Loader.new(it, create_only: create_only, **options).load! }
     rescue DesignCraftRb::BookDesign::Package::Legacy
       Design::ThemeImportService.new(path.to_s).import!
     end

@@ -67,6 +67,18 @@ class Design::BookDesignFileTest < ActiveSupport::TestCase
     assert_equal "left", h2[:text_align]
     assert_equal 2, h2[:space_before_in_lines]
     assert_equal "CMYK=0,0,0,80", h2[:text_color], "from 본문, which it is based on"
+    assert_nil h2[:font_style]
+  end
+
+  test "italic reads back as font_style italic with the upright face's name" do
+    styles = Design::BookDesignFile::Styles.new(document, font_dir: false)
+
+    # The engine's italic (slanted: Noto KR has no italic face), on a bold face.
+    slanted = styles.attributes("인용", line_height: leading)
+    assert_equal [ "NotoSerifKR-Bold", "italic" ], slanted.values_at(:font, :font_style)
+    # An italic face.
+    assert_equal [ "TimesNewRoman", "italic" ], styles.attributes("영문 기울임", line_height: leading).values_at(:font, :font_style)
+    assert_equal [ "TimesNewRoman-Bold", "italic" ], styles.attributes("영문 굵은 기울임", line_height: leading).values_at(:font, :font_style)
   end
 
   test "a book font is named by its file" do
@@ -129,6 +141,76 @@ class Design::BookDesignFileTest < ActiveSupport::TestCase
     assert_equal "Classic", theme.name
   end
 
+  test "a non-Latin name matches only a theme of that very name, not one it parameterizes like" do
+    modern = Design::BookDesignFile.import(write_file("모던 2"), font_dir: false)
+    assert_equal "2", "클래식 2".parameterize, "why: parameterize drops Hangul"
+
+    classic = Design::BookDesignFile.import(write_file("클래식 2"), font_dir: false)
+    assert_not_equal modern.id, classic.id
+    assert_equal "클래식 2", classic.name
+
+    modern.reload
+    assert_equal [ "모던 2", "모던 2.book_design", 1 ], [ modern.name, modern.source_file, modern.paper_sizes.count ]
+    assert modern.base_paragraph_styles.exists?(name: "body")
+    # The same name in NFD is the same theme.
+    assert_equal modern.id, Design::BookDesignFile.import(write_file("모던 2".unicode_normalize(:nfd)), font_dir: false).id
+  end
+
+  test "create_only refuses a name a system theme has, and creates one it doesn't" do
+    assert_operator Design::BookDesignFile::NameTaken, :<, Design::BookDesignFile::Error
+    created = Design::BookDesignFile.import(write_file("클래식"), font_dir: false, create_only: true)
+    assert_equal "클래식", created.name
+    imported_at = created.reload.imported_at
+
+    assert_no_difference -> { Design::Theme.count } do
+      assert_raises(Design::BookDesignFile::NameTaken) { Design::BookDesignFile.import(write_file("클래식"), font_dir: false, create_only: true) }
+    end
+    assert_equal imported_at, created.reload.imported_at
+    assert_equal 1, created.paper_sizes.count
+
+    # An all-ASCII name's parameterized match is taken too.
+    legacy = Design::ThemeImportService.new(LEGACY).import!
+    assert_raises(Design::BookDesignFile::NameTaken) do
+      Design::BookDesignFile.import(write_file("Classic"), font_dir: false, locale: "ko", create_only: true)
+    end
+    assert_equal "classic", legacy.reload.name
+
+    # Without it, the same files update.
+    assert_equal created.id, Design::BookDesignFile.import(write_file("클래식"), font_dir: false).id
+  end
+
+  test "the body line count rounds down: a body line is never shorter than the book's leading" do
+    fractional = ((225 - 18 - 28) * PT) / 23.6
+    theme = Design::BookDesignFile.import(write_file("클래식", document: document(leading: fractional)), font_dir: false)
+    ps = theme.default_paper_size
+    assert_equal 23, ps.body_line_count
+    assert_operator ps.body_line_height, :>=, fractional
+  end
+
+  test "a derived size is named as book_write finds it: a standard size's name, else its mm" do
+    standard = Design::BookDesignFile.import(write_file("신국판", document: document(width: 151.8, height: 225.4)), font_dir: false)
+    assert_equal [ "152mmx225mm", "신국판" ], standard.default_paper_size.then { [ it.size_name, it.local_name ] }
+
+    custom = Design::BookDesignFile.import(write_file("별판", document: document(width: 140.5, height: 200.0)), font_dir: false)
+    ps = custom.default_paper_size
+    assert_equal [ 140.5, 200.0 ], [ ps.width_mm.to_f, ps.height_mm.to_f ]
+    assert_equal [ "140.5mmx200mm", "140.5x200" ], [ ps.size_name, ps.local_name ]
+  end
+
+  test "h1 is no style: not a role, and no heading font comes from it" do
+    roles = { "body" => "본문", "h1" => "장제목", "h2" => "소제목" }
+    theme = Design::BookDesignFile.import(write_file("클래식", manifest: manifest.merge("styles" => roles)), font_dir: false)
+
+    assert_not theme.base_paragraph_styles.exists?(name: "h1")
+    assert_equal "NotoSerifKR-Bold", theme.base_heading_font, "h2's, not 장제목's"
+  end
+
+  test "an italic style loads where the host has no font_style column; the upright face is its font" do
+    roles = manifest["styles"].merge("quote" => "인용")
+    theme = Design::BookDesignFile.import(write_file("클래식", manifest: manifest.merge("styles" => roles)), font_dir: false)
+    assert_equal "NotoSerifKR-Bold", theme.base_paragraph_styles.find_by!(name: "quote").font
+  end
+
   private
 
   def leading = ((225 - 18 - 28) * PT) / 23
@@ -141,11 +223,11 @@ class Design::BookDesignFileTest < ActiveSupport::TestCase
   end
 
   # A document as DesignCraft saves one, cut down: a title page and a two-page chapter on
-  # parent A, whose margins differ from the pages' own.
-  def document
+  # parent A, whose margins differ from the pages' own. width/height: the pages' (mm).
+  def document(width: 152, height: 225, leading: self.leading)
     {
       "title" => "클래식",
-      "settings" => { "pageWidth" => 152 * PT, "pageHeight" => 225 * PT, "facingPages" => true,
+      "settings" => { "pageWidth" => width * PT, "pageHeight" => height * PT, "facingPages" => true,
                       "baselineGrid" => { "start" => 18 * PT, "increment" => leading } },
       "parents" => [ { "id" => 4, "items" => [], "parent" => { "prefix" => "A", "name" => "chapter" },
                        "pages" => [ page(2, "left").merge("margins" => margins(18, 28, 25, 22)),
@@ -163,7 +245,10 @@ class Design::BookDesignFileTest < ActiveSupport::TestCase
           "para" => { "align" => "left", "spaceBefore" => 2 * leading, "firstLineIndent" => 0.0 },
           "chars" => { "fontStyle" => "Bold", "size" => 13.0 } },
         { "name" => "장제목", "basedOn" => "[Basic Paragraph]", "para" => { "align" => "center" },
-          "chars" => { "fontFamily" => "Noto Sans KR", "fontStyle" => "Black", "size" => 24.0 } }
+          "chars" => { "fontFamily" => "Noto Sans KR", "fontStyle" => "Black", "size" => 24.0 } },
+        { "name" => "인용", "basedOn" => "본문", "chars" => { "fontStyle" => "Bold", "italic" => true } },
+        { "name" => "영문 기울임", "basedOn" => "본문", "chars" => { "fontFamily" => "Times New Roman", "fontStyle" => "Italic" } },
+        { "name" => "영문 굵은 기울임", "basedOn" => "본문", "chars" => { "fontFamily" => "Times New Roman", "fontStyle" => "Bold Italic" } }
       ] },
       "swatches" => [
         { "name" => "[Black]", "value" => { "kind" => "color", "color" => { "model" => "cmyk", "c" => 0.0, "m" => 0.0, "y" => 0.0, "k" => 1.0 } } },
@@ -180,15 +265,15 @@ class Design::BookDesignFileTest < ActiveSupport::TestCase
       "styles" => { "body" => "본문", "h2" => "소제목", "title" => "장제목" } }
   end
 
-  def inner_page_bytes
+  def inner_page_bytes(document = self.document)
     path = File.join(@dir, "inner.designcraft")
     DesignCraftRb::ZipFile.write(path, { "mimetype" => "application/vnd.designcraft+zip", "document.json" => JSON.generate(document) })
     File.binread(path)
   end
 
-  def write_file(name)
+  def write_file(name, document: self.document, manifest: self.manifest)
     inner = File.join(@dir, "inner_page.designcraft")
-    File.binwrite(inner, inner_page_bytes)
+    File.binwrite(inner, inner_page_bytes(document))
     DesignCraftRb::BookDesign::Package.write(name: name, inner_page: inner, manifest: manifest, to: File.join(@dir, "out"))
   end
 end

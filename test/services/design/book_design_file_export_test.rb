@@ -84,6 +84,7 @@ class Design::BookDesignFileExportTest < ActiveSupport::TestCase
     assert_not_equal theme.id, derived.id
     dps = derived.default_paper_size
     assert_equal [ 128, 188 ], [ dps.width_mm, dps.height_mm ]
+    assert_equal [ "128mmx188mm", "사륙판" ], [ dps.size_name, dps.local_name ]
     assert_in_delta ps.top_margin_mm, dps.top_margin_mm, 0.01
     assert_in_delta ps.bottom_margin_mm, dps.bottom_margin_mm, 0.01
     # DesignCraft's inside margin is the left margin and the binding.

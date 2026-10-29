@@ -14,16 +14,26 @@ module Design
     # (manifest `styles`), every doc type from the defaults (PaperSizeSeeder).
     #
     # Either way it ends as an import does: default table and cell styles seeded, doc-type
-    # rows compacted, the theme's .db exported. A system theme of the same name (or the same
-    # parameterized name: an imported "classic" becomes "Classic") and locale is updated in
-    # place, keeping its id, which books' design_theme_<id> refer to.
+    # rows compacted, the theme's .db exported. A system theme of the same name (NFC) and
+    # locale is updated in place, keeping its id, which books' design_theme_<id> refer to; for
+    # an all-ASCII name, the same parameterized name too (an imported "classic" becomes
+    # "Classic"). parameterize drops Hangul, kana and Han, so a name with any is matched only
+    # exactly ("클래식 2" is not "모던 2"). With create_only: true, such a theme is refused
+    # (NameTaken) instead.
     class Loader
       THEME_FIELDS = %w[base_body_font base_body_font_size base_heading_font description].freeze
       # Never applied from a file: ids, ownership, timestamps.
       SKIPPED = %w[id created_at updated_at theme_id paper_size_id document_design_id styleable_type styleable_id
                    user_id book_id source_theme_id imported_at source_file].freeze
-      # Roles a heading font is read from, first found.
-      HEADING_ROLES = %w[title h1 h2].freeze
+      # Roles a heading font is read from, first found. Not h1: the title is the heading
+      # box's `title`, and h1 is no style (it only divides documents in an import).
+      HEADING_ROLES = %w[title h2].freeze
+      NOT_ROLES = %w[h1].freeze
+      # The sizes book_write finds a book's by (the seeded themes' local_name), for a derived
+      # size within SIZE_TOLERANCE_MM of one; else the size is named by its mm.
+      STANDARD_SIZES = { "사륙판" => [ 128, 188 ], "국판" => [ 148, 210 ], "신국판" => [ 152, 225 ],
+                         "크라운판" => [ 176, 248 ], "사륙배판" => [ 188, 257 ], "A4" => [ 210, 297 ] }.freeze
+      SIZE_TOLERANCE_MM = 0.5
       # designcraft_rb's (doc_processor_rb's) default body line height, pt.
       DEFAULT_LEADING = 22.0
       MM = 25.4 / 72
@@ -31,14 +41,18 @@ module Design
       attr_reader :package, :name, :locale
 
       # package: an open DesignCraftRb::BookDesign::Package. font_dir: the book fonts that name
-      # the derived styles' fonts (default DesignCraftRb.font_dir; false for none).
-      def initialize(package, name: nil, locale: nil, font_dir: nil)
+      # the derived styles' fonts (default DesignCraftRb.font_dir; false for none). create_only:
+      # raise NameTaken rather than update a system theme the name matches.
+      def initialize(package, name: nil, locale: nil, font_dir: nil, create_only: false)
         @package = package
-        @name = name.presence || package.name
+        @name = (name.presence || package.name).to_s.unicode_normalize(:nfc)
         @locale = locale.presence || package.locale
         @font_dir = font_dir
+        @create_only = create_only
       end
 
+      # The match and the create are one transaction (Rails' SQLite transactions BEGIN
+      # IMMEDIATE, taking the write lock first), so two loads of one name can't both create.
       def load!
         theme = Design::Theme.transaction do
           theme = upsert_theme
@@ -62,13 +76,23 @@ module Design
       def page_size_mm = @page_size_mm ||= BookDesignFile.page_size_mm(@package.document)
 
       def upsert_theme
-        themes = Design::Theme.system_themes.where(locale: locale)
-        slug = name.parameterize
-        theme = themes.find_by(name: name) || (themes.detect { it.name.parameterize == slug } if slug.present?) ||
-                themes.new
+        theme = matching_theme
+        raise NameTaken, "a design named #{name.inspect} (#{locale}) already exists" if theme && @create_only
+
+        theme ||= Design::Theme.system_themes.new(locale: locale)
         theme.assign_attributes(name: name, imported_at: Time.current, source_file: File.basename(@package.path), **theme_row)
         theme.save!
         theme
+      end
+
+      # The system theme of this locale named the same (NFC); else, for an all-ASCII name, an
+      # all-ASCII one that parameterizes the same.
+      def matching_theme
+        themes = Design::Theme.system_themes.where(locale: locale).order(:id).to_a
+        themes.find { it.name.to_s.unicode_normalize(:nfc) == name } || begin
+          slug = name.parameterize if name.ascii_only?
+          themes.find { it.name.to_s.ascii_only? && it.name.parameterize == slug } if slug.present?
+        end
       end
 
       def reset_children(theme)
@@ -138,7 +162,7 @@ module Design
 
       def create_role_styles(theme)
         derived_styles.each do |role, attributes|
-          theme.base_paragraph_styles.find_or_initialize_by(name: role).update!(attributes)
+          theme.base_paragraph_styles.find_or_initialize_by(name: role).update!(style_columns(attributes))
         end
         # The theme-level publisher, as ThemeStyleSeeder seeds a new theme's (it would otherwise
         # take this for a theme from before title pages had their own heading styles).
@@ -158,9 +182,16 @@ module Design
         end.to_h
       end
 
+      # The attributes the host's ParagraphStyle has columns for (font_style, which Styles reads
+      # back, is none in this app: there the font name carries the face).
+      def style_columns(attributes)
+        attributes.slice(*Design::ParagraphStyle.column_names.map(&:to_sym))
+      end
+
       def role_map
         map = @package.styles.select { |role, style| role.present? && style.is_a?(String) }
-        map.presence || document_styles.names.reject { it.start_with?("[") }.index_with(&:itself)
+        map = map.presence || document_styles.names.reject { it.start_with?("[") }.index_with(&:itself)
+        map.except(*NOT_ROLES)
       end
 
       def document_styles
@@ -178,11 +209,23 @@ module Design
         width, height = page_size_mm
         margins = body_margins.transform_values { (it * MM).round(2) }
         text_height = (height / MM) - body_margins[:top] - body_margins[:bottom]
-        { size_name: "#{format('%g', width)}mmx#{format('%g', height)}mm",
+        { **size_names(width, height),
           width_mm: width, height_mm: height,
           top_margin_mm: margins[:top], bottom_margin_mm: margins[:bottom],
           left_margin_mm: margins[:inside], right_margin_mm: margins[:outside], binding_margin_mm: 0,
-          body_line_count: [ (text_height / body_leading).round, 1 ].max }
+          # Rounded down, so a body line is never shorter than the book's leading (at 1e-6: a
+          # text area of exactly 23 lines can divide to 22.9999…).
+          body_line_count: [ (text_height / body_leading).round(6).floor, 1 ].max }
+      end
+
+      # size_name ("152mmx225mm") and local_name, the name book_write finds a book's size by:
+      # a standard size's ("신국판") within SIZE_TOLERANCE_MM, else its mm ("148.2x209.9").
+      def size_names(width, height)
+        local, standard = STANDARD_SIZES.find do |_, (w, h)|
+          (width - w).abs <= SIZE_TOLERANCE_MM && (height - h).abs <= SIZE_TOLERANCE_MM
+        end
+        w, h = (standard || [ width, height ]).map { format("%g", it) }
+        { size_name: "#{w}mmx#{h}mm", local_name: local || "#{w}x#{h}" }
       end
 
       # The body's leading: its style's, else the book's baseline grid, else DEFAULT_LEADING.

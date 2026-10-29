@@ -2,9 +2,10 @@ module Design
   module BookDesignFile
     # A DesignCraft document's paragraph styles read back as the app's (Design::ParagraphStyle
     # fields): the reverse of designcraft_rb's DocProcessor::Styles.paragraph. Family and
-    # style → the font's name (its file's, when the book fonts are at hand), size, align,
-    # indents, space before/after → whole lines of the body's leading, tracking (thousandths
-    # of an em → points) and the fill's swatch → a colour.
+    # style → the font's name (its file's, when the book fonts are at hand), italic (the
+    # engine's italic, or an "… Italic" face) → font_style "italic" and the upright face's
+    # name, size, align, indents, space before/after → whole lines of the body's leading,
+    # tracking (thousandths of an em → points) and the fill's swatch → a colour.
     #
     # A document.json style holds only what it sets, plus basedOn: a style resolves its chain
     # (it, its basedOn, …, the root), each key from the first style that sets it, as
@@ -52,8 +53,10 @@ module Design
         resolved = resolve(name) or return
         para, chars = resolved.values_at("para", "chars")
         size = number(chars["size"])
+        italic = chars["italic"] == true || chars["fontStyle"].to_s.end_with?("Italic")
         {
-          font: font_name(chars["fontFamily"], chars["fontStyle"]),
+          font: font_name(chars["fontFamily"], upright(chars["fontStyle"])),
+          font_style: ("italic" if italic),
           font_size: size,
           text_align: ALIGN[para["align"].to_s],
           text_color: color(chars["fill"]),
@@ -104,6 +107,9 @@ module Design
         end
         seen
       end
+
+      # "Bold Italic" → "Bold", "Italic" → nil (Regular), as designcraft_rb's Italic.upright.
+      def upright(style) = style.to_s.sub(/\s*Italic\z/, "").presence
 
       def number(value) = (value.to_f.round(3) if value.is_a?(Numeric))
 
