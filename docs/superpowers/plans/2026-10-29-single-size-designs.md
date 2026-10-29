@@ -37,6 +37,9 @@ goes away. Existing multi-size themes keep working until collapsed by a rake tas
   are already single-size and skipped. Re-exports each changed theme's `.db`.
 - Legacy SQLite `.book_design` import (`Design::ThemeImportService`) keeps only the file's first
   paper size.
+- Rollout: run `design:single_size APPLY=1` on a book_write install only after book_write's
+  size-follows-design change (book_write branch feat/single-size-designs) is deployed, and prefer
+  `SPLIT=1` there so each old size stays available as its own design.
 
 ## Tasks
 
