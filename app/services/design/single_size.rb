@@ -1,6 +1,6 @@
 module Design
   # A design has one paper size. Collapses a theme from before that to its
-  # default (first) size; with split: true each other size first becomes a
+  # primary size (신국판 when it has one, else its first: Theme#primary_paper_size); with split: true each other size first becomes a
   # design of its own ("<name> <size>", same owner and language), copied with
   # its own document designs and styles. Exports every changed theme's .db.
   #
@@ -23,8 +23,9 @@ module Design
 
     # nil when the theme already has one size (or none).
     def plan(theme, split: false)
-      kept, *removed = theme.paper_sizes.order(:id).to_a
-      return if removed.empty?
+      kept = theme.primary_paper_size
+      removed = theme.paper_sizes.order(:id).where.not(id: kept&.id).to_a
+      return if kept.nil? || removed.empty?
 
       names = split ? removed.map { |ps| split_name(theme, ps) } : []
       Plan.new(theme:, kept:, removed:, split_names: names)

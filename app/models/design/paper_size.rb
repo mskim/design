@@ -30,6 +30,18 @@ module Design
       { size_name: "148mmx210mm", local_name: "A5", en_name: "A5", width_mm: 148, height_mm: 210 }
     ].map(&:freeze).freeze
 
+    # The house default size: the one a design from before keeps when it is
+    # collapsed to one size (design:single_size, the legacy import).
+    DEFAULT_LOCAL_NAME = "신국판"
+
+    # Of a theme's sizes (records, or a .book_design file's rows — anything
+    # read with ["id"] / ["local_name"]), the one kept: 신국판 when present,
+    # else the first by id. nil when there are none.
+    def self.kept_of(sizes)
+      ordered = sizes.to_a.sort_by { |s| s["id"] }
+      ordered.find { |s| s["local_name"] == DEFAULT_LOCAL_NAME } || ordered.first
+    end
+
     # Only a Page section save asks for this (save(context: :page_section)).
     validate :page_section_margins, on: :page_section
 

@@ -97,11 +97,12 @@ module Design
       end
     end
 
-    # A design has one paper size: a file from before that keeps its first
-    # (default) size; the others, and their designs, are not imported.
+    # A design has one paper size: a file from before that keeps one
+    # (PaperSize.kept_of: 신국판 when listed, else its first); the others, and
+    # their designs, are not imported.
     def import_paper_sizes(db, theme)
       map = {}
-      db.execute("SELECT * FROM paper_sizes ORDER BY id LIMIT 1").each do |row|
+      [ Design::PaperSize.kept_of(db.execute("SELECT * FROM paper_sizes ORDER BY id")) ].compact.each do |row|
         ps = theme.paper_sizes.create!(
           size_name: row["size_name"], local_name: row["local_name"],
           width_mm: row["width_mm"], height_mm: row["height_mm"],

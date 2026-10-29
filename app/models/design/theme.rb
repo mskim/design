@@ -76,6 +76,10 @@ module Design
       paper_sizes.order(:id).first
     end
 
+    # The size a theme from before one-size designs keeps (PaperSize.kept_of):
+    # 신국판 when it has one, else its first.
+    def primary_paper_size = Design::PaperSize.kept_of(paper_sizes)
+
     # The theme's file name without extension, used for every .db and
     # .book_design file: the style plus the language ("classic-ko"). A name that
     # parameterizes to nothing (all Korean, say) falls back to the id. A name

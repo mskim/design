@@ -144,4 +144,36 @@ class Design::SingleSizeTest < ActiveSupport::TestCase
     db&.close
     Design::Theme.where("name LIKE ?", "#{classic.name}%").each { |t| File.delete(t.db_path) if File.exist?(t.db_path) } if classic
   end
+
+  def sk_first_theme
+    theme = Design::Theme.create!(name: "모던 #{SecureRandom.hex(3)}", locale: "ko")
+    sk = size!(theme, "128mmx188mm", "사륙판", 128, 188)
+    shin = size!(theme, "152mmx225mm", "신국판", 152, 225)
+    [ theme, sk, shin ]
+  end
+
+  test "collapse! keeps 신국판, the house default, even when it isn't the first size" do
+    theme, _sk, shin = sk_first_theme
+    assert_equal "keep 신국판", Design::SingleSize.plan(theme).to_s[/keep [^,]+/]
+
+    Design::SingleSize.collapse!(theme)
+
+    assert_equal [ shin.id ], theme.reload.paper_sizes.ids
+  ensure
+    File.delete(theme.db_path) if theme && File.exist?(theme.db_path)
+  end
+
+  test "split: the theme keeps 신국판 and 사륙판 becomes its own design" do
+    theme, sk, shin = sk_first_theme
+
+    Design::SingleSize.collapse!(theme, split: true)
+
+    assert_equal [ shin.id ], theme.reload.paper_sizes.ids
+    copy = Design::Theme.find_by!(name: "#{theme.name} 사륙판")
+    assert_equal [ [ "사륙판", 128 ] ], copy.paper_sizes.map { |ps| [ ps.local_name, ps.width_mm.to_i ] }
+    assert_nil Design::Theme.find_by(name: "#{theme.name} 신국판")
+    assert_not Design::PaperSize.exists?(sk.id)
+  ensure
+    Design::Theme.where("name LIKE ?", "#{theme.name}%").each { |t| File.delete(t.db_path) if File.exist?(t.db_path) } if theme
+  end
 end

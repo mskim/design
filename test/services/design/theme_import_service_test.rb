@@ -303,4 +303,28 @@ class Design::ThemeImportServiceTest < ActiveSupport::TestCase
   ensure
     file&.close!
   end
+
+  # The shipped classic-ko lists 사륙판 first: the house default (신국판) is the
+  # size kept, or every new 신국판 book would get 사륙판.
+  test "a file with several paper sizes keeps 신국판 when it has one, wherever it is listed" do
+    file = Tempfile.new([ "sk_first", ".book_design" ])
+    FileUtils.cp(FIXTURE, file.path)
+    db = SQLite3::Database.new(file.path)
+    db.execute("UPDATE paper_sizes SET local_name = '사륙판' WHERE id = 1")
+    db.execute("CREATE TEMP TABLE t AS SELECT * FROM paper_sizes WHERE id = 1")
+    db.execute("UPDATE t SET id = 2, size_name = '152mmx225mm', local_name = '신국판', width_mm = 152, height_mm = 225")
+    db.execute("INSERT INTO paper_sizes SELECT * FROM t")
+    db.execute("DROP TABLE t")
+    db.execute("CREATE TEMP TABLE t AS SELECT * FROM document_designs WHERE id = 3")
+    db.execute("UPDATE t SET id = 10, paper_size_id = 2")
+    db.execute("INSERT INTO document_designs SELECT * FROM t")
+    db.close
+
+    theme = Design::ThemeImportService.new(file.path).import!
+
+    assert_equal [ "신국판" ], theme.paper_sizes.pluck(:local_name)
+    assert_equal %w[chapter], theme.document_designs.pluck(:doc_type)
+  ensure
+    file&.close!
+  end
 end
