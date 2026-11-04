@@ -9,7 +9,7 @@ class Design::SidebarTest < ActiveSupport::TestCase
     def theme_path(theme, **q) = "/themes/#{theme.id}" + (q.empty? ? "" : "?paper_size_id=#{q[:paper_size_id]}")
     def new_theme_paper_size_path(theme) = "/themes/#{theme.id}/paper_sizes/new"
     def edit_theme_paper_size_path(theme, ps) = "/themes/#{theme.id}/paper_sizes/#{ps.id}/edit"
-    def generate_sizes_theme_path(theme) = "/themes/#{theme.id}/generate_sizes"
+    def new_theme_size_copy_path(theme) = "/themes/#{theme.id}/size_copies/new"
     def edit_theme_paper_size_document_design_path(theme, ps, dd) = "/themes/#{theme.id}/paper_sizes/#{ps.id}/document_designs/#{dd.id}/edit"
     def edit_theme_table_style_path(theme, ts) = "/themes/#{theme.id}/table_styles/#{ts.id}/edit"
     def form_authenticity_token = "tok"
@@ -199,20 +199,26 @@ class Design::SidebarTest < ActiveSupport::TestCase
 
   # --- size links + table styles ---
 
-  test "editable theme shows new-size, size-settings links and the generate button" do
+  test "editable theme shows its size settings and the copy-for-another-size link, no new size" do
     doc = render_sidebar
-    assert doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/new']"), "new size link"
     assert doc.at_css("a[href='/themes/#{@theme.id}/paper_sizes/#{@ps.id}/edit']"), "size settings link"
-    assert doc.at_css("form[action='/themes/#{@theme.id}/generate_sizes']"), "generate sizes form"
+    assert doc.at_css("a[href='/themes/#{@theme.id}/size_copies/new']"), "copy for another size link"
+    assert_nil doc.at_css("a[href$='/paper_sizes/new']"), "a design has one size"
+    assert_nil doc.at_css("form[action$='/generate_sizes']")
   end
 
-  test "read-only theme hides size links and the generate button" do
+  test "a single-size theme has no size select" do
+    @other.destroy!
+    assert_nil render_sidebar.at_css("select[data-sidebar='size']")
+  end
+
+  test "read-only theme hides size links" do
     system_theme = Design::Theme.create!(name: "Sys #{SecureRandom.hex(3)}", locale: "ko") # user_id nil
     ps = system_theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
     Design.config.authoring = false
     doc = render_sidebar(theme: system_theme, paper_size: ps)
     assert_nil doc.at_css("a[href$='/paper_sizes/new']")
-    assert_nil doc.at_css("form[action$='/generate_sizes']")
+    assert_nil doc.at_css("a[href$='/size_copies/new']")
   end
 
   # Editor actions answer 403 on a read-only theme (ApplicationController#ensure_theme_editable),

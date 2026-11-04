@@ -30,7 +30,7 @@ module Design
         nav(class: "flex flex-col gap-3 p-3 text-sm", aria_label: "Studio",
             data: { controller: "design--book-tree", "design--book-tree-open-value": open_matter_keys.join(",") }) do
           theme_select
-          size_select if @theme.paper_sizes.any? # a theme with no sizes gets just "new size"
+          size_select if @theme.paper_sizes.many? # a legacy theme until design:single_size runs
           size_links if editable?
           book_tree
         end
@@ -90,12 +90,15 @@ module Design
         @size_url ? @size_url.call(ps) : helpers.theme_path(@theme, paper_size_id: ps.id)
       end
 
+      # One size per design: a theme without one gets "new size"; with one, its settings and
+      # "다른 판형으로 복사" (another size is another design).
       def size_links
         ul(class: "flex flex-col gap-0.5 list-none p-0") do
-          li { a(href: helpers.new_theme_paper_size_path(@theme), class: LINK_CLASS) { I18n.t("design.sidebar.new_size") } }
           if @paper_size
             size_settings_link
-            li { generate_sizes_button }
+            li { a(href: helpers.new_theme_size_copy_path(@theme), class: LINK_CLASS) { I18n.t("design.size_copies.new_title") } }
+          elsif @theme.paper_sizes.none?
+            li { a(href: helpers.new_theme_paper_size_path(@theme), class: LINK_CLASS) { I18n.t("design.sidebar.new_size") } }
           end
         end
       end
@@ -105,23 +108,6 @@ module Design
         li do
           a(href: helpers.edit_theme_paper_size_path(@theme, @paper_size), class: active ? ACTIVE_CLASS : LINK_CLASS,
             aria_current: (active ? "page" : nil)) { I18n.t("design.sidebar.size_settings") }
-        end
-      end
-
-      # Moved from Themes::Show#generate_sizes_button (same route). That button used
-      # data-turbo="false" + data-confirm, but with Turbo disabled and no Rails UJS loaded
-      # (Importmaps + Turbo only) data-confirm never fired — the old confirm was dead. Here
-      # we deliberately drop turbo: false and use turbo_confirm so the confirm actually
-      # works; the controller's redirect is fine under Turbo. A plain form rather than
-      # button_to: phlex-rails' button_to goes through view_context, which is nil when the
-      # component is rendered bare in tests (Themes::Show#clone_button uses the same shape).
-      def generate_sizes_button
-        form(action: helpers.generate_sizes_theme_path(@theme), method: "post",
-             data: { turbo_confirm: I18n.t("design.themes.generate_sizes_confirm") }) do
-          input(type: "hidden", name: "authenticity_token", value: helpers.form_authenticity_token)
-          button(type: "submit", class: "px-2 py-0.5 text-left text-xs text-blue-600 hover:underline") do
-            I18n.t("design.themes.generate_sizes", size: @theme.default_paper_size&.display_name)
-          end
         end
       end
 
