@@ -70,7 +70,7 @@ class Design::PreviewGuidesTest < ActiveSupport::TestCase
   # changes sides (Context#page_margins), so the grid is the same on every page
   # and only its origin moves, which page_guides.js works out from the parity.
   test "print mode measures the grid against the bound content rect" do
-    ps = @theme.paper_sizes.create!(size_name: "가로", width_mm: 216, height_mm: 210)
+    ps = @theme.paper_sizes.create!(allow_another_size: true, size_name: "가로", width_mm: 216, height_mm: 210)
     ps.update_columns(left_margin_mm: 10, right_margin_mm: 10, top_margin_mm: 10, bottom_margin_mm: 10,
                       binding_margin_mm: 20)
     dd = ps.document_designs.create!(doc_type: "copyright")

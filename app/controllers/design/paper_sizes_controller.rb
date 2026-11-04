@@ -2,6 +2,9 @@ module Design
   class PaperSizesController < Design::ApplicationController
     before_action :set_theme
     before_action :set_paper_size, only: [:edit, :update, :destroy, :regenerate]
+    # A design has one paper size: a theme with one gets another by copying
+    # (SizeCopiesController). A theme with none still adds its first here.
+    before_action :copy_for_another_size, only: [:new, :create]
     before_action :ensure_theme_editable
 
     def new
@@ -34,7 +37,12 @@ module Design
     end
 
     # Always the theme page, return_to or not: the editor's paper size is gone.
+    # A theme's only size stays (a design has one).
     def destroy
+      if @theme.paper_sizes.where.not(id: @paper_size.id).none?
+        return redirect_to design.edit_theme_paper_size_path(@theme, @paper_size), alert: I18n.t("design.paper_sizes.only_size")
+      end
+
       @paper_size.destroy
       Design::ThemeDbExportService.new(@theme).export!
       redirect_to design.theme_path(@theme), notice: I18n.t("design.paper_sizes.deleted_notice")
@@ -53,6 +61,10 @@ module Design
     end
 
     private
+
+    def copy_for_another_size
+      redirect_to design.new_theme_size_copy_path(@theme) if @theme.paper_sizes.exists?
+    end
 
     def set_paper_size
       @paper_size = @theme.paper_sizes.find(params[:id])

@@ -7,7 +7,7 @@ class Design::ParagraphStyleNormalizerTest < ActiveSupport::TestCase
   setup do
     @theme = Design::Theme.create!(name: "Norm #{SecureRandom.hex(3)}", locale: "ko")
     @ps1 = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    @ps2 = @theme.paper_sizes.create!(size_name: "국판", width_mm: 148, height_mm: 210)
+    @ps2 = @theme.paper_sizes.create!(allow_another_size: true, size_name: "국판", width_mm: 148, height_mm: 210)
     @chapters  = [ @ps1, @ps2 ].map { |ps| design_for(ps, "chapter") }
     @forewords = [ @ps1, @ps2 ].map { |ps| design_for(ps, "foreword") }
 

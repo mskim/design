@@ -261,7 +261,7 @@ class Design::DocumentDesignObjectsTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_nil dd.reload.text_box_grid_width
 
-    other = @theme.paper_sizes.create!(size_name: "국판", width_mm: 148, height_mm: 210)
+    other = @theme.paper_sizes.create!(allow_another_size: true, size_name: "국판", width_mm: 148, height_mm: 210)
     patch design.field_theme_paper_size_document_design_object_path(@theme, other, @copyright),
           params: { field: "text_box_grid_width", value: "2" }
     assert_response :not_found

@@ -76,11 +76,20 @@ module Design
       paper_sizes.order(:id).first
     end
 
+    # The size a theme from before one-size designs keeps (PaperSize.kept_of):
+    # 신국판 when it has one, else its first.
+    def primary_paper_size = Design::PaperSize.kept_of(paper_sizes)
+
     # The theme's file name without extension, used for every .db and
     # .book_design file: the style plus the language ("classic-ko"). A name that
-    # parameterizes to nothing (all Korean, say) falls back to the id.
+    # parameterizes to nothing (all Korean, say) falls back to the id. A name
+    # mixing ASCII with other letters carries the id too ("classic-12-ko"):
+    # parameterize drops the Hangul, so "Classic 사륙판" would otherwise share
+    # Classic's file and its .db would overwrite Classic's.
     def file_basename
-      "#{name.to_s.parameterize.presence || "theme-#{id}"}-#{locale}"
+      slug = name.to_s.parameterize
+      return "#{slug.presence || "theme-#{id}"}-#{locale}" if slug.empty? || name.to_s.ascii_only?
+      "#{slug}-#{id}-#{locale}"
     end
 
     # The default theme: the system Classic in `locale`, else the Korean one.

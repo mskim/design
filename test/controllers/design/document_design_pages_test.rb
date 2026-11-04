@@ -86,7 +86,7 @@ class Design::DocumentDesignPagesTest < ActionDispatch::IntegrationTest
   end
 
   test "404 when the design is on another paper size than the path's" do
-    other = @theme.paper_sizes.create!(size_name: "국판", width_mm: 148, height_mm: 210).document_designs.create!(doc_type: "chapter")
+    other = @theme.paper_sizes.create!(allow_another_size: true, size_name: "국판", width_mm: 148, height_mm: 210).document_designs.create!(doc_type: "chapter")
     path = design.field_theme_paper_size_document_design_page_path(@theme, @ps, other)
     exports = count_exports do
       patch path, params: { field: "top_margin_mm", value: "20" }, headers: STREAM

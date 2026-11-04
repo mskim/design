@@ -6,7 +6,7 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
     sign_in :david
     @theme = Design::Theme.create!(name: "Rail #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     @ps    = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    @a4    = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    @a4    = @theme.paper_sizes.create!(allow_another_size: true, size_name: "A4", width_mm: 210, height_mm: 297)
     @dd    = @ps.document_designs.create!(doc_type: "chapter")
   end
 
@@ -62,8 +62,11 @@ class Design::SidebarPagesTest < ActionDispatch::IntegrationTest
     assert_select "aside option[data-url=?]", design.edit_theme_paper_size_path(@theme, @a4)
   end
 
-  test "new paper size page renders the rail at the default size with nothing highlighted" do
+  # A theme with a size gets another by copying; the copy form has the rail.
+  test "the size copy page renders the rail at the default size with nothing highlighted" do
     get design.new_theme_paper_size_path(@theme)
+    assert_redirected_to design.new_theme_size_copy_path(@theme)
+    get design.new_theme_size_copy_path(@theme)
     assert_response :success
     assert_select "aside select[data-sidebar='size']"
     assert_select "aside select[data-sidebar='size'] option[selected]", text: @ps.display_name

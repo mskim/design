@@ -7,7 +7,8 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     @ps = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
   end
 
-  test "new renders the page-size form with identity + dimension fields" do
+  test "new renders the page-size form with identity + dimension fields for a theme's first size" do
+    @theme.paper_sizes.destroy_all
     get design.new_theme_paper_size_path(@theme)
     assert_response :success
     assert_select "body.design-studio"
@@ -50,7 +51,8 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
-  test "create with valid params adds a size, auto-generates docs, and redirects" do
+  test "create with valid params adds a theme's first size, auto-generates docs, and redirects" do
+    @theme.paper_sizes.destroy_all
     assert_difference -> { @theme.paper_sizes.count }, 1 do
       post design.theme_paper_sizes_path(@theme),
            params: { paper_size: { size_name: "46판", width_mm: 127, height_mm: 188 } }
@@ -62,6 +64,7 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
   end
 
   test "create with invalid params re-renders 422 with errors" do
+    @theme.paper_sizes.destroy_all
     assert_no_difference -> { @theme.paper_sizes.count } do
       post design.theme_paper_sizes_path(@theme), params: { paper_size: { size_name: "", width_mm: 0 } }
     end
@@ -70,7 +73,7 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
   end
 
   test "destroy removes the size and cascades its document designs" do
-    other = @theme.paper_sizes.create!(size_name: "46판", width_mm: 127, height_mm: 188)
+    other = @theme.paper_sizes.create!(allow_another_size: true, size_name: "46판", width_mm: 127, height_mm: 188)
     Design::PaperSizeSeeder.call(other)   # model-built size has no docs; seed so we can assert the cascade
     dd_ids = other.document_designs.pluck(:id)
     assert dd_ids.any?
@@ -109,11 +112,12 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
-  test "deleting the last size leaves theme show renderable; the rail still offers a new-size link" do
-    # Destroy the only size, then render theme show: view_template falls to the
-    # empty-state branch (no doc grid / Edit link), not a broken edit URL. The
-    # sidebar rail still renders "＋ new size" so the designer can recover.
-    delete design.theme_paper_size_path(@theme, @ps)
+  test "a theme with no size renders its show page; the rail still offers a new-size link" do
+    # The studio no longer deletes a theme's only size, but a theme can have
+    # none (made from scratch): view_template falls to the empty-state branch
+    # (no doc grid / Edit link), not a broken edit URL. The sidebar rail still
+    # renders "＋ new size" so the designer can add its first.
+    @ps.destroy
     assert_equal 0, @theme.reload.paper_sizes.count
     get design.theme_path(@theme)
     assert_response :success
@@ -132,7 +136,7 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
   end
 
   test "return_to only honours a design on this paper size" do
-    other = @theme.paper_sizes.create!(size_name: "국판", width_mm: 148, height_mm: 210).document_designs.create!(doc_type: "chapter")
+    other = @theme.paper_sizes.create!(allow_another_size: true, size_name: "국판", width_mm: 148, height_mm: 210).document_designs.create!(doc_type: "chapter")
     patch design.theme_paper_size_path(@theme, @ps), params: { return_to: other.id, paper_size: { top_margin_mm: 20 } }
     assert_redirected_to design.theme_path(@theme)
   end
@@ -164,6 +168,7 @@ class Design::PaperSizesTest < ActionDispatch::IntegrationTest
     assert_redirected_to design.edit_theme_paper_size_document_design_path(@theme, @ps, dd)
     post design.regenerate_theme_paper_size_path(@theme, @ps)
     assert_redirected_to design.edit_theme_paper_size_path(@theme, @ps)
+    @theme.paper_sizes.create!(allow_another_size: true, size_name: "국판", width_mm: 148, height_mm: 210) # not its only size
     delete design.theme_paper_size_path(@theme, @ps), params: { return_to: dd.id }
     assert_redirected_to design.theme_path(@theme), "the editor would 404: its paper size is gone"
   end

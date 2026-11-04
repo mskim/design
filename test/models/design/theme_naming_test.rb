@@ -17,6 +17,14 @@ class Design::ThemeNamingTest < ActiveSupport::TestCase
     assert_equal "theme-#{theme.id}-ko", theme.file_basename
   end
 
+  # parameterize drops Hangul: "Classic 사륙판" would share "classic-ko" with
+  # Classic itself, and a copy's .db would overwrite its source's.
+  test "a name mixing ASCII and other letters carries the id" do
+    theme = system_theme("Classic 사륙판")
+    assert_equal "classic-#{theme.id}-ko", theme.file_basename
+    assert_not_equal system_theme("Classic").file_basename, theme.file_basename
+  end
+
   test "the same style may exist once per language" do
     system_theme("Classic", "ko")
     assert Design::Theme.new(name: "Classic", locale: "en").valid?

@@ -17,8 +17,40 @@ module Design
     HEIGHT_MARGIN_FIELDS = %w[top_margin_mm bottom_margin_mm].freeze
     MIN_CONTENT_MM = 20
 
+    # The sizes "copy for another size" offers. size_name follows the exported
+    # themes' "<W>mmx<H>mm"; en_name is the ASCII label a non-Korean design's
+    # name carries (a design's language comes from its file name).
+    STANDARD_SIZES = [
+      { size_name: "152mmx225mm", local_name: "신국판", en_name: "152x225", width_mm: 152, height_mm: 225 },
+      { size_name: "128mmx188mm", local_name: "사륙판", en_name: "128x188", width_mm: 128, height_mm: 188 },
+      { size_name: "148mmx210mm", local_name: "국판", en_name: "148x210", width_mm: 148, height_mm: 210 },
+      { size_name: "176mmx248mm", local_name: "크라운판", en_name: "176x248", width_mm: 176, height_mm: 248 },
+      { size_name: "188mmx257mm", local_name: "사륙배판", en_name: "188x257", width_mm: 188, height_mm: 257 },
+      { size_name: "210mmx297mm", local_name: "A4", en_name: "A4", width_mm: 210, height_mm: 297 },
+      { size_name: "148mmx210mm", local_name: "A5", en_name: "A5", width_mm: 148, height_mm: 210 }
+    ].map(&:freeze).freeze
+
+    # The house default size: the one a design from before keeps when it is
+    # collapsed to one size (design:single_size, the legacy import).
+    DEFAULT_LOCAL_NAME = "신국판"
+
+    # Of a theme's sizes (records, or a .book_design file's rows — anything
+    # read with ["id"] / ["local_name"]), the one kept: 신국판 when present,
+    # else the first by id. nil when there are none.
+    def self.kept_of(sizes)
+      ordered = sizes.to_a.sort_by { |s| s["id"] }
+      ordered.find { |s| s["local_name"] == DEFAULT_LOCAL_NAME } || ordered.first
+    end
+
     # Only a Page section save asks for this (save(context: :page_section)).
     validate :page_section_margins, on: :page_section
+
+    # A design has one size; another size is another design (SizedCopyService).
+    # Checked on create only, so a legacy multi-size theme's sizes still save.
+    # allow_another_size: a legacy theme's size copied as is (ThemeCloneService
+    # copying every size of a theme from before), until design:single_size.
+    validate :theme_has_no_size, on: :create, unless: :allow_another_size
+    attr_accessor :allow_another_size
 
     validates :size_name, presence: true, uniqueness: { scope: :theme_id }
     validates :width_mm, :height_mm, numericality: { greater_than: 0 }
@@ -41,6 +73,22 @@ module Design
     def body_line_height
       content_height_pt / body_line_count
     end
+
+    # The size's part of a design's name ("클래식 사륙판", "Classic 128x188"): its
+    # Korean name in a Korean design, else an ASCII label, since a design's
+    # language comes from its file name: the standard size's en_name, an ASCII
+    # local_name, or "<W>x<H>".
+    def self.name_label(locale, local_name:, width_mm:, height_mm:, en_name: nil)
+      dims = "#{mm_label(width_mm)}x#{mm_label(height_mm)}"
+      return local_name.presence || dims if locale.to_s == "ko"
+      en_name ||= STANDARD_SIZES.find { |s| s[:local_name] == local_name }&.dig(:en_name)
+      en_name.presence || (local_name if local_name.present? && local_name.ascii_only?) || dims
+    end
+
+    # 150.0 → "150", 220.5 → "220.5"
+    def self.mm_label(mm) = mm.to_d.to_s("F").delete_suffix(".0")
+
+    def name_label(locale) = self.class.name_label(locale, local_name:, width_mm:, height_mm:)
 
     def display_name
       local_name.present? ? "#{local_name} (#{width_mm.to_i}x#{height_mm.to_i}mm)" : size_name
@@ -90,6 +138,11 @@ module Design
     end
 
     private
+
+    def theme_has_no_size
+      return unless theme&.paper_sizes&.exists?
+      errors.add(:theme, :one_size_only, message: I18n.t("design.paper_sizes.one_size_only"))
+    end
 
     def page_section_margins
       fields = page_fields(PAGE_MARGIN_FIELDS)

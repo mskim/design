@@ -19,7 +19,7 @@ class Design::SidebarTest < ActiveSupport::TestCase
     sign_in :david # Design.current_user → editable_by? true for a theme owned by david
     @theme = Design::Theme.create!(name: "Sb #{SecureRandom.hex(3)}", locale: "ko", user_id: users(:david).id)
     @ps    = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    @other = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    @other = @theme.paper_sizes.create!(allow_another_size: true, size_name: "A4", width_mm: 210, height_mm: 297)
   end
 
   def render_sidebar(theme: @theme, paper_size: @ps, **opts)

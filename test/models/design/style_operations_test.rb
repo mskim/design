@@ -4,7 +4,7 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
   setup do
     @theme = Design::Theme.create!(name: "Ops #{SecureRandom.hex(3)}", locale: "ko")
     @ps1 = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    @ps2 = @theme.paper_sizes.create!(size_name: "국판", width_mm: 148, height_mm: 210)
+    @ps2 = @theme.paper_sizes.create!(allow_another_size: true, size_name: "국판", width_mm: 148, height_mm: 210)
     @chapters  = [ @ps1, @ps2 ].map { |ps| design_for(ps, "chapter") }
     @forewords = [ @ps1, @ps2 ].map { |ps| design_for(ps, "foreword") }
     @chapter, @foreword = @chapters.first, @forewords.first
@@ -399,7 +399,7 @@ class Design::StyleOperationsTest < ActiveSupport::TestCase
   end
 
   test "push_style! from a doc type raises when a size lacks a chapter design" do
-    ps3 = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    ps3 = @theme.paper_sizes.create!(allow_another_size: true, size_name: "A4", width_mm: 210, height_mm: 297)
     design_for(ps3, "foreword")
     ps3.document_designs.where(doc_type: "chapter").destroy_all
     @foreword.set_style_field!("zz_body", "font_size", 12)

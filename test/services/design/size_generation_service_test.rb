@@ -7,9 +7,10 @@ class Design::SizeGenerationServiceTest < ActiveSupport::TestCase
     @theme = Design::Theme.create!(name: "SG #{SecureRandom.hex(3)}", locale: "ko")
     base!("body", font: "BaseFont", font_size: 10, text_color: "black", space_before: 0, space_after: 0)
     base!("title", font_size: 24)
-    # Default size = first by id.
-    @default = @theme.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
-    @target  = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297)
+    # Default size = first by id. The target is a legacy second size (a new
+    # theme takes one size only).
+    @default = @theme.paper_sizes.create!(size_name: "신국판", local_name: "신국판", width_mm: 152, height_mm: 225)
+    @target  = @theme.paper_sizes.create!(size_name: "A4", width_mm: 210, height_mm: 297, allow_another_size: true)
     @default_ch = @default.document_designs.create!(doc_type: "chapter")
     @target_ch  = @target.document_designs.create!(doc_type: "chapter")
     @ratio_h = 297.0 / 225.0
@@ -99,5 +100,39 @@ class Design::SizeGenerationServiceTest < ActiveSupport::TestCase
     target_fw = @target.document_designs.find_by!(doc_type: "foreword")
     assert_equal %w[body], target_fw.paragraph_styles.pluck(:name)
     assert_equal %w[text_color], set_fields(target_fw.paragraph_styles.first)
+  end
+
+  # SizedCopyService's path: the default size cloned into a design of its own,
+  # resized, then rescaled from the source's size.
+  test "rescale! onto another theme's size gives what generate! gave the legacy size" do
+    @default_ch.paragraph_styles.create!(name: "body", text_color: "red", space_after: 10)
+    fw = @default.document_designs.create!(doc_type: "foreword")
+    fw.paragraph_styles.create!(name: "body", text_color: "green", space_before: 6)
+    fw.paragraph_styles.create!(name: "title", font_size: 20)
+
+    generate!
+    expected = snapshot(@target)
+
+    copy = Design::ThemeCloneService.new(@theme, paper_size: @default.local_name, name: "SG copy").clone
+    copy_ps = copy.paper_sizes.sole
+    copy_ps.update!(size_name: "A4", local_name: nil, width_mm: 210, height_mm: 297)
+    Design::SizeGenerationService.new(copy).rescale!(from: @default, to: copy_ps)
+
+    assert_equal expected, snapshot(copy_ps)
+  end
+
+  private
+
+  MARGINS = %w[width_mm height_mm left_margin_mm top_margin_mm right_margin_mm bottom_margin_mm binding_margin_mm body_line_count].freeze
+
+  def snapshot(ps)
+    ps.reload
+    designs = ps.document_designs.order(:doc_type).to_h do |dd|
+      styles = dd.paragraph_styles.order(:name).map { |r| [ r.name, FIELDS.to_h { |f| [ f, r[f] ] }.compact ] }
+      [ dd.doc_type, styles ]
+    end
+    chapter = ps.document_designs.find_by!(doc_type: "chapter")
+    headings = chapter.heading_elements.order(:position).map { |h| [ h.element_type, h.style_name, h.position ] }
+    { size: ps.attributes.slice(*MARGINS).transform_values(&:to_d), designs: designs, headings: headings }
   end
 end

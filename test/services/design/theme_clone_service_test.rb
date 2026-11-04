@@ -2,6 +2,7 @@
 require "test_helper"
 
 class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
   setup do
     @user = User.create!(email_address: "u-#{SecureRandom.hex(3)}@example.com",
                          password: "password123", name: "U")
@@ -102,7 +103,7 @@ class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
 
   def build_two_sizes
     @shin = @source.paper_sizes.create!(size_name: "shinkook", local_name: "신국판", width_mm: 152, height_mm: 225)
-    @a4 = @source.paper_sizes.create!(size_name: "A4", local_name: "A4", width_mm: 210, height_mm: 297)
+    @a4 = @source.paper_sizes.create!(allow_another_size: true, size_name: "A4", local_name: "A4", width_mm: 210, height_mm: 297)
     [ @shin, @a4 ].each do |ps|
       ps.paragraph_styles.create!(name: "ps_body_#{ps.size_name}", font: "smShinShinMyungjoP-30", font_size: 9.5)
       %w[chapter toc].each do |doc_type|
@@ -238,5 +239,28 @@ class Design::ThemeCloneServiceTest < ActiveSupport::TestCase
     wing = cloned.paper_sizes.find_by!(size_name: "신국판").document_designs.find_by!(doc_type: "back_wing")
 
     assert_equal [ 25, 1.6, 6.0 ], [ wing.back_wing_image_width_percent, wing.back_wing_image_ratio.to_f, wing.back_wing_item_gap.to_f ]
+  end
+
+  # dup skips attachments. The copy shares the blob: ActiveStorage keeps a blob
+  # while any attachment uses it, so destroying the source (a split) is safe.
+  test "a document design's heading background image is copied" do
+    ps = @source.paper_sizes.create!(size_name: "신국판", local_name: "신국판", width_mm: 152, height_mm: 225)
+    dd = ps.document_designs.create!(doc_type: "chapter")
+    dd.heading_bg_image.attach(io: StringIO.new("img"), filename: "bg.png", content_type: "image/png")
+
+    cloned = Design::ThemeCloneService.new(@source, user: @user, paper_size: ps).clone
+    image = cloned.document_designs.find_by!(doc_type: "chapter").heading_bg_image
+
+    assert image.attached?
+    assert_equal dd.heading_bg_image.blob, image.blob
+    perform_enqueued_jobs { ps.destroy! }
+    assert ActiveStorage::Blob.exists?(image.blob.id), "the copy keeps its image"
+  end
+
+  test "paper_size: a size of another theme is refused" do
+    other = Design::Theme.create!(name: "Other #{SecureRandom.hex(3)}", locale: "ko")
+    ps = other.paper_sizes.create!(size_name: "신국판", width_mm: 152, height_mm: 225)
+
+    assert_raises(ArgumentError) { Design::ThemeCloneService.new(@source, user: @user, paper_size: ps).clone }
   end
 end

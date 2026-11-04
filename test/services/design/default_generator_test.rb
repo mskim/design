@@ -106,7 +106,7 @@ class Design::DefaultGeneratorTest < ActiveSupport::TestCase
     dd = ps.document_designs.create!(doc_type: "seneca")
     assert_empty dd.paragraph_styles
     assert_equal 12.0, resolved(dd, "seneca_title").font_size.to_f   # A4 scale × 1.0
-    small = size!(size_name: "신국판2")
+    small = size!(size_name: "신국판2", allow_another_size: true)
     small.document_designs.create!(doc_type: "chapter")
     sd = small.document_designs.create!(doc_type: "seneca")
     assert_equal 9.0,  resolved(sd, "seneca_title").font_size.to_f   # 12 × 0.75

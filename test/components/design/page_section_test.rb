@@ -57,7 +57,7 @@ class Design::PageSectionTest < ActiveSupport::TestCase
   end
 
   test "margin dot: a creation-time mark equal to the rule shows none; a differing mark shows dot and ×" do
-    ps = @theme.paper_sizes.create!(size_name: "X", width_mm: 152, height_mm: 225, left_margin_mm: 22, top_margin_mm: 30)
+    ps = @theme.paper_sizes.create!(allow_another_size: true, size_name: "X", width_mm: 152, height_mm: 225, left_margin_mm: 22, top_margin_mm: 30)
     doc = content(ps.document_designs.create!(doc_type: "chapter"))
     assert_equal "inherited", field(doc, "left_margin_mm")["data-state"]
     assert field(doc, "left_margin_mm").at_css("button[data-field='left_margin_mm'][disabled]")
