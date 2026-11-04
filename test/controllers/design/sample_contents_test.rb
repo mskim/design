@@ -20,7 +20,7 @@ class Design::SampleContentsTest < ActionDispatch::IntegrationTest
   test "edit shows the current (gem default) text in a textarea inside the studio shell" do
     get design.edit_theme_sample_content_path(@theme, "chapter", return_to: @dd.id)
     assert_response :success
-    assert_select "aside select[data-sidebar='size']"
+    assert_select "aside select[data-sidebar='theme']"
     assert_select "textarea[name=content]" do |ta|
       assert_includes ta.first.text, "본문"
     end

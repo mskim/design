@@ -29,10 +29,8 @@ module Design
       # box's `title`, and h1 is no style (it only divides documents in an import).
       HEADING_ROLES = %w[title h2].freeze
       NOT_ROLES = %w[h1].freeze
-      # The sizes book_write finds a book's by (the seeded themes' local_name), for a derived
-      # size within SIZE_TOLERANCE_MM of one; else the size is named by its mm.
-      STANDARD_SIZES = { "사륙판" => [ 128, 188 ], "국판" => [ 148, 210 ], "신국판" => [ 152, 225 ],
-                         "크라운판" => [ 176, 248 ], "사륙배판" => [ 188, 257 ], "A4" => [ 210, 297 ] }.freeze
+      # A derived size within SIZE_TOLERANCE_MM of a PaperSize::STANDARD_SIZES entry takes its
+      # local_name (the name book_write finds a book's size by); else it is named by its mm.
       SIZE_TOLERANCE_MM = 0.5
       # designcraft_rb's (doc_processor_rb's) default body line height, pt.
       DEFAULT_LEADING = 22.0
@@ -221,11 +219,11 @@ module Design
       # size_name ("152mmx225mm") and local_name, the name book_write finds a book's size by:
       # a standard size's ("신국판") within SIZE_TOLERANCE_MM, else its mm ("148.2x209.9").
       def size_names(width, height)
-        local, standard = STANDARD_SIZES.find do |_, (w, h)|
-          (width - w).abs <= SIZE_TOLERANCE_MM && (height - h).abs <= SIZE_TOLERANCE_MM
+        standard = Design::PaperSize::STANDARD_SIZES.find do |s|
+          (width - s[:width_mm]).abs <= SIZE_TOLERANCE_MM && (height - s[:height_mm]).abs <= SIZE_TOLERANCE_MM
         end
-        w, h = (standard || [ width, height ]).map { format("%g", it) }
-        { size_name: "#{w}mmx#{h}mm", local_name: local || "#{w}x#{h}" }
+        w, h = (standard ? standard.values_at(:width_mm, :height_mm) : [ width, height ]).map { format("%g", it) }
+        { size_name: "#{w}mmx#{h}mm", local_name: standard&.dig(:local_name) || "#{w}x#{h}" }
       end
 
       # The body's leading: its style's, else the book's baseline grid, else DEFAULT_LEADING.
